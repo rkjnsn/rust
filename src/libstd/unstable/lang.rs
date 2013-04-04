@@ -22,6 +22,8 @@ use rt::local::Local;
 use option::{Option, Some, None};
 use io;
 use rt::global_heap;
+use cleanup::Gc;
+use sys::TypeDesc;
 
 #[allow(non_camel_case_types)]
 pub type rust_task = c_void;
@@ -240,18 +242,21 @@ pub unsafe fn exchange_free(ptr: *c_char) {
 
 #[lang="malloc"]
 pub unsafe fn local_malloc(td: *c_char, size: uintptr_t) -> *c_char {
-    match context() {
+    let p = match context() {
         OldTaskContext => {
-            return rustrt::rust_upcall_malloc_noswitch(td, size);
+            rustrt::rust_upcall_malloc_noswitch(td, size)
         }
         _ => {
             let mut alloc = ::ptr::null();
             do Local::borrow::<Task> |task| {
-                alloc = task.heap.alloc(td as *c_void, size as uint) as *c_char;
+                alloc = task.heap.alloc(td as *c_void, size as uint) as *c_char
             }
-            return alloc;
+            alloc
         }
-    }
+    };
+    let td : *TypeDesc = transmute(td);
+    Gc::get_task_gc().note_alloc(p as uint, size, (*td).align);
+    p
 }
 
 // NB: Calls to free CANNOT be allowed to fail, as throwing an exception from
@@ -269,6 +274,7 @@ pub unsafe fn local_free(ptr: *c_char) {
             }
         }
     }
+    Gc::get_task_gc().note_free(ptr as uint);
 }
 
 #[lang="zero_root"]
