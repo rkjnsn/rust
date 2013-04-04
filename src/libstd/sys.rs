@@ -15,7 +15,6 @@
 use option::{Some, None};
 use cast;
 use cmp::{Eq, Ord};
-use gc;
 use io;
 use libc;
 use libc::{c_void, c_char, size_t};
@@ -204,7 +203,6 @@ pub fn begin_unwind_(msg: *c_char, file: *c_char, line: size_t) -> ! {
     match context {
         OldTaskContext => {
             unsafe {
-                gc::cleanup_stack_for_failure();
                 rustrt::rust_upcall_fail(msg, file, line);
                 cast::transmute(())
             }
@@ -224,8 +222,6 @@ pub fn begin_unwind_(msg: *c_char, file: *c_char, line: size_t) -> ! {
                 } else {
                     rtdebug!("%s", outmsg);
                 }
-
-                gc::cleanup_stack_for_failure();
 
                 let task = Local::unsafe_borrow::<Task>();
                 let unwinder: &mut Option<Unwinder> = &mut (*task).unwinder;
