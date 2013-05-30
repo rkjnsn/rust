@@ -23,6 +23,7 @@
 //! contains structures to help index those allocations for the
 //! sake of garbage collecting them.
 
+#[allow(missing_doc)];
 #[deny(managed_heap_memory)];
 
 use prelude::*;

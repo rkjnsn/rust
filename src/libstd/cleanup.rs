@@ -9,6 +9,7 @@
 // except according to those terms.
 
 #[doc(hidden)];
+#[allow(missing_doc)];
 //#[deny(managed_heap_memory)];
 
 use prelude::*;
@@ -498,7 +499,9 @@ pub impl Gc {
             self.alloc_count = 0;
             let prev = self.heap.len();
 
-            self.gc();
+            unsafe {
+                self.gc();
+            }
 
             self.debug_str("gc complete, heap count: ");
             self.debug_uint(self.heap.len());
@@ -571,7 +574,10 @@ pub impl Gc {
                 return;
             }
             if self.gc_zeal {
-                self.gc();
+                unsafe {
+                    self.debug_str("commencing gc-on-free due to RUST_GC_ZEAL");
+                    self.gc();
+                }
             }
             if self.heap.len() < (self.threshold / 8) {
                 self.debug_str("lowering gc threshold to: ");
@@ -610,7 +616,10 @@ pub impl Gc {
             self.precious.insert(to);
         }
         if self.actually_gc && self.gc_zeal {
-            self.gc();
+            unsafe {
+                self.debug_str("commencing gc-on-free due to RUST_GC_ZEAL");
+                self.gc();
+            }
         }
     }
 
@@ -661,17 +670,19 @@ pub impl Gc {
         }
     }
 
-    unsafe fn each_live_alloc(&self, f: &fn(box: *mut BoxRepr) -> bool) -> bool {
-        let box = (*self.task).boxed_region.live_allocs;
-        let mut box: *mut BoxRepr = transmute(copy box);
-        while box != mut_null() {
-            let next = transmute(copy (*box).header.next);
-            if ! f(box) {
-                return false;
+    fn each_live_alloc(&self, f: &fn(box: *mut BoxRepr) -> bool) -> bool {
+        unsafe {
+            let box = (*self.task).boxed_region.live_allocs;
+            let mut box: *mut BoxRepr = transmute(copy box);
+            while box != mut_null() {
+                let next = transmute(copy (*box).header.next);
+                if ! f(box) {
+                    return false;
+                }
+                box = next
             }
-            box = next
+            return true;
         }
-        return true;
     }
 
     unsafe fn drop_boxes(actually_drop: bool,
@@ -1113,7 +1124,9 @@ pub unsafe fn annihilate() {
 }
 
 fn gc_phase_2() {
-    Gc::get_task_gc().gc();
+    unsafe {
+        Gc::get_task_gc().gc();
+    }
 }
 
 
