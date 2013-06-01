@@ -67,6 +67,7 @@ static PAGE_MASK : uint = BYTES_PER_PAGE - 1;
 /// per-platform or per-underlying-malloc adjustment.
 static BYTES_PER_CELL_LOG2 : uint = 3;
 static BYTES_PER_CELL : uint = 1 << BYTES_PER_CELL_LOG2;
+static CELL_ALIGN_MASK : uint = !(BYTES_PER_CELL-1);
 static CELLS_PER_PAGE : uint = BYTES_PER_PAGE >> BYTES_PER_CELL_LOG2;
 
 /// A cell can assume 4 states (see `CellState`) so it is mapped
@@ -171,8 +172,10 @@ pub impl HeapMap {
     }
 
     fn is_subpage_alloc(pos: uint, len: uint) -> bool {
-        let len = PageMap::cell_count_of_len(len) * BYTES_PER_CELL;
-        HeapMap::page_num(pos) == HeapMap::page_num(pos+len)
+        let len2 = PageMap::cell_count_of_len(len) * BYTES_PER_CELL;
+        (pos & CELL_ALIGN_MASK == pos) &&
+        len == len2 &&
+            HeapMap::page_num(pos) == HeapMap::page_num(pos+len2)
     }
 
     fn key_bounds(&self) -> (uint, uint) {
@@ -257,6 +260,21 @@ pub impl HeapMap {
 
 
     fn mutate_prev(&mut self, addr: uint, f: &fn(uint, &mut HeapRecord)) {
+
+        // check to see if extra_allocs covers it exactly
+        let trie_covers = match self.extra_allocs.prev(addr) {
+            Some((p,hr)) if (p <= addr && addr < p + hr.size) => {
+                debug2!("mutate_prev %u-byte trie hit on 0x%x (0x%x)",
+                        hr.size, addr, p);
+                true
+            }
+            _ => false
+        };
+        if trie_covers {
+            self.extra_allocs.mutate_prev(addr, f);
+            return
+        }
+
         // Pointer could be anything, we only call back if we find it.
         let page_num = HeapMap::page_num(addr);
         match self.paged_allocs.find_mut(&page_num) {
@@ -406,7 +424,7 @@ impl PageMap {
     }
 
     fn word_to_cells_str(x: uint) -> ~str {
-        use str::OwnedStr;
+        // use str::OwnedStr;
         let mut s = ~"[";
         let mut bit = uint::bits;
         while bit != 0 {
@@ -440,6 +458,10 @@ impl PageMap {
                 // One-cell allocations are ok.
                 (CELL_BEGIN_BLACK, CELL_EMPTY) |
                 (CELL_BEGIN_WHITE, CELL_EMPTY) |
+                (CELL_BEGIN_BLACK, CELL_BEGIN_BLACK) |
+                (CELL_BEGIN_WHITE, CELL_BEGIN_WHITE) |
+                (CELL_BEGIN_WHITE, CELL_BEGIN_BLACK) |
+                (CELL_BEGIN_BLACK, CELL_BEGIN_WHITE) |
 
                 // Multi-cell allocations are ok
                 (CELL_BEGIN_BLACK, CELL_CONTD) |
@@ -495,6 +517,7 @@ impl PageMap {
         let mut len = BYTES_PER_CELL;
 
         let mut lo_cell = PageMap::cell_of_addr(addr);
+        debug2!("find_alloc_pos_len(0x%x) cell is %u", addr, lo_cell);
         let mut hi_cell = lo_cell;
 
         let mut lo_state = self.get_cell(lo_cell);
@@ -607,7 +630,8 @@ impl PageMap {
 mod test {
 
     use HeapMap;
-    use core::uint;
+    use HeapRecord;
+    use std::uint;
     use BYTES_PER_CELL;
     use BYTES_PER_PAGE;
 
@@ -672,7 +696,6 @@ mod test {
 
     #[test]
     fn paged_multipage_seq_insert_and_delete() {
-        for 100.times {
         let mut hm = HeapMap::new();
         let sz = sizes.map(|&x| x * BYTES_PER_CELL);
         for sz.each |&sz| {
@@ -691,12 +714,10 @@ mod test {
             }
         }
         assert!(hm.len() == 0);
-        }
     }
 
     #[test]
     fn trie_multipage_seq_insert_and_delete() {
-        for 100.times {
         let mut hm = HeapMap::new();
         let sz = sizes.map(|&x| x * BYTES_PER_CELL * 10);
         for sz.each |&sz| {
@@ -715,6 +736,101 @@ mod test {
             }
         }
         assert!(hm.len() == 0);
+    }
+
+    #[test]
+    fn random_scribbling() {
+        use std::rand::{Rng,IsaacRng,RngUtil};
+        use std::rand::distributions::Exp1;
+        use std::trie::TrieMap;
+        use std::io;
+
+        let mut hm = HeapMap::new();
+        let mut tm : TrieMap<HeapRecord> = TrieMap::new();
+        let mut allocs = ~[];
+
+        let rng = &mut IsaacRng::new();
+        for 10000.times {
+            let probe = rng.gen::<uint>();
+            let a;
+            let b;
+            match tm.prev(probe) {
+                Some((prev_addr, prev_hr)) => {
+                    a = prev_addr + prev_hr.size;
+                    match tm.next(a) {
+                        Some((next_addr, _)) => {
+                            b = next_addr;
+                        }
+                        None => {
+                            b = uint::max_value;
+                        }
+                    }
+                }
+                None => {
+                    a = probe;
+                    match tm.next(probe) {
+                        Some((next_addr, _)) => {
+                            b = next_addr;
+                        }
+                        None => {
+                            b = uint::max_value;
+                        }
+                    }
+                }
+            }
+            if b-a > 0 {
+                // io::println(fmt!("injecting into empty range [0x%x,0x%x)", a, b));
+                let pos;
+                let sz;
+                if rng.gen_weighted_bool(50) {
+                    pos = rng.gen_uint_range(a, b);
+                    sz = rng.gen_uint_range(0, b-pos);
+                    assert!(pos + sz < b);
+                    // io::println(fmt!("adding new %u-byte alloc [0x%x,0x%x)",
+                    //                 sz, pos, pos+sz));
+                } else {
+                    let mut s = 2;
+                    while (rng.gen::<bool>() || rng.gen::<bool>()) && s < b-a {
+                        if rng.gen::<bool>() {
+                            s *= 2;
+                        } else {
+                            s += 2;
+                        }
+                    }
+                    sz = s;
+                    pos = if rng.gen::<bool>() { a } else { b - sz };
+                    // io::println(fmt!("adding small %u-byte adjacent allocation [0x%x,0x%x)",
+                    //                 sz, pos, pos+sz));
+                }
+                allocs += [(pos,sz)];
+
+                hm.insert(pos, HeapRecord { size: sz, is_marked: false });
+                tm.insert(pos, HeapRecord { size: sz, is_marked: false });
+
+                if rng.gen_weighted_bool(10) {
+                    let i = rng.gen_uint_range(0, allocs.len());
+                    let (pos,sz) = allocs.swap_remove(i);
+                    // io::println(fmt!("removing %u-byte allocation [0x%x,0x%x)",
+                    //                 sz, pos, pos+sz));
+                    hm.remove(&pos);
+                    tm.remove(&pos);
+                }
+            }
+
+            assert_eq!(hm.len(), allocs.len());
+            assert_eq!(tm.len(), allocs.len());
+            for allocs.each |&(pos,sz)| {
+                // io::println(fmt!("consistency check on %u-byte alloc [0x%x,0x%x)",
+                // sz, pos, pos+sz));
+                do hm.mutate_prev(pos) |p, hr| {
+                    assert_eq!(pos, p);
+                    assert_eq!(sz, hr.size);
+                }
+                do tm.mutate_prev(pos) |p, hr| {
+                    assert_eq!(pos, p);
+                    assert_eq!(sz, hr.size);
+                }
+            }
         }
     }
 }
