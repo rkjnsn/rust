@@ -15,9 +15,15 @@ use rt::sched::{Scheduler, Coroutine};
 use unstable::atomics::{AtomicUint, AtomicOption, SeqCst};
 
 pub struct JoinLatch {
-    priv parent: Option<*mut (AtomicUint, AtomicOption<Coroutine>, bool)>,
-    priv child: Option<~(AtomicUint, AtomicOption<Coroutine>, bool)>,
+    priv parent: Option<*mut SharedState>,
+    priv child: Option<~SharedState>,
     closed: bool,
+}
+
+struct SharedState {
+    count: AtomicUint,
+    blocked_parent: AtomicOption<Coroutine>,
+    child_success: bool
 }
 
 impl JoinLatch {
@@ -33,18 +39,22 @@ impl JoinLatch {
         rtassert!(!self.closed);
 
         if self.child.is_none() {
+            let shared = ~SharedState {
+                count: AtomicUint::new(1),
+                blocked_parent: AtomicOption::empty(),
+                child_success: true
+            };
             // This is the first time spawning a child
-            self.child = Some(~(AtomicUint::new(1), AtomicOption::empty(), true));
+            self.child = Some(shared);
         }
 
         match *self.child.get_mut_ref() {
-            ~(ref mut count, _, _) => {
+            ~SharedState { count: ref mut count, _ } => {
                 count.fetch_add(1, SeqCst);
             }
         }
 
-        let child_ptr: *mut (AtomicUint, AtomicOption<Coroutine>, bool)
-            = &mut **self.child.get_mut_ref();
+        let child_ptr: *mut SharedState = &mut **self.child.get_mut_ref();
 
         JoinLatch {
             parent: Some(child_ptr),
@@ -60,15 +70,18 @@ impl JoinLatch {
 
         if self.child.is_some() {
             rtdebug!("waiting for children");
-            let child_ptr: *mut (AtomicUint, AtomicOption<Coroutine>, bool)
-                = &mut **self.child.get_mut_ref();
+            let child_ptr: *mut SharedState = &mut **self.child.get_mut_ref();
 
             // Wait for children
             let sched = Local::take::<Scheduler>();
             do sched.deschedule_running_task_and_then |sched, task| {
                 unsafe {
                     match *child_ptr {
-                        (ref mut self_count, ref mut self_task, _) => {
+                        SharedState {
+                            count: ref mut self_count,
+                            blocked_parent: ref mut self_task,
+                            _
+                        } => {
                             assert!(self_task.swap(task, SeqCst).is_none());
                             let last_count = self_count.fetch_sub(1, SeqCst);
                             rtdebug!("child count before sub %u", last_count);
@@ -83,7 +96,11 @@ impl JoinLatch {
 
             unsafe {
                 match *child_ptr {
-                    (ref mut self_count, _, ref mut child_success_ptr) => {
+                    SharedState {
+                        count: ref mut self_count,
+                        child_success: ref mut child_success_ptr,
+                        _
+                    } => {
                         let count = self_count.load(SeqCst);
                         assert!(count == 0);
                         // self_count is the acquire-read barrier
@@ -99,9 +116,11 @@ impl JoinLatch {
             rtdebug!("releasing parent");
             unsafe {
                 match **self.parent.get_mut_ref() {
-                    (ref mut parent_count,
-                     ref mut parent_task,
-                     ref mut peer_success) => {
+                    SharedState {
+                        count: ref mut parent_count,
+                        blocked_parent: ref mut parent_task,
+                        child_success: ref mut peer_success
+                    } => {
                         if !total_success {
                             // parent_count is the write-release barrier
                             *peer_success = false;
