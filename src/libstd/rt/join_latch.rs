@@ -8,23 +8,39 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use comm::{GenericPort, GenericChan};
+use clone::Clone;
 use option::{Option, Some, None};
 use ops::Drop;
-use rt::local::Local;
-use rt::sched::{Scheduler, Coroutine};
-use unstable::atomics::{AtomicUint, AtomicOption, SeqCst};
+use rt::comm::{SharedChan, Port, stream};
+use unstable::atomics::{AtomicUint, SeqCst};
 
 // FIXME #7026: Would prefer this to be an enum
 pub struct JoinLatch {
-    priv parent: Option<*mut SharedState>,
-    priv child: Option<~SharedState>,
+    priv parent: Option<ParentLink>,
+    priv child: Option<ChildLink>,
     closed: bool,
 }
 
 struct SharedState {
     count: AtomicUint,
-    blocked_parent: AtomicOption<Coroutine>,
     child_success: bool
+}
+
+struct ParentLink {
+    shared: *mut SharedState,
+    chan: SharedChan<Message>
+}
+
+struct ChildLink {
+    shared: ~SharedState,
+    port: Port<Message>,
+    chan: SharedChan<Message>
+}
+
+enum Message {
+    Tombstone(~JoinLatch),
+    ChildrenTerminated
 }
 
 impl JoinLatch {
@@ -40,25 +56,31 @@ impl JoinLatch {
         rtassert!(!self.closed);
 
         if self.child.is_none() {
+            // This is the first time spawning a child
             let shared = ~SharedState {
                 count: AtomicUint::new(1),
-                blocked_parent: AtomicOption::empty(),
                 child_success: true
             };
-            // This is the first time spawning a child
-            self.child = Some(shared);
+            let (port, chan) = stream();
+            let chan = SharedChan::new(chan);
+            let child = ChildLink {
+                shared: shared,
+                port: port,
+                chan: chan
+            };
+            self.child = Some(child);
         }
 
-        match *self.child.get_mut_ref() {
-            ~SharedState { count: ref mut count, _ } => {
-                count.fetch_add(1, SeqCst);
-            }
-        }
+        let child_link: &mut ChildLink = self.child.get_mut_ref();
+        let shared_state: *mut SharedState = &mut *child_link.shared;
 
-        let child_ptr: *mut SharedState = &mut **self.child.get_mut_ref();
+        child_link.shared.count.fetch_add(1, SeqCst);
 
         ~JoinLatch {
-            parent: Some(child_ptr),
+            parent: Some(ParentLink {
+                shared: shared_state,
+                chan: child_link.chan.clone()
+            }),
             child: None,
             closed: false
         }
@@ -73,44 +95,27 @@ impl JoinLatch {
 
         if this.child.is_some() {
             rtdebug!("waiting for children");
-            let child_ptr: *mut SharedState = &mut **this.child.get_mut_ref();
+            let child_link: &mut ChildLink = this.child.get_mut_ref();
+            let shared: &mut SharedState = &mut *child_link.shared;
 
-            // Wait for children
-            let sched = Local::take::<Scheduler>();
-            do sched.deschedule_running_task_and_then |sched, task| {
-                unsafe {
-                    match *child_ptr {
-                        SharedState {
-                            count: ref mut self_count,
-                            blocked_parent: ref mut self_task,
-                            _
-                        } => {
-                            assert!(self_task.swap(task, SeqCst).is_none());
-                            let last_count = self_count.fetch_sub(1, SeqCst);
-                            rtdebug!("child count before sub %u", last_count);
-                            if last_count == 1 {
-                                let task = self_task.take(SeqCst).unwrap();
-                                sched.enqueue_task(task);
-                            }
-                        }
-                    }
+            let last_count = shared.count.fetch_sub(1, SeqCst);
+            rtdebug!("child count before sub %u", last_count);
+            if last_count == 1 {
+                child_link.chan.send(ChildrenTerminated)
+            }
+
+            // Wait for messages from children
+            loop {
+                match child_link.port.recv() {
+                    Tombstone(*) => fail!(),
+                    ChildrenTerminated => break
                 }
             }
 
-            unsafe {
-                match *child_ptr {
-                    SharedState {
-                        count: ref mut self_count,
-                        child_success: ref mut child_success_ptr,
-                        _
-                    } => {
-                        let count = self_count.load(SeqCst);
-                        assert!(count == 0);
-                        // self_count is the acquire-read barrier
-                        child_success = *child_success_ptr;
-                    }
-                }
-            }
+            let count = shared.count.load(SeqCst);
+            assert!(count == 0);
+            // self_count is the acquire-read barrier
+            child_success = shared.child_success;
         }
 
         let total_success = local_success && child_success;
@@ -118,26 +123,18 @@ impl JoinLatch {
         if this.parent.is_some() {
             rtdebug!("releasing parent");
             unsafe {
-                match **this.parent.get_mut_ref() {
-                    SharedState {
-                        count: ref mut parent_count,
-                        blocked_parent: ref mut parent_task,
-                        child_success: ref mut peer_success
-                    } => {
-                        if !total_success {
-                            // parent_count is the write-wait barrier
-                            *peer_success = false;
-                        }
+                let parent_link: &mut ParentLink = this.parent.get_mut_ref();
+                let shared: *mut SharedState = parent_link.shared;
 
-                        let last_count = parent_count.fetch_sub(1, SeqCst);
-                        rtdebug!("count before parent sub %u", last_count);
-                        if last_count == 1 {
-                            let parent_task = parent_task.take(SeqCst);
-                            let parent_task = parent_task.unwrap();
-                            let sched = Local::take::<Scheduler>();
-                            sched.schedule_task(parent_task);
-                        }
-                    }
+                if !total_success {
+                    // parent_count is the write-wait barrier
+                    (*shared).child_success = false;
+                }
+
+                let last_count = (*shared).count.fetch_sub(1, SeqCst);
+                rtdebug!("count before parent sub %u", last_count);
+                if last_count == 1 {
+                    parent_link.chan.send(ChildrenTerminated);
                 }
             }
         }
