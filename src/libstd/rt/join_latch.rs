@@ -14,6 +14,7 @@ use rt::local::Local;
 use rt::sched::{Scheduler, Coroutine};
 use unstable::atomics::{AtomicUint, AtomicOption, SeqCst};
 
+// FIXME #7026: Would prefer this to be an enum
 pub struct JoinLatch {
     priv parent: Option<*mut SharedState>,
     priv child: Option<~SharedState>,
@@ -27,15 +28,15 @@ struct SharedState {
 }
 
 impl JoinLatch {
-    fn new_root() -> JoinLatch {
-        JoinLatch {
+    fn new_root() -> ~JoinLatch {
+        ~JoinLatch {
             parent: None,
             child: None,
             closed: false
         }
     }
 
-    fn new_child(&mut self) -> JoinLatch {
+    fn new_child(&mut self) -> ~JoinLatch {
         rtassert!(!self.closed);
 
         if self.child.is_none() {
@@ -56,21 +57,23 @@ impl JoinLatch {
 
         let child_ptr: *mut SharedState = &mut **self.child.get_mut_ref();
 
-        JoinLatch {
+        ~JoinLatch {
             parent: Some(child_ptr),
             child: None,
             closed: false
         }
     }
 
-    fn wait(&mut self, local_success: bool) -> bool {
+    // XXX: Should not require ~self
+    fn wait(~self, local_success: bool) -> bool {
         rtassert!(!self.closed);
 
+        let mut this = self;
         let mut child_success = true;
 
-        if self.child.is_some() {
+        if this.child.is_some() {
             rtdebug!("waiting for children");
-            let child_ptr: *mut SharedState = &mut **self.child.get_mut_ref();
+            let child_ptr: *mut SharedState = &mut **this.child.get_mut_ref();
 
             // Wait for children
             let sched = Local::take::<Scheduler>();
@@ -112,10 +115,10 @@ impl JoinLatch {
 
         let total_success = local_success && child_success;
 
-        if self.parent.is_some() {
+        if this.parent.is_some() {
             rtdebug!("releasing parent");
             unsafe {
-                match **self.parent.get_mut_ref() {
+                match **this.parent.get_mut_ref() {
                     SharedState {
                         count: ref mut parent_count,
                         blocked_parent: ref mut parent_task,
@@ -139,7 +142,7 @@ impl JoinLatch {
             }
         }
 
-        self.closed = true;
+        this.closed = true;
 
         return total_success;
     }
@@ -166,7 +169,7 @@ mod test {
             let child_latch = latch.new_child();
             let child_latch = Cell(child_latch);
             do spawntask_immediately {
-                let mut child_latch = child_latch.take();
+                let child_latch = child_latch.take();
                 assert!(child_latch.wait(true));
             }
 
@@ -182,7 +185,7 @@ mod test {
             let child_latch = latch.new_child();
             let child_latch = Cell(child_latch);
             do spawntask_later {
-                let mut child_latch = child_latch.take();
+                let child_latch = child_latch.take();
                 assert!(child_latch.wait(true));
             }
 
@@ -199,7 +202,7 @@ mod test {
                 let child_latch = latch.new_child();
                 let child_latch = Cell(child_latch);
                 do spawntask_random {
-                    let mut child_latch = child_latch.take();
+                    let child_latch = child_latch.take();
                     assert!(child_latch.wait(true));
                 }
             }
@@ -217,7 +220,7 @@ mod test {
                 let child_latch = latch.new_child();
                 let child_latch = Cell(child_latch);
                 do spawntask_random {
-                    let mut child_latch = child_latch.take();
+                    let child_latch = child_latch.take();
                     child_latch.wait(status);
                 }
             };
@@ -241,7 +244,7 @@ mod test {
                 do spawntask_random {
                     let mut child_latch = child_latch.take();
                     if i != 0 {
-                        child(&mut child_latch, i - 1);
+                        child(&mut *child_latch, i - 1);
                         child_latch.wait(true);
                     } else {
                         child_latch.wait(true);
@@ -249,7 +252,7 @@ mod test {
                 }
             }
 
-            child(&mut latch, 10);
+            child(&mut *latch, 10);
 
             assert!(latch.wait(true));
         }
@@ -266,7 +269,7 @@ mod test {
                 do spawntask_random {
                     let mut child_latch = child_latch.take();
                     if i != 0 {
-                        child(&mut child_latch, i - 1);
+                        child(&mut *child_latch, i - 1);
                         child_latch.wait(false);
                     } else {
                         child_latch.wait(true);
@@ -274,7 +277,7 @@ mod test {
                 }
             }
 
-            child(&mut latch, 10);
+            child(&mut *latch, 10);
 
             assert!(!latch.wait(true));
         }
