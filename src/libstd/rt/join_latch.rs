@@ -63,7 +63,7 @@ impl JoinLatch {
         }
     }
 
-    fn release(&mut self, local_success: bool) -> bool {
+    fn wait(&mut self, local_success: bool) -> bool {
         rtassert!(!self.closed);
 
         let mut child_success = true;
@@ -122,7 +122,7 @@ impl JoinLatch {
                         child_success: ref mut peer_success
                     } => {
                         if !total_success {
-                            // parent_count is the write-release barrier
+                            // parent_count is the write-wait barrier
                             *peer_success = false;
                         }
 
@@ -167,10 +167,10 @@ mod test {
             let child_latch = Cell(child_latch);
             do spawntask_immediately {
                 let mut child_latch = child_latch.take();
-                assert!(child_latch.release(true));
+                assert!(child_latch.wait(true));
             }
 
-            assert!(latch.release(true));
+            assert!(latch.wait(true));
         }
     }
 
@@ -183,10 +183,10 @@ mod test {
             let child_latch = Cell(child_latch);
             do spawntask_later {
                 let mut child_latch = child_latch.take();
-                assert!(child_latch.release(true));
+                assert!(child_latch.wait(true));
             }
 
-            assert!(latch.release(true));
+            assert!(latch.wait(true));
         }
     }
 
@@ -200,11 +200,11 @@ mod test {
                 let child_latch = Cell(child_latch);
                 do spawntask_random {
                     let mut child_latch = child_latch.take();
-                    assert!(child_latch.release(true));
+                    assert!(child_latch.wait(true));
                 }
             }
 
-            assert!(latch.release(true));
+            assert!(latch.wait(true));
         }
     }
 
@@ -218,7 +218,7 @@ mod test {
                 let child_latch = Cell(child_latch);
                 do spawntask_random {
                     let mut child_latch = child_latch.take();
-                    child_latch.release(status);
+                    child_latch.wait(status);
                 }
             };
 
@@ -226,7 +226,7 @@ mod test {
             spawn(false);
             for 10.times { spawn(true) }
 
-            assert!(!latch.release(true));
+            assert!(!latch.wait(true));
         }
     }
 
@@ -242,16 +242,16 @@ mod test {
                     let mut child_latch = child_latch.take();
                     if i != 0 {
                         child(&mut child_latch, i - 1);
-                        child_latch.release(true);
+                        child_latch.wait(true);
                     } else {
-                        child_latch.release(true);
+                        child_latch.wait(true);
                     }
                 }
             }
 
             child(&mut latch, 10);
 
-            assert!(latch.release(true));
+            assert!(latch.wait(true));
         }
     }
 
@@ -267,16 +267,16 @@ mod test {
                     let mut child_latch = child_latch.take();
                     if i != 0 {
                         child(&mut child_latch, i - 1);
-                        child_latch.release(false);
+                        child_latch.wait(false);
                     } else {
-                        child_latch.release(true);
+                        child_latch.wait(true);
                     }
                 }
             }
 
             child(&mut latch, 10);
 
-            assert!(!latch.release(true));
+            assert!(!latch.wait(true));
         }
     }
 }
