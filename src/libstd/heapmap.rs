@@ -65,7 +65,9 @@ static PAGE_MASK : uint = BYTES_PER_PAGE - 1;
 /// case, the smallest unit we track allocated-ness / free-ness in
 /// terms of. This is set to 8 bytes presently, but it might need
 /// per-platform or per-underlying-malloc adjustment.
-static BYTES_PER_CELL_LOG2 : uint = 3;
+static BITS_PER_BYTE_LOG2 : uint = 3;
+static BYTES_PER_CELL_LOG2 : uint = BITS_PER_WORD_LOG2 - BITS_PER_BYTE_LOG2;
+
 static BYTES_PER_CELL : uint = 1 << BYTES_PER_CELL_LOG2;
 static CELL_ALIGN_MASK : uint = !(BYTES_PER_CELL-1);
 static CELLS_PER_PAGE : uint = BYTES_PER_PAGE >> BYTES_PER_CELL_LOG2;
@@ -201,6 +203,10 @@ pub impl HeapMap {
 
     fn len(&self) -> uint { self.len }
 
+    fn trie_len(&self) -> uint { self.extra_allocs.len() }
+
+    fn n_pages(&self) -> uint { self.paged_allocs.len() }
+
     fn contains_key(&self, x: &uint) -> bool {
         self.extra_allocs.contains_key(x) ||
             self.paged_allocs_contains_key(x)
@@ -215,8 +221,9 @@ pub impl HeapMap {
     }
 
     fn each_key(&mut self, f: &fn(&uint) -> bool) -> bool {
-        self.extra_allocs.each_key(f);
-            
+        if !self.extra_allocs.each_key(f) {
+            return false;
+        }
         for self.paged_allocs.mutate_values |pagenum, pm| {
             let base = pagenum * BYTES_PER_PAGE;
             for pm.mutate_values(base) |pos, _, _| {
@@ -229,7 +236,9 @@ pub impl HeapMap {
     }
 
     fn mutate_values(&mut self, f: &fn(&uint, &mut HeapRecord) -> bool) -> bool {
-        self.extra_allocs.mutate_values(f);
+        if !self.extra_allocs.mutate_values(f) {
+            return false;
+        }
         for self.paged_allocs.mutate_values |pagenum, pm| {
             let base = pagenum * BYTES_PER_PAGE;
             for pm.mutate_values(base) |pos, len, is_marked| {
@@ -245,19 +254,6 @@ pub impl HeapMap {
         }
         return true;
     }
-
-    fn clear_marks_and_enumerate_unmarked(&mut self,
-                                          f: &fn(uint,uint) -> bool) {
-        for self.mutate_values |pos, hr| {
-            if hr.is_marked {
-                if !f(*pos, hr.size) {
-                    return;
-                }
-            }
-            hr.is_marked = false;
-        }
-    }
-
 
     fn mutate_prev(&mut self, addr: uint, f: &fn(uint, &mut HeapRecord)) {
 

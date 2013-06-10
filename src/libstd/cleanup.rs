@@ -415,6 +415,12 @@ pub impl Gc {
             e.write_str(" stats ---\n");
             Gc::write_str_uint("    n_collections",
                                self.n_collections);
+            Gc::write_str_uint("    heap.size",
+                               self.heap.len());
+            Gc::write_str_uint("    heap.trie_size",
+                               self.heap.trie_len());
+            Gc::write_str_uint("    heap.n_pages",
+                               self.heap.n_pages());
         }
         Gc::flush_and_report_stat(self.report_gc_stats,
                                   "n_ns_marking",
