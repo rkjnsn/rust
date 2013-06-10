@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use comm::{GenericPort, GenericChan};
+use comm::{GenericPort, GenericChan, Peekable};
 use clone::Clone;
 use option::{Option, Some, None};
 use ops::Drop;
@@ -35,7 +35,7 @@ struct ParentLink {
 struct ChildLink {
     shared: ~SharedState,
     port: Port<Message>,
-    chan: SharedChan<Message>
+    chan: SharedChan<Message>,
 }
 
 enum Message {
@@ -87,6 +87,83 @@ impl JoinLatch {
     }
 
     // XXX: Should not require ~self
+    fn release(~self, local_success: bool) {
+        rtassert!(!self.closed);
+
+        let mut this = self;
+        let mut child_success = true;
+        let mut children_done = false;
+
+        if this.child.is_some() {
+            rtdebug!("waiting for children");
+            let child_link: &mut ChildLink = this.child.get_mut_ref();
+            let shared: &mut SharedState = &mut *child_link.shared;
+
+            let last_count = shared.count.fetch_sub(1, SeqCst);
+            rtdebug!("child count before sub %u", last_count);
+            if last_count == 1 {
+                child_link.chan.send(ChildrenTerminated)
+            }
+
+            // Wait for messages from children
+            loop {
+                if child_link.port.peek() {
+                    match child_link.port.recv() {
+                        Tombstone(t) => {
+                            t.release(true);
+                        },
+                        ChildrenTerminated => {
+                            children_done = true;
+                            break;
+                        }
+                    }
+                } else {
+                    break
+                }
+            }
+
+            let count = shared.count.load(SeqCst);
+            assert!(count == 0);
+            // self_count is the acquire-read barrier
+            child_success = shared.child_success;
+        }
+
+        let total_success = local_success && child_success;
+
+        rtassert!(this.parent.is_some());
+
+        rtdebug!("releasing parent");
+        unsafe {
+            {
+                let parent_link: &mut ParentLink = this.parent.get_mut_ref();
+                let shared: *mut SharedState = parent_link.shared;
+
+                if !total_success {
+                    // parent_count is the write-wait barrier
+                    (*shared).child_success = false;
+                }
+            }
+
+            if children_done {
+                let parent_link: &mut ParentLink = this.parent.get_mut_ref();
+                let shared: *mut SharedState = parent_link.shared;
+                let last_count = (*shared).count.fetch_sub(1, SeqCst);
+                rtdebug!("count before parent sub %u", last_count);
+                if last_count == 1 {
+                    parent_link.chan.send(ChildrenTerminated);
+                    this.closed = true;
+                }
+            } else {
+                let chan = {
+                    let parent_link: &mut ParentLink = this.parent.get_mut_ref();
+                    parent_link.chan.clone()
+                };
+                chan.send(Tombstone(this));
+            }
+        }
+    }
+
+    // XXX: Should not require ~self
     fn wait(~self, local_success: bool) -> bool {
         rtassert!(!self.closed);
 
@@ -107,7 +184,9 @@ impl JoinLatch {
             // Wait for messages from children
             loop {
                 match child_link.port.recv() {
-                    Tombstone(*) => fail!(),
+                    Tombstone(t) => {
+                        t.wait(true);
+                    }
                     ChildrenTerminated => break
                 }
             }
