@@ -58,7 +58,7 @@ impl JoinLatch {
         if self.child.is_none() {
             // This is the first time spawning a child
             let shared = ~SharedState {
-                count: AtomicUint::new(1),
+                count: AtomicUint::new(0),
                 child_success: true
             };
             let (port, chan) = stream();
@@ -99,12 +99,6 @@ impl JoinLatch {
             let child_link: &mut ChildLink = this.child.get_mut_ref();
             let shared: &mut SharedState = &mut *child_link.shared;
 
-            let last_count = shared.count.fetch_sub(1, SeqCst);
-            rtdebug!("child count before sub %u", last_count);
-            if last_count == 1 {
-                child_link.chan.send(ChildrenTerminated)
-            }
-
             // Wait for messages from children
             loop {
                 if child_link.port.peek() {
@@ -122,10 +116,12 @@ impl JoinLatch {
                 }
             }
 
-            let count = shared.count.load(SeqCst);
-            assert!(count == 0);
-            // self_count is the acquire-read barrier
-            child_success = shared.child_success;
+            if children_done {
+                let count = shared.count.load(SeqCst);
+                assert!(count == 0);
+                // self_count is the acquire-read barrier
+                child_success = shared.child_success;
+            }
         }
 
         let total_success = local_success && child_success;
@@ -145,6 +141,7 @@ impl JoinLatch {
             }
 
             if children_done {
+                rtdebug!("children done");
                 let parent_link: &mut ParentLink = this.parent.get_mut_ref();
                 let shared: *mut SharedState = parent_link.shared;
                 let last_count = (*shared).count.fetch_sub(1, SeqCst);
@@ -174,12 +171,6 @@ impl JoinLatch {
             rtdebug!("waiting for children");
             let child_link: &mut ChildLink = this.child.get_mut_ref();
             let shared: &mut SharedState = &mut *child_link.shared;
-
-            let last_count = shared.count.fetch_sub(1, SeqCst);
-            rtdebug!("child count before sub %u", last_count);
-            if last_count == 1 {
-                child_link.chan.send(ChildrenTerminated)
-            }
 
             // Wait for messages from children
             loop {
@@ -354,6 +345,44 @@ mod test {
             }
 
             child(&mut *latch, 10);
+
+            assert!(!latch.wait(true));
+        }
+    }
+
+    #[test]
+    fn release_child() {
+        do run_in_newsched_task {
+            let mut latch = JoinLatch::new_root();
+            let child_latch = latch.new_child();
+            let child_latch = Cell(child_latch);
+
+            do spawntask_immediately {
+                let latch = child_latch.take();
+                latch.release(false);
+            }
+
+            assert!(!latch.wait(true));
+        }
+    }
+
+    #[test]
+    fn release_child_tombstone() {
+        do run_in_newsched_task {
+            let mut latch = JoinLatch::new_root();
+            let child_latch = latch.new_child();
+            let child_latch = Cell(child_latch);
+
+            do spawntask_immediately {
+                let mut latch = child_latch.take();
+                let child_latch = latch.new_child();
+                let child_latch = Cell(child_latch);
+                do spawntask_later {
+                    let latch = child_latch.take();
+                    latch.release(false);
+                }
+                latch.release(true);
+            }
 
             assert!(!latch.wait(true));
         }
