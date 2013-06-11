@@ -135,35 +135,6 @@ pub mod ebml {
 
     pub enum EbmlEncoderTag {
         EsUint,     // 0
-        EsU64,      // 1
-        EsU32,      // 2
-        EsU16,      // 3
-        EsU8,       // 4
-        EsInt,      // 5
-        EsI64,      // 6
-        EsI32,      // 7
-        EsI16,      // 8
-        EsI8,       // 9
-        EsBool,     // 10
-        EsChar,     // 11
-        EsStr,      // 12
-        EsF64,      // 13
-        EsF32,      // 14
-        EsFloat,    // 15
-        EsEnum,     // 16
-        EsEnumVid,  // 17
-        EsEnumBody, // 18
-        EsVec,      // 19
-        EsVecLen,   // 20
-        EsVecElt,   // 21
-        EsMap,      // 22
-        EsMapLen,   // 23
-        EsMapKey,   // 24
-        EsMapVal,   // 25
-
-        EsOpaque,
-
-        EsLabel, // Used only when debugging
     }
     // --------------------------------------
 
