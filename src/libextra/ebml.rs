@@ -372,7 +372,10 @@ pub mod reader {
         fn read_u8 (&mut self) -> u8  { doc_as_u8 (self.next_doc(EsU8 )) }
         fn read_uint(&mut self) -> uint {
             let v = doc_as_u64(self.next_doc(EsUint));
-            if v > (::core::uint::max_value as u64) {
+            error!("v: %u", v as uint);
+            let max = ::core::uint::max_value as u64;
+            error!("m: %u", max as uint);
+            if v > max {
                 fail!("uint %? too large for this architecture", v);
             }
             v as uint
@@ -393,7 +396,6 @@ pub mod reader {
         fn read_int(&mut self) -> int {
             let v = doc_as_u64(self.next_doc(EsInt)) as i64;
             if v > (int::max_value as i64) || v < (int::min_value as i64) {
-                debug!("FIXME #6122: Removing this makes this function miscompile");
                 fail!("int %? out of range for this architecture", v);
             }
             v as int
