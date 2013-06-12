@@ -63,8 +63,9 @@ static PAGE_MASK : uint = BYTES_PER_PAGE - 1;
 /// the smallest unit you can get back from the underlying allocator
 /// and/or natural unit of alignment for allocations. It is, in any
 /// case, the smallest unit we track allocated-ness / free-ness in
-/// terms of. This is set to 8 bytes presently, but it might need
-/// per-platform or per-underlying-malloc adjustment.
+/// terms of. This is set to 4 bytes on 32bit, 8 bytes on 64bit presently, 
+/// but it might need further adjustment.
+
 static BITS_PER_BYTE_LOG2 : uint = 3;
 static BYTES_PER_CELL_LOG2 : uint = BITS_PER_WORD_LOG2 - BITS_PER_BYTE_LOG2;
 
@@ -283,6 +284,8 @@ pub impl HeapMap {
                         size: len,
                         is_marked: marked
                     };
+                    debug2!("mutate_prev %u-byte page hit on 0x%x (0x%x)",
+                            len, addr, pos);
                     f(pos, &mut hr);
                     if hr.is_marked != marked {
                         pm.set_cell(PageMap::cell_of_addr(pos),
@@ -299,11 +302,12 @@ pub impl HeapMap {
         }
 
         // Didn't find it in the page_map, try the trie map.
+        debug2!("mutate_prev trie fallthrough on 0x%x", addr);
         self.extra_allocs.mutate_prev(addr, f);
     }
 
     fn insert(&mut self, pos: uint, hr: HeapRecord) -> bool {
-        assert!(!hr.size != 0);
+        assert!(hr.size != 0);
         let mut was_new = false;
         if HeapMap::is_subpage_alloc(pos, hr.size) {
             let page_num = HeapMap::page_num(pos);
@@ -630,6 +634,8 @@ mod test {
     use std::uint;
     use BYTES_PER_CELL;
     use BYTES_PER_PAGE;
+    use std::libc;
+    use std::io::fd_t;
 
     fn check_insert_range(hm: &mut HeapMap, lo: uint, hi: uint,
                           step: uint, sz: uint) {
@@ -740,14 +746,16 @@ mod test {
         use std::rand::distributions::Exp1;
         use std::trie::TrieMap;
         use std::io;
+    	use std::sys::size_of;
+        use heapmap::CELL_ALIGN_MASK;
 
         let mut hm = HeapMap::new();
         let mut tm : TrieMap<HeapRecord> = TrieMap::new();
         let mut allocs = ~[];
 
         let rng = &mut IsaacRng::new();
-        for 10000.times {
-            let probe = rng.gen::<uint>();
+        while allocs.len() < 30000 {
+            let probe = rng.gen::<uint>() & CELL_ALIGN_MASK;
             let a;
             let b;
             match tm.prev(probe) {
@@ -758,73 +766,96 @@ mod test {
                             b = next_addr;
                         }
                         None => {
-                            b = uint::max_value;
+                            b = -BYTES_PER_CELL;
                         }
                     }
                 }
                 None => {
                     a = probe;
-                    match tm.next(probe) {
+                    match tm.next(probe + BYTES_PER_CELL) {
                         Some((next_addr, _)) => {
                             b = next_addr;
                         }
                         None => {
-                            b = uint::max_value;
+                            b = -BYTES_PER_CELL;
                         }
                     }
                 }
             }
-            if b-a > 0 {
-                // io::println(fmt!("injecting into empty range [0x%x,0x%x)", a, b));
-                let pos;
-                let sz;
-                if rng.gen_weighted_bool(50) {
-                    pos = rng.gen_uint_range(a, b);
-                    sz = rng.gen_uint_range(0, b-pos);
-                    assert!(pos + sz < b);
-                    // io::println(fmt!("adding new %u-byte alloc [0x%x,0x%x)",
-                    //                 sz, pos, pos+sz));
-                } else {
-                    let mut s = 2;
-                    while (rng.gen::<bool>() || rng.gen::<bool>()) && s < b-a {
-                        if rng.gen::<bool>() {
-                            s *= 2;
-                        } else {
-                            s += 2;
-                        }
-                    }
-                    sz = s;
-                    pos = if rng.gen::<bool>() { a } else { b - sz };
-                    // io::println(fmt!("adding small %u-byte adjacent allocation [0x%x,0x%x)",
-                    //                 sz, pos, pos+sz));
-                }
-                allocs += [(pos,sz)];
-
-                hm.insert(pos, HeapRecord { size: sz, is_marked: false });
-                tm.insert(pos, HeapRecord { size: sz, is_marked: false });
-
-                if rng.gen_weighted_bool(10) {
-                    let i = rng.gen_uint_range(0, allocs.len());
-                    let (pos,sz) = allocs.swap_remove(i);
-                    // io::println(fmt!("removing %u-byte allocation [0x%x,0x%x)",
-                    //                 sz, pos, pos+sz));
-                    hm.remove(&pos);
-                    tm.remove(&pos);
-                }
+            if b-a == 0 {
+                loop;
             }
 
-            assert_eq!(hm.len(), allocs.len());
-            assert_eq!(tm.len(), allocs.len());
-            for allocs.each |&(pos,sz)| {
-                // io::println(fmt!("consistency check on %u-byte alloc [0x%x,0x%x)",
-                // sz, pos, pos+sz));
-                do hm.mutate_prev(pos) |p, hr| {
-                    assert_eq!(pos, p);
-                    assert_eq!(sz, hr.size);
+            // io::println(fmt!("injecting into empty range [0x%x,0x%x)", a, b));
+            let mut pos;
+            let mut sz;
+            if rng.gen_weighted_bool(50) {
+                pos = rng.gen_uint_range(a, b) & CELL_ALIGN_MASK;
+                sz = rng.gen_uint_range(0, b-pos) & CELL_ALIGN_MASK;
+                if sz == 0 {
+                    loop;
                 }
-                do tm.mutate_prev(pos) |p, hr| {
-                    assert_eq!(pos, p);
-                    assert_eq!(sz, hr.size);
+                // io::println(fmt!("adding new %u-byte alloc [0x%x,0x%x)",
+                //                  sz, pos, pos+sz));
+            } else {
+                let mut s = 2;
+                while !rng.gen_weighted_bool(8) && ((s*2 < b-a) || (s+2 < b-a)) {
+                    if rng.gen::<bool>() && s*2 < b-a {
+                        s *= 2;
+                    } else if s+2 < b-a {
+                        s += 2;
+                    }
+                }
+                sz = s;
+                pos = if rng.gen::<bool>() { a } else { b - sz };
+
+                if rng.gen::<bool>() && a <= pos & CELL_ALIGN_MASK {
+                    pos &= CELL_ALIGN_MASK;
+                }
+
+                if rng.gen::<bool>() && pos + (sz & CELL_ALIGN_MASK) <= b {
+                    sz &= CELL_ALIGN_MASK;
+                }
+
+                if sz == 0 {
+                    loop;
+                }
+                // io::println(fmt!("adding small %u-byte adjacent allocation [0x%x,0x%x)",
+                //                  sz, pos, pos+sz));
+            }
+            assert!(a <= pos);
+            assert!(pos + sz <= b);
+            allocs += [(pos,sz)];
+
+            hm.insert(pos, HeapRecord { size: sz, is_marked: false });
+            tm.insert(pos, HeapRecord { size: sz, is_marked: false });
+
+            if rng.gen_weighted_bool(10) {
+                let i = rng.gen_uint_range(0, allocs.len());
+                let (pos,sz) = allocs.swap_remove(i);
+                // io::println(fmt!("removing %u-byte allocation [0x%x,0x%x)",
+                //                  sz, pos, pos+sz));
+                hm.remove(&pos);
+                tm.remove(&pos);
+            }
+
+            // io::println(fmt!("heap has %u allocs, trie=%u, paged=%u, pages=%u",
+            //                  allocs.len(), hm.trie_len(), hm.len() - hm.trie_len(), hm.n_pages()));
+
+            if rng.gen_weighted_bool(1000) {
+                assert_eq!(hm.len(), allocs.len());
+                assert_eq!(tm.len(), allocs.len());
+                for allocs.each |&(pos,sz)| {
+                    // io::println(fmt!("consistency check on %u-byte alloc [0x%x,0x%x)",
+                    //                  sz, pos, pos+sz));
+                    do hm.mutate_prev(pos) |p, hr| {
+                        assert_eq!(pos, p);
+                        assert_eq!(sz, hr.size);
+                    }
+                    do tm.mutate_prev(pos) |p, hr| {
+                        assert_eq!(pos, p);
+                        assert_eq!(sz, hr.size);
+                    }
                 }
             }
         }
