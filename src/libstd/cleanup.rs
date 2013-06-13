@@ -498,10 +498,11 @@ pub impl Gc {
         // premise that churn might cause existing retained memory to
         // become garbage. N is set to max(100000, 25%-of-the-heap-count).
 
-        if (self.phase == GcIdle && self.gc_zeal) ||
-            self.heap.len() > self.threshold ||
-            (self.alloc_count > 10000000 &&
-             self.alloc_count > self.heap.len()) {
+        if (self.phase == GcIdle &&
+            (self.gc_zeal ||
+             (self.heap.len() > self.threshold) ||
+             (self.alloc_count > 10000000 &&
+              self.alloc_count > self.heap.len()))) {
             self.debug_str("commencing gc at threshold: ");
             self.debug_uint(self.threshold);
             self.debug_str("\n");
