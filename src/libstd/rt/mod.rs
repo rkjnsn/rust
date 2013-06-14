@@ -50,7 +50,6 @@ Several modules in `core` are clients of `rt`:
 * `core::logging`
 * `core::pipes`
 * `core::comm`
-* `core::stackwalk`
 
 */
 
