@@ -10,6 +10,7 @@
 // except according to those terms.
 
 
+// xfail-test Requires interruptable linked failure
 // error-pattern:fail
 
 use std::comm;
