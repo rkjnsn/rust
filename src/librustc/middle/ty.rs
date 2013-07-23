@@ -2605,7 +2605,7 @@ pub fn deref_sty(cx: ctxt, sty: &sty, explicit: bool) -> Option<mt> {
         Some(mt)
       }
 
-      ty_enum(did, ref substs) => {
+      ty_enum(did, ref substs) if explicit => {
         let variants = enum_variants(cx, did);
         if (*variants).len() == 1u && variants[0].args.len() == 1u {
             let v_t = subst(cx, substs, variants[0].args[0]);

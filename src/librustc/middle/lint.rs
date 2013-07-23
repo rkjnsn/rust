@@ -475,7 +475,7 @@ impl Context {
         match n {
             Item(it) => {
                 for self.visitors.iter().advance |&(orig, stopping)| {
-                    (orig.visit_item)(it, (self, stopping));
+                    ((*orig).visit_item)(it, (self, stopping));
                 }
             }
             Crate(c) => {
@@ -489,7 +489,7 @@ impl Context {
             Method(m) => {
                 let fk = visit::fk_method(m.ident, &m.generics, m);
                 for self.visitors.iter().advance |&(orig, stopping)| {
-                    (orig.visit_fn)(&fk, &m.decl, &m.body, m.span, m.id,
+                    ((*orig).visit_fn)(&fk, &m.decl, &m.body, m.span, m.id,
                                     (self, stopping));
                 }
             }
@@ -539,7 +539,7 @@ fn item_stopping_visitor<E>(outer: visit::vt<E>) -> visit::vt<E> {
         visit_fn: |fk, fd, b, s, id, (e, v)| {
             match *fk {
                 visit::fk_method(*) => {}
-                _ => (outer.visit_fn)(fk, fd, b, s, id, (e, v))
+                _ => ((*outer).visit_fn)(fk, fd, b, s, id, (e, v))
             }
         },
     .. **outer})

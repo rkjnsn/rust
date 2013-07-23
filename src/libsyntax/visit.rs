@@ -119,7 +119,7 @@ pub fn default_visitor<E:Clone>() -> visitor<E> {
 }
 
 pub fn visit_crate<E:Clone>(c: &Crate, (e, v): (E, vt<E>)) {
-    (v.visit_mod)(&c.module, c.span, crate_node_id, (e, v));
+    ((*v).visit_mod)(&c.module, c.span, crate_node_id, (e, v));
 }
 
 pub fn visit_mod<E:Clone>(m: &_mod,
@@ -127,21 +127,21 @@ pub fn visit_mod<E:Clone>(m: &_mod,
                           _id: node_id,
                           (e, v): (E, vt<E>)) {
     for m.view_items.iter().advance |vi| {
-        (v.visit_view_item)(vi, (e.clone(), v));
+        ((*v).visit_view_item)(vi, (e.clone(), v));
     }
     for m.items.iter().advance |i| {
-        (v.visit_item)(*i, (e.clone(), v));
+        ((*v).visit_item)(*i, (e.clone(), v));
     }
 }
 
 pub fn visit_view_item<E>(_vi: &view_item, (_e, _v): (E, vt<E>)) { }
 
 pub fn visit_local<E:Clone>(loc: &Local, (e, v): (E, vt<E>)) {
-    (v.visit_pat)(loc.pat, (e.clone(), v));
-    (v.visit_ty)(&loc.ty, (e.clone(), v));
+    ((*v).visit_pat)(loc.pat, (e.clone(), v));
+    ((*v).visit_ty)(&loc.ty, (e.clone(), v));
     match loc.init {
       None => (),
-      Some(ex) => (v.visit_expr)(ex, (e, v))
+      Some(ex) => ((*v).visit_expr)(ex, (e, v))
     }
 }
 
@@ -152,11 +152,11 @@ fn visit_trait_ref<E:Clone>(tref: &ast::trait_ref, (e, v): (E, vt<E>)) {
 pub fn visit_item<E:Clone>(i: &item, (e, v): (E, vt<E>)) {
     match i.node {
         item_static(ref t, _, ex) => {
-            (v.visit_ty)(t, (e.clone(), v));
-            (v.visit_expr)(ex, (e.clone(), v));
+            ((*v).visit_ty)(t, (e.clone(), v));
+            ((*v).visit_expr)(ex, (e.clone(), v));
         }
         item_fn(ref decl, purity, abi, ref generics, ref body) => {
-            (v.visit_fn)(
+            ((*v).visit_fn)(
                 &fk_item_fn(
                     i.ident,
                     generics,
@@ -171,21 +171,21 @@ pub fn visit_item<E:Clone>(i: &item, (e, v): (E, vt<E>)) {
                  v)
             );
         }
-        item_mod(ref m) => (v.visit_mod)(m, i.span, i.id, (e, v)),
+        item_mod(ref m) => ((*v).visit_mod)(m, i.span, i.id, (e, v)),
         item_foreign_mod(ref nm) => {
             for nm.view_items.iter().advance |vi| {
-                (v.visit_view_item)(vi, (e.clone(), v));
+                ((*v).visit_view_item)(vi, (e.clone(), v));
             }
             for nm.items.iter().advance |ni| {
-                (v.visit_foreign_item)(*ni, (e.clone(), v));
+                ((*v).visit_foreign_item)(*ni, (e.clone(), v));
             }
         }
         item_ty(ref t, ref tps) => {
-            (v.visit_ty)(t, (e.clone(), v));
-            (v.visit_generics)(tps, (e, v));
+            ((*v).visit_ty)(t, (e.clone(), v));
+            ((*v).visit_generics)(tps, (e, v));
         }
         item_enum(ref enum_definition, ref tps) => {
-            (v.visit_generics)(tps, (e.clone(), v));
+            ((*v).visit_generics)(tps, (e.clone(), v));
             visit_enum_def(
                 enum_definition,
                 tps,
@@ -193,26 +193,26 @@ pub fn visit_item<E:Clone>(i: &item, (e, v): (E, vt<E>)) {
             );
         }
         item_impl(ref tps, ref traits, ref ty, ref methods) => {
-            (v.visit_generics)(tps, (e.clone(), v));
+            ((*v).visit_generics)(tps, (e.clone(), v));
             for traits.iter().advance |p| {
                 visit_trait_ref(p, (e.clone(), v));
             }
-            (v.visit_ty)(ty, (e.clone(), v));
+            ((*v).visit_ty)(ty, (e.clone(), v));
             for methods.iter().advance |m| {
                 visit_method_helper(*m, (e.clone(), v))
             }
         }
         item_struct(struct_def, ref generics) => {
-            (v.visit_generics)(generics, (e.clone(), v));
-            (v.visit_struct_def)(struct_def, i.ident, generics, i.id, (e, v));
+            ((*v).visit_generics)(generics, (e.clone(), v));
+            ((*v).visit_struct_def)(struct_def, i.ident, generics, i.id, (e, v));
         }
         item_trait(ref generics, ref traits, ref methods) => {
-            (v.visit_generics)(generics, (e.clone(), v));
+            ((*v).visit_generics)(generics, (e.clone(), v));
             for traits.iter().advance |p| {
                 visit_path(&p.path, (e.clone(), v));
             }
             for methods.iter().advance |m| {
-                (v.visit_trait_method)(m, (e.clone(), v));
+                ((*v).visit_trait_method)(m, (e.clone(), v));
             }
         }
         item_mac(ref m) => visit_mac(m, (e, v))
@@ -226,17 +226,17 @@ pub fn visit_enum_def<E:Clone>(enum_definition: &ast::enum_def,
         match vr.node.kind {
             tuple_variant_kind(ref variant_args) => {
                 for variant_args.iter().advance |va| {
-                    (v.visit_ty)(&va.ty, (e.clone(), v));
+                    ((*v).visit_ty)(&va.ty, (e.clone(), v));
                 }
             }
             struct_variant_kind(struct_def) => {
-                (v.visit_struct_def)(struct_def, vr.node.name, tps,
+                ((*v).visit_struct_def)(struct_def, vr.node.name, tps,
                                      vr.node.id, (e.clone(), v));
             }
         }
         // Visit the disr expr if it exists
         for vr.node.disr_expr.iter().advance |ex| {
-            (v.visit_expr)(*ex, (e.clone(), v))
+            ((*v).visit_expr)(*ex, (e.clone(), v))
         }
     }
 }
@@ -247,27 +247,27 @@ pub fn visit_ty<E:Clone>(t: &Ty, (e, v): (E, vt<E>)) {
     match t.node {
         ty_box(ref mt) | ty_uniq(ref mt) |
         ty_vec(ref mt) | ty_ptr(ref mt) | ty_rptr(_, ref mt) => {
-            (v.visit_ty)(mt.ty, (e, v));
+            ((*v).visit_ty)(mt.ty, (e, v));
         },
         ty_tup(ref ts) => {
             for ts.iter().advance |tt| {
-                (v.visit_ty)(tt, (e.clone(), v));
+                ((*v).visit_ty)(tt, (e.clone(), v));
             }
         },
         ty_closure(ref f) => {
             for f.decl.inputs.iter().advance |a| {
-                (v.visit_ty)(&a.ty, (e.clone(), v));
+                ((*v).visit_ty)(&a.ty, (e.clone(), v));
             }
-            (v.visit_ty)(&f.decl.output, (e.clone(), v));
+            ((*v).visit_ty)(&f.decl.output, (e.clone(), v));
             do f.bounds.map |bounds| {
                 visit_ty_param_bounds(bounds, (e.clone(), v));
             };
         },
         ty_bare_fn(ref f) => {
             for f.decl.inputs.iter().advance |a| {
-                (v.visit_ty)(&a.ty, (e.clone(), v));
+                ((*v).visit_ty)(&a.ty, (e.clone(), v));
             }
-            (v.visit_ty)(&f.decl.output, (e, v));
+            ((*v).visit_ty)(&f.decl.output, (e, v));
         },
         ty_path(ref p, ref bounds, _) => {
             visit_path(p, (e.clone(), v));
@@ -276,15 +276,15 @@ pub fn visit_ty<E:Clone>(t: &Ty, (e, v): (E, vt<E>)) {
             };
         },
         ty_fixed_length_vec(ref mt, ex) => {
-            (v.visit_ty)(mt.ty, (e.clone(), v));
-            (v.visit_expr)(ex, (e.clone(), v));
+            ((*v).visit_ty)(mt.ty, (e.clone(), v));
+            ((*v).visit_expr)(ex, (e.clone(), v));
         },
         ty_nil | ty_bot | ty_mac(_) | ty_infer => ()
     }
 }
 
 pub fn visit_path<E:Clone>(p: &Path, (e, v): (E, vt<E>)) {
-    for p.types.iter().advance |tp| { (v.visit_ty)(tp, (e.clone(), v)); }
+    for p.types.iter().advance |tp| { ((*v).visit_ty)(tp, (e.clone(), v)); }
 }
 
 pub fn visit_pat<E:Clone>(p: &pat, (e, v): (E, vt<E>)) {
@@ -293,45 +293,45 @@ pub fn visit_pat<E:Clone>(p: &pat, (e, v): (E, vt<E>)) {
             visit_path(path, (e.clone(), v));
             for children.iter().advance |children| {
                 for children.iter().advance |child| {
-                    (v.visit_pat)(*child, (e.clone(), v));
+                    ((*v).visit_pat)(*child, (e.clone(), v));
                 }
             }
         }
         pat_struct(ref path, ref fields, _) => {
             visit_path(path, (e.clone(), v));
             for fields.iter().advance |f| {
-                (v.visit_pat)(f.pat, (e.clone(), v));
+                ((*v).visit_pat)(f.pat, (e.clone(), v));
             }
         }
         pat_tup(ref elts) => {
             for elts.iter().advance |elt| {
-                (v.visit_pat)(*elt, (e.clone(), v))
+                ((*v).visit_pat)(*elt, (e.clone(), v))
             }
         },
         pat_box(inner) | pat_uniq(inner) | pat_region(inner) => {
-            (v.visit_pat)(inner, (e, v))
+            ((*v).visit_pat)(inner, (e, v))
         },
         pat_ident(_, ref path, ref inner) => {
             visit_path(path, (e.clone(), v));
             for inner.iter().advance |subpat| {
-                (v.visit_pat)(*subpat, (e.clone(), v))
+                ((*v).visit_pat)(*subpat, (e.clone(), v))
             }
         }
-        pat_lit(ex) => (v.visit_expr)(ex, (e, v)),
+        pat_lit(ex) => ((*v).visit_expr)(ex, (e, v)),
         pat_range(e1, e2) => {
-            (v.visit_expr)(e1, (e.clone(), v));
-            (v.visit_expr)(e2, (e, v));
+            ((*v).visit_expr)(e1, (e.clone(), v));
+            ((*v).visit_expr)(e2, (e, v));
         }
         pat_wild => (),
         pat_vec(ref before, ref slice, ref after) => {
             for before.iter().advance |elt| {
-                (v.visit_pat)(*elt, (e.clone(), v));
+                ((*v).visit_pat)(*elt, (e.clone(), v));
             }
             for slice.iter().advance |elt| {
-                (v.visit_pat)(*elt, (e.clone(), v));
+                ((*v).visit_pat)(*elt, (e.clone(), v));
             }
             for after.iter().advance |tail| {
-                (v.visit_pat)(*tail, (e.clone(), v));
+                ((*v).visit_pat)(*tail, (e.clone(), v));
             }
         }
     }
@@ -341,10 +341,10 @@ pub fn visit_foreign_item<E:Clone>(ni: &foreign_item, (e, v): (E, vt<E>)) {
     match ni.node {
         foreign_item_fn(ref fd, _, ref generics) => {
             visit_fn_decl(fd, (e.clone(), v));
-            (v.visit_generics)(generics, (e, v));
+            ((*v).visit_generics)(generics, (e, v));
         }
         foreign_item_static(ref t, _) => {
-            (v.visit_ty)(t, (e, v));
+            ((*v).visit_ty)(t, (e, v));
         }
     }
 }
@@ -367,10 +367,10 @@ pub fn visit_generics<E:Clone>(generics: &Generics, (e, v): (E, vt<E>)) {
 
 pub fn visit_fn_decl<E:Clone>(fd: &fn_decl, (e, v): (E, vt<E>)) {
     for fd.inputs.iter().advance |a| {
-        (v.visit_pat)(a.pat, (e.clone(), v));
-        (v.visit_ty)(&a.ty, (e.clone(), v));
+        ((*v).visit_pat)(a.pat, (e.clone(), v));
+        ((*v).visit_ty)(&a.ty, (e.clone(), v));
     }
-    (v.visit_ty)(&fd.output, (e, v));
+    ((*v).visit_ty)(&fd.output, (e, v));
 }
 
 // Note: there is no visit_method() method in the visitor, instead override
@@ -378,7 +378,7 @@ pub fn visit_fn_decl<E:Clone>(fd: &fn_decl, (e, v): (E, vt<E>)) {
 // because it is not a default impl of any method, though I doubt that really
 // clarifies anything. - Niko
 pub fn visit_method_helper<E:Clone>(m: &method, (e, v): (E, vt<E>)) {
-    (v.visit_fn)(&fk_method(m.ident, &m.generics, m),
+    ((*v).visit_fn)(&fk_method(m.ident, &m.generics, m),
                  &m.decl,
                  &m.body,
                  m.span,
@@ -390,21 +390,21 @@ pub fn visit_fn<E:Clone>(fk: &fn_kind, decl: &fn_decl, body: &Block, _sp: span,
                          _id: node_id, (e, v): (E, vt<E>)) {
     visit_fn_decl(decl, (e.clone(), v));
     let generics = generics_of_fn(fk);
-    (v.visit_generics)(&generics, (e.clone(), v));
-    (v.visit_block)(body, (e, v));
+    ((*v).visit_generics)(&generics, (e.clone(), v));
+    ((*v).visit_block)(body, (e, v));
 }
 
 pub fn visit_ty_method<E:Clone>(m: &ty_method, (e, v): (E, vt<E>)) {
     for m.decl.inputs.iter().advance |a| {
-        (v.visit_ty)(&a.ty, (e.clone(), v));
+        ((*v).visit_ty)(&a.ty, (e.clone(), v));
     }
-    (v.visit_generics)(&m.generics, (e.clone(), v));
-    (v.visit_ty)(&m.decl.output, (e, v));
+    ((*v).visit_generics)(&m.generics, (e.clone(), v));
+    ((*v).visit_ty)(&m.decl.output, (e, v));
 }
 
 pub fn visit_trait_method<E:Clone>(m: &trait_method, (e, v): (E, vt<E>)) {
     match *m {
-      required(ref ty_m) => (v.visit_ty_method)(ty_m, (e, v)),
+      required(ref ty_m) => ((*v).visit_ty_method)(ty_m, (e, v)),
       provided(m) => visit_method_helper(m, (e, v))
     }
 }
@@ -417,46 +417,46 @@ pub fn visit_struct_def<E:Clone>(
     (e, v): (E, vt<E>)
 ) {
     for sd.fields.iter().advance |f| {
-        (v.visit_struct_field)(*f, (e.clone(), v));
+        ((*v).visit_struct_field)(*f, (e.clone(), v));
     }
 }
 
 pub fn visit_struct_field<E:Clone>(sf: &struct_field, (e, v): (E, vt<E>)) {
-    (v.visit_ty)(&sf.node.ty, (e, v));
+    ((*v).visit_ty)(&sf.node.ty, (e, v));
 }
 
 pub fn visit_block<E:Clone>(b: &Block, (e, v): (E, vt<E>)) {
     for b.view_items.iter().advance |vi| {
-        (v.visit_view_item)(vi, (e.clone(), v));
+        ((*v).visit_view_item)(vi, (e.clone(), v));
     }
     for b.stmts.iter().advance |s| {
-        (v.visit_stmt)(*s, (e.clone(), v));
+        ((*v).visit_stmt)(*s, (e.clone(), v));
     }
     visit_expr_opt(b.expr, (e, v));
 }
 
 pub fn visit_stmt<E>(s: &stmt, (e, v): (E, vt<E>)) {
     match s.node {
-      stmt_decl(d, _) => (v.visit_decl)(d, (e, v)),
-      stmt_expr(ex, _) => (v.visit_expr)(ex, (e, v)),
-      stmt_semi(ex, _) => (v.visit_expr)(ex, (e, v)),
+      stmt_decl(d, _) => ((*v).visit_decl)(d, (e, v)),
+      stmt_expr(ex, _) => ((*v).visit_expr)(ex, (e, v)),
+      stmt_semi(ex, _) => ((*v).visit_expr)(ex, (e, v)),
       stmt_mac(ref mac, _) => visit_mac(mac, (e, v))
     }
 }
 
 pub fn visit_decl<E:Clone>(d: &decl, (e, v): (E, vt<E>)) {
     match d.node {
-        decl_local(ref loc) => (v.visit_local)(*loc, (e, v)),
-        decl_item(it) => (v.visit_item)(it, (e, v))
+        decl_local(ref loc) => ((*v).visit_local)(*loc, (e, v)),
+        decl_item(it) => ((*v).visit_item)(it, (e, v))
     }
 }
 
 pub fn visit_expr_opt<E>(eo: Option<@expr>, (e, v): (E, vt<E>)) {
-    match eo { None => (), Some(ex) => (v.visit_expr)(ex, (e, v)) }
+    match eo { None => (), Some(ex) => ((*v).visit_expr)(ex, (e, v)) }
 }
 
 pub fn visit_exprs<E:Clone>(exprs: &[@expr], (e, v): (E, vt<E>)) {
-    for exprs.iter().advance |ex| { (v.visit_expr)(*ex, (e.clone(), v)); }
+    for exprs.iter().advance |ex| { ((*v).visit_expr)(*ex, (e.clone(), v)); }
 }
 
 pub fn visit_mac<E>(_m: &mac, (_e, _v): (E, vt<E>)) {
@@ -465,60 +465,60 @@ pub fn visit_mac<E>(_m: &mac, (_e, _v): (E, vt<E>)) {
 
 pub fn visit_expr<E:Clone>(ex: @expr, (e, v): (E, vt<E>)) {
     match ex.node {
-        expr_vstore(x, _) => (v.visit_expr)(x, (e.clone(), v)),
+        expr_vstore(x, _) => ((*v).visit_expr)(x, (e.clone(), v)),
         expr_vec(ref es, _) => visit_exprs(*es, (e.clone(), v)),
         expr_repeat(element, count, _) => {
-            (v.visit_expr)(element, (e.clone(), v));
-            (v.visit_expr)(count, (e.clone(), v));
+            ((*v).visit_expr)(element, (e.clone(), v));
+            ((*v).visit_expr)(count, (e.clone(), v));
         }
         expr_struct(ref p, ref flds, base) => {
             visit_path(p, (e.clone(), v));
             for flds.iter().advance |f| {
-                (v.visit_expr)(f.expr, (e.clone(), v));
+                ((*v).visit_expr)(f.expr, (e.clone(), v));
             }
             visit_expr_opt(base, (e.clone(), v));
         }
         expr_tup(ref elts) => {
-            for elts.iter().advance |el| { (v.visit_expr)(*el, (e.clone(), v)) }
+            for elts.iter().advance |el| { ((*v).visit_expr)(*el, (e.clone(), v)) }
         }
         expr_call(callee, ref args, _) => {
             visit_exprs(*args, (e.clone(), v));
-            (v.visit_expr)(callee, (e.clone(), v));
+            ((*v).visit_expr)(callee, (e.clone(), v));
         }
         expr_method_call(_, callee, _, ref tys, ref args, _) => {
             visit_exprs(*args, (e.clone(), v));
             for tys.iter().advance |tp| {
-                (v.visit_ty)(tp, (e.clone(), v));
+                ((*v).visit_ty)(tp, (e.clone(), v));
             }
-            (v.visit_expr)(callee, (e.clone(), v));
+            ((*v).visit_expr)(callee, (e.clone(), v));
         }
         expr_binary(_, _, a, b) => {
-            (v.visit_expr)(a, (e.clone(), v));
-            (v.visit_expr)(b, (e.clone(), v));
+            ((*v).visit_expr)(a, (e.clone(), v));
+            ((*v).visit_expr)(b, (e.clone(), v));
         }
         expr_addr_of(_, x) | expr_unary(_, _, x) |
-        expr_loop_body(x) | expr_do_body(x) => (v.visit_expr)(x, (e.clone(), v)),
+        expr_loop_body(x) | expr_do_body(x) => ((*v).visit_expr)(x, (e.clone(), v)),
         expr_lit(_) => (),
         expr_cast(x, ref t) => {
-            (v.visit_expr)(x, (e.clone(), v));
-            (v.visit_ty)(t, (e.clone(), v));
+            ((*v).visit_expr)(x, (e.clone(), v));
+            ((*v).visit_ty)(t, (e.clone(), v));
         }
         expr_if(x, ref b, eo) => {
-            (v.visit_expr)(x, (e.clone(), v));
-            (v.visit_block)(b, (e.clone(), v));
+            ((*v).visit_expr)(x, (e.clone(), v));
+            ((*v).visit_block)(b, (e.clone(), v));
             visit_expr_opt(eo, (e.clone(), v));
         }
         expr_while(x, ref b) => {
-            (v.visit_expr)(x, (e.clone(), v));
-            (v.visit_block)(b, (e.clone(), v));
+            ((*v).visit_expr)(x, (e.clone(), v));
+            ((*v).visit_block)(b, (e.clone(), v));
         }
-        expr_loop(ref b, _) => (v.visit_block)(b, (e.clone(), v)),
+        expr_loop(ref b, _) => ((*v).visit_block)(b, (e.clone(), v)),
         expr_match(x, ref arms) => {
-            (v.visit_expr)(x, (e.clone(), v));
-            for arms.iter().advance |a| { (v.visit_arm)(a, (e.clone(), v)); }
+            ((*v).visit_expr)(x, (e.clone(), v));
+            for arms.iter().advance |a| { ((*v).visit_arm)(a, (e.clone(), v)); }
         }
         expr_fn_block(ref decl, ref body) => {
-            (v.visit_fn)(
+            ((*v).visit_fn)(
                 &fk_fn_block,
                 decl,
                 body,
@@ -527,24 +527,24 @@ pub fn visit_expr<E:Clone>(ex: @expr, (e, v): (E, vt<E>)) {
                 (e.clone(), v)
             );
         }
-        expr_block(ref b) => (v.visit_block)(b, (e.clone(), v)),
+        expr_block(ref b) => ((*v).visit_block)(b, (e.clone(), v)),
         expr_assign(a, b) => {
-            (v.visit_expr)(b, (e.clone(), v));
-            (v.visit_expr)(a, (e.clone(), v));
+            ((*v).visit_expr)(b, (e.clone(), v));
+            ((*v).visit_expr)(a, (e.clone(), v));
         }
         expr_assign_op(_, _, a, b) => {
-            (v.visit_expr)(b, (e.clone(), v));
-            (v.visit_expr)(a, (e.clone(), v));
+            ((*v).visit_expr)(b, (e.clone(), v));
+            ((*v).visit_expr)(a, (e.clone(), v));
         }
         expr_field(x, _, ref tys) => {
-            (v.visit_expr)(x, (e.clone(), v));
+            ((*v).visit_expr)(x, (e.clone(), v));
             for tys.iter().advance |tp| {
-                (v.visit_ty)(tp, (e.clone(), v));
+                ((*v).visit_ty)(tp, (e.clone(), v));
             }
         }
         expr_index(_, a, b) => {
-            (v.visit_expr)(a, (e.clone(), v));
-            (v.visit_expr)(b, (e.clone(), v));
+            ((*v).visit_expr)(a, (e.clone(), v));
+            ((*v).visit_expr)(b, (e.clone(), v));
         }
         expr_path(ref p) => visit_path(p, (e.clone(), v)),
         expr_self => (),
@@ -552,27 +552,27 @@ pub fn visit_expr<E:Clone>(ex: @expr, (e, v): (E, vt<E>)) {
         expr_again(_) => (),
         expr_ret(eo) => visit_expr_opt(eo, (e.clone(), v)),
         expr_log(lv, x) => {
-            (v.visit_expr)(lv, (e.clone(), v));
-            (v.visit_expr)(x, (e.clone(), v));
+            ((*v).visit_expr)(lv, (e.clone(), v));
+            ((*v).visit_expr)(x, (e.clone(), v));
         }
         expr_mac(ref mac) => visit_mac(mac, (e.clone(), v)),
-        expr_paren(x) => (v.visit_expr)(x, (e.clone(), v)),
+        expr_paren(x) => ((*v).visit_expr)(x, (e.clone(), v)),
         expr_inline_asm(ref a) => {
             for a.inputs.iter().advance |&(_, in)| {
-                (v.visit_expr)(in, (e.clone(), v));
+                ((*v).visit_expr)(in, (e.clone(), v));
             }
             for a.outputs.iter().advance |&(_, out)| {
-                (v.visit_expr)(out, (e.clone(), v));
+                ((*v).visit_expr)(out, (e.clone(), v));
             }
         }
     }
-    (v.visit_expr_post)(ex, (e, v));
+    ((*v).visit_expr_post)(ex, (e, v));
 }
 
 pub fn visit_arm<E:Clone>(a: &arm, (e, v): (E, vt<E>)) {
-    for a.pats.iter().advance |p| { (v.visit_pat)(*p, (e.clone(), v)); }
+    for a.pats.iter().advance |p| { ((*v).visit_pat)(*p, (e.clone(), v)); }
     visit_expr_opt(a.guard, (e.clone(), v));
-    (v.visit_block)(&a.body, (e.clone(), v));
+    ((*v).visit_block)(&a.body, (e.clone(), v));
 }
 
 // Simpler, non-context passing interface. Always walks the whole tree, simply

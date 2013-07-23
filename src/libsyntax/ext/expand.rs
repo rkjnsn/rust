@@ -382,7 +382,7 @@ pub fn new_name_finder() -> @Visitor<@mut ~[ast::ident]> {
                     }
                     // visit optional subpattern of pat_ident:
                     for inner.iter().advance |subpat: &@ast::pat| {
-                        (v.visit_pat)(*subpat, (ident_accum, v))
+                        ((*v).visit_pat)(*subpat, (ident_accum, v))
                     }
                 }
                 // use the default traversal for non-pat_idents

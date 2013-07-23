@@ -452,7 +452,7 @@ fn resolve_fn(fk: &visit::fn_kind,
             cx
         }
     };
-    (visitor.visit_block)(body, (body_cx, visitor));
+    ((*visitor).visit_block)(body, (body_cx, visitor));
 }
 
 pub fn resolve_crate(sess: Session,
@@ -714,13 +714,13 @@ fn determine_rp_in_fn(fk: &visit::fn_kind,
     do cx.with(cx.item_id, false) {
         do cx.with_ambient_variance(rv_contravariant) {
             for decl.inputs.iter().advance |a| {
-                (visitor.visit_ty)(&a.ty, (cx, visitor));
+                ((*visitor).visit_ty)(&a.ty, (cx, visitor));
             }
         }
-        (visitor.visit_ty)(&decl.output, (cx, visitor));
+        ((*visitor).visit_ty)(&decl.output, (cx, visitor));
         let generics = visit::generics_of_fn(fk);
-        (visitor.visit_generics)(&generics, (cx, visitor));
-        (visitor.visit_block)(body, (cx, visitor));
+        ((*visitor).visit_generics)(&generics, (cx, visitor));
+        ((*visitor).visit_block)(body, (cx, visitor));
     }
 }
 
@@ -825,7 +825,7 @@ fn determine_rp_in_ty(ty: &ast::Ty,
         // type parameters are---for now, anyway---always invariant
         do cx.with_ambient_variance(rv_invariant) {
             for path.types.iter().advance |tp| {
-                (visitor.visit_ty)(tp, (cx, visitor));
+                ((*visitor).visit_ty)(tp, (cx, visitor));
             }
         }
       }
@@ -838,10 +838,10 @@ fn determine_rp_in_ty(ty: &ast::Ty,
             // parameters are contravariant
             do cx.with_ambient_variance(rv_contravariant) {
                 for decl.inputs.iter().advance |a| {
-                    (visitor.visit_ty)(&a.ty, (cx, visitor));
+                    ((*visitor).visit_ty)(&a.ty, (cx, visitor));
                 }
             }
-            (visitor.visit_ty)(&decl.output, (cx, visitor));
+            ((*visitor).visit_ty)(&decl.output, (cx, visitor));
         }
       }
 
@@ -856,10 +856,10 @@ fn determine_rp_in_ty(ty: &ast::Ty,
         // mutability is invariant
         if mt.mutbl == ast::m_mutbl {
             do cx.with_ambient_variance(rv_invariant) {
-                (visitor.visit_ty)(mt.ty, (cx, visitor));
+                ((*visitor).visit_ty)(mt.ty, (cx, visitor));
             }
         } else {
-            (visitor.visit_ty)(mt.ty, (cx, visitor));
+            ((*visitor).visit_ty)(mt.ty, (cx, visitor));
         }
     }
 }

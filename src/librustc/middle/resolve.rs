@@ -1233,7 +1233,7 @@ impl Resolver {
                     } if path.idents.len() == 1 => {
                         let name = path_to_ident(path);
 
-                        let new_parent = match parent.children.find(&name) {
+                        let new_parent = match (*parent).children.find(&name) {
                             // It already exists
                             Some(&child) if child.get_module_if_available()
                                                  .is_some() &&
@@ -1498,7 +1498,7 @@ impl Resolver {
                                                           Some(def_id),
                                                           NormalModuleKind);
 
-                        parent.external_module_children.insert(
+                        (*parent).external_module_children.insert(
                             name,
                             external_module);
 
@@ -1628,7 +1628,7 @@ impl Resolver {
                     debug!("(building reduced graph for external crate) \
                             ... creating import resolution");
 
-                    new_parent.import_resolutions.insert(ident, resolution);
+                    (*new_parent).import_resolutions.insert(ident, resolution);
                 }
               }
             }

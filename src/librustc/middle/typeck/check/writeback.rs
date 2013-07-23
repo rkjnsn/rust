@@ -333,7 +333,7 @@ fn mk_visitor() -> visit::vt<@mut WbCtxt> {
 pub fn resolve_type_vars_in_expr(fcx: @mut FnCtxt, e: @ast::expr) -> bool {
     let wbcx = @mut WbCtxt { fcx: fcx, success: true };
     let visit = mk_visitor();
-    (visit.visit_expr)(e, (wbcx, visit));
+    ((*visit).visit_expr)(e, (wbcx, visit));
     return wbcx.success;
 }
 
@@ -343,14 +343,14 @@ pub fn resolve_type_vars_in_fn(fcx: @mut FnCtxt,
                                self_info: Option<SelfInfo>) -> bool {
     let wbcx = @mut WbCtxt { fcx: fcx, success: true };
     let visit = mk_visitor();
-    (visit.visit_block)(blk, (wbcx, visit));
+    ((*visit).visit_block)(blk, (wbcx, visit));
     for self_info.iter().advance |self_info| {
         resolve_type_vars_for_node(wbcx,
                                    self_info.span,
                                    self_info.self_id);
     }
     for decl.inputs.iter().advance |arg| {
-        (visit.visit_pat)(arg.pat, (wbcx, visit));
+        ((*visit).visit_pat)(arg.pat, (wbcx, visit));
         // Privacy needs the type for the whole pattern, not just each binding
         if !pat_util::pat_is_binding(fcx.tcx().def_map, arg.pat) {
             resolve_type_vars_for_node(wbcx, arg.pat.span, arg.pat.id);

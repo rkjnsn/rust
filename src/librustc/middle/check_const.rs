@@ -43,13 +43,13 @@ pub fn check_item(sess: Session,
                                    visit::vt<bool>)) {
     match it.node {
       item_static(_, _, ex) => {
-        (v.visit_expr)(ex, (true, v));
+        ((*v).visit_expr)(ex, (true, v));
         check_item_recursion(sess, ast_map, def_map, it);
       }
       item_enum(ref enum_definition, _) => {
         for (*enum_definition).variants.iter().advance |var| {
             for var.node.disr_expr.iter().advance |ex| {
-                (v.visit_expr)(*ex, (true, v));
+                ((*v).visit_expr)(*ex, (true, v));
             }
         }
       }
@@ -72,10 +72,10 @@ pub fn check_pat(p: @pat, (_is_const, v): (bool, visit::vt<bool>)) {
     }
     match p.node {
       // Let through plain ~-string literals here
-      pat_lit(a) => if !is_str(a) { (v.visit_expr)(a, (true, v)); },
+      pat_lit(a) => if !is_str(a) { ((*v).visit_expr)(a, (true, v)); },
       pat_range(a, b) => {
-        if !is_str(a) { (v.visit_expr)(a, (true, v)); }
-        if !is_str(b) { (v.visit_expr)(b, (true, v)); }
+        if !is_str(a) { ((*v).visit_expr)(a, (true, v)); }
+        if !is_str(b) { ((*v).visit_expr)(b, (true, v)); }
       }
       _ => visit::visit_pat(p, (false, v))
     }
@@ -222,7 +222,7 @@ pub fn check_item_recursion(sess: Session,
         visit_expr: visit_expr,
         .. *visit::default_visitor()
     });
-    (visitor.visit_item)(it, (env, visitor));
+    ((*visitor).visit_item)(it, (env, visitor));
 
     fn visit_item(it: @item, (env, v): (env, visit::vt<env>)) {
         if env.idstack.iter().any(|x| x == &(it.id)) {
@@ -239,7 +239,7 @@ pub fn check_item_recursion(sess: Session,
                 Some(&def_static(def_id, _)) if ast_util::is_local(def_id) =>
                     match env.ast_map.get_copy(&def_id.node) {
                         ast_map::node_item(it, _) => {
-                            (v.visit_item)(it, (env, v));
+                            ((*v).visit_item)(it, (env, v));
                         }
                         _ => fail!("const not bound to an item")
                     },

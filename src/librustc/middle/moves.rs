@@ -290,7 +290,7 @@ impl VisitContext {
         debug!("consume_block(blk.id=%?)", blk.id);
 
         for blk.stmts.iter().advance |stmt| {
-            (visitor.visit_stmt)(*stmt, (*self, visitor));
+            ((*visitor).visit_stmt)(*stmt, (*self, visitor));
         }
 
         for blk.expr.iter().advance |tail_expr| {

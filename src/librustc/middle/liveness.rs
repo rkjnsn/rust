@@ -409,7 +409,7 @@ fn visit_fn(fk: &visit::fn_kind,
         visit_arm: check_arm,
         .. *visit::default_visitor()
     });
-    (check_vt.visit_block)(body, (lsets, check_vt));
+    ((*check_vt).visit_block)(body, (lsets, check_vt));
     lsets.check_ret(id, sp, fk, entry_ln);
     lsets.warn_about_unused_args(decl, entry_ln);
 }
@@ -1446,7 +1446,7 @@ fn check_expr(expr: @expr, (this, vt): (@Liveness, vt<@Liveness>)) {
     match expr.node {
       expr_assign(l, r) => {
         this.check_lvalue(l, vt);
-        (vt.visit_expr)(r, (this, vt));
+        ((*vt).visit_expr)(r, (this, vt));
 
         visit::visit_expr(expr, (this, vt));
       }
@@ -1459,7 +1459,7 @@ fn check_expr(expr: @expr, (this, vt): (@Liveness, vt<@Liveness>)) {
 
       expr_inline_asm(ref ia) => {
         for ia.inputs.iter().advance |&(_, in)| {
-          (vt.visit_expr)(in, (this, vt));
+          ((*vt).visit_expr)(in, (this, vt));
         }
 
         // Output operands must be lvalues
@@ -1470,7 +1470,7 @@ fn check_expr(expr: @expr, (this, vt): (@Liveness, vt<@Liveness>)) {
             }
             _ => {}
           }
-          (vt.visit_expr)(out, (this, vt));
+          ((*vt).visit_expr)(out, (this, vt));
         }
 
         visit::visit_expr(expr, (this, vt));

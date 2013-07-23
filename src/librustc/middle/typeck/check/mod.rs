@@ -538,7 +538,7 @@ pub fn check_fn(ccx: @mut CrateCtxt,
                              visit_block: visit_block,
                              ..*visit::default_visitor()});
 
-        (visit.visit_block)(body, ((), visit));
+        ((*visit).visit_block)(body, ((), visit));
     }
 }
 

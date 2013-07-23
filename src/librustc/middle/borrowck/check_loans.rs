@@ -61,7 +61,7 @@ pub fn check_loans(bccx: @BorrowckCtxt,
                                            visit_pat: check_loans_in_pat,
                                            visit_fn: check_loans_in_fn,
                                            .. *visit::default_visitor()});
-    (vt.visit_block)(body, (clcx, vt));
+    ((*vt).visit_block)(body, (clcx, vt));
 }
 
 enum MoveError {

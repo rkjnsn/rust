@@ -148,7 +148,7 @@ pub fn regionck_expr(fcx: @mut FnCtxt, e: @ast::expr) {
     if fcx.err_count_since_creation() == 0 {
         // regionck assumes typeck succeeded
         let v = regionck_visitor();
-        (v.visit_expr)(e, (rcx, v));
+        ((*v).visit_expr)(e, (rcx, v));
     }
     fcx.infcx().resolve_regions();
 }
@@ -159,7 +159,7 @@ pub fn regionck_fn(fcx: @mut FnCtxt, blk: &ast::Block) {
     if fcx.err_count_since_creation() == 0 {
         // regionck assumes typeck succeeded
         let v = regionck_visitor();
-        (v.visit_block)(blk, (rcx, v));
+        ((*v).visit_block)(blk, (rcx, v));
     }
     fcx.infcx().resolve_regions();
 }
@@ -441,10 +441,10 @@ fn visit_expr(expr: @ast::expr, (rcx, v): (@mut Rcx, rvt)) {
 
         ast::expr_while(cond, ref body) => {
             let repeating_scope = rcx.set_repeating_scope(cond.id);
-            (v.visit_expr)(cond, (rcx, v));
+            ((*v).visit_expr)(cond, (rcx, v));
 
             rcx.set_repeating_scope(body.id);
-            (v.visit_block)(body, (rcx, v));
+            ((*v).visit_block)(body, (rcx, v));
 
             rcx.set_repeating_scope(repeating_scope);
         }

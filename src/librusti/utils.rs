@@ -30,7 +30,7 @@ pub fn each_binding(l: @ast::Local, f: @fn(&ast::Path, ast::node_id)) {
             .. *visit::default_simple_visitor()
         }
     );
-    (vt.visit_pat)(l.pat, ((), vt));
+    ((*vt).visit_pat)(l.pat, ((), vt));
 }
 
 /// A utility function that hands off a pretty printer to a callback.

@@ -92,7 +92,7 @@ pub fn gather_loans(bccx: @BorrowckCtxt,
                                           visit_pat: add_pat_to_id_range,
                                           visit_local: gather_loans_in_local,
                                           .. *visit::default_visitor()});
-    (v.visit_block)(body, (glcx, v));
+    ((*v).visit_block)(body, (glcx, v));
     return (glcx.id_range, glcx.all_loans, glcx.move_data);
 }
 
@@ -264,12 +264,12 @@ fn gather_loans_in_expr(ex: @ast::expr,
       ast::expr_while(cond, ref body) => {
           // during the condition, can only root for the condition
           this.push_repeating_id(cond.id);
-          (vt.visit_expr)(cond, (this, vt));
+          ((*vt).visit_expr)(cond, (this, vt));
           this.pop_repeating_id(cond.id);
 
           // during body, can only root for the body
           this.push_repeating_id(body.id);
-          (vt.visit_block)(body, (this, vt));
+          ((*vt).visit_block)(body, (this, vt));
           this.pop_repeating_id(body.id);
       }
 

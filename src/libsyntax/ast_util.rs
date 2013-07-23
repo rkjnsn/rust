@@ -319,8 +319,8 @@ impl inlined_item_utils for inlined_item {
 
     fn accept<E: Clone>(&self, e: E, v: visit::vt<E>) {
         match *self {
-            ii_item(i) => (v.visit_item)(i, (e, v)),
-            ii_foreign(i) => (v.visit_foreign_item)(i, (e, v)),
+            ii_item(i) => ((*v).visit_item)(i, (e, v)),
+            ii_foreign(i) => ((*v).visit_foreign_item)(i, (e, v)),
             ii_method(_, _, m) => visit::visit_method_helper(m, (e, v)),
         }
     }
