@@ -931,13 +931,9 @@ mod test {
                 rtdebug!("finished with special_sched");
             };
 
-            rtdebug!("waiting on threads");
-            let _thread1 = normal_thread;
-            rtdebug!("normal_thread finished");
-            let _thread2 = special_thread;
-            rtdebug!("special_thread finished");
-
-
+            // wait for the end
+            normal_thread.join();
+            special_thread.join();
         }
     }
 
@@ -980,19 +976,22 @@ mod test {
             let port = Cell::new(port);
             let chan = Cell::new(chan);
 
-            let _thread_one = do Thread::start {
+            let thread_one = do Thread::start {
                 let chan = Cell::new(chan.take());
                 do run_in_newsched_task_core {
                     chan.take().send(());
                 }
             };
 
-            let _thread_two = do Thread::start {
+            let thread_two = do Thread::start {
                 let port = Cell::new(port.take());
                 do run_in_newsched_task_core {
                     port.take().recv();
                 }
             };
+
+            thread_one.join();
+            thread_two.join();
         }
     }
 
