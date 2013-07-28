@@ -82,8 +82,10 @@ pub struct SchedHandle {
 pub enum SchedMessage {
     Wake,
     Shutdown,
+    // XXX: These three cases are all very similar. Try to consolidate
     PinnedTask(~Task),
-    TaskFromFriend(~Task)
+    TaskFromFriend(~Task),
+    ForwardTask(~Task)
 }
 
 enum CleanupJob {
@@ -326,6 +328,16 @@ impl Scheduler {
 
         let mut this = self;
         match this.message_queue.pop() {
+            Some(ForwardTask(task)) => {
+                rtdebug!("enqueing forwarded task");
+                // XXX Should actually run this instead of enqueing,
+                // but this also needs to go through the normal schedule_task logic
+                // in case someone sent something we can't run directly.
+                // For now just stuffing it into the queue.
+                this.enqueue_task(task);
+                Local::put(this);
+                return None;
+            }
             Some(PinnedTask(task)) => {
                 let mut task = task;
                 task.give_home(Sched(this.make_handle()));
@@ -715,7 +727,7 @@ mod test {
     use unstable::run_in_bare_thread;
     use borrow::to_uint;
     use rt::local::*;
-    use rt::sched::{Scheduler};
+    use rt::sched::{Scheduler, ForwardTask};
     use uint;
     use int;
     use cell::Cell;
@@ -1097,4 +1109,37 @@ mod test {
         }
     }
 
+    #[test]
+    fn forward_task() {
+        // Testing that ForwardTask can be used to send a task to a scheduler
+
+        do run_in_bare_thread {
+            let mut sched = ~new_test_uv_sched();
+
+            let handle1 = sched.make_handle();
+            let handle2 = sched.make_handle();
+
+            let handle1_cell = Cell::new(handle1);
+            let task = ~do Task::new_root(&mut sched.stack_pool) {
+                rtdebug!("running task");
+                // Let the scheduler exit
+                handle1_cell.take();
+            };
+
+            let sched_cell = Cell::new(sched);
+            let thread = do Thread::start {
+                let sched = sched_cell.take();
+                sched.run();
+            };
+
+            // Tell the scheduler to run the task
+            {
+                let mut handle2 = handle2;
+                handle2.send(ForwardTask(task));
+                // Let handle2 go out of scope
+            }
+
+            thread.join();
+        }
+    }
 }
