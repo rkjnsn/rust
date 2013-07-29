@@ -10,7 +10,6 @@
 
 use either::{Left, Right};
 use option::{Option, Some, None};
-use sys;
 use cast::{transmute, transmute_mut_region, transmute_mut_unsafe};
 use clone::Clone;
 use unstable::raw;
