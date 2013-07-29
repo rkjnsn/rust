@@ -45,7 +45,7 @@ pub struct Task {
     taskgroup: Option<Taskgroup>,
     death: Death,
     destroyed: bool,
-    coroutine: Option<~Coroutine>,
+    coroutine: Option<Coroutine>,
     sched: Option<~Scheduler>,
     task_type: TaskType
 }
@@ -126,7 +126,7 @@ impl Task {
             taskgroup: None,
             death: Death::new(),
             destroyed: false,
-            coroutine: Some(~Coroutine::empty()),
+            coroutine: Some(Coroutine::empty()),
             sched: None,
             task_type: SchedTask
         }
@@ -155,7 +155,7 @@ impl Task {
             taskgroup: None,
             death: Death::new(),
             destroyed: false,
-            coroutine: Some(~Coroutine::new(stack_pool, start)),
+            coroutine: Some(Coroutine::new(stack_pool, start)),
             sched: None,
             task_type: GreenTask(Some(~home))
         }
@@ -175,7 +175,7 @@ impl Task {
             // FIXME(#7544) make watching optional
             death: self.death.new_child(),
             destroyed: false,
-            coroutine: Some(~Coroutine::new(stack_pool, start)),
+            coroutine: Some(Coroutine::new(stack_pool, start)),
             sched: None,
             task_type: GreenTask(Some(~home))
         }
@@ -294,61 +294,6 @@ impl Task {
         }
     }
 
-    // These utility functions related to home will need to change.
-/*
-    /// Check if *task* is currently home.
-    pub fn is_home(&self) -> bool {
-        do Local::borrow::<Scheduler,bool> |sched| {
-            match self.home {
-                Some(AnySched) => { false }
-                Some(Sched(SchedHandle { sched_id: ref id, _ })) => {
-                    *id == sched.sched_id()
-                }
-                None => { rtabort!("task home of None") }
-            }
-        }
-    }
-
-    pub fn is_home_no_tls(&self, sched: &~Scheduler) -> bool {
-        match self.home {
-            Some(AnySched) => { false }
-            Some(Sched(SchedHandle { sched_id: ref id, _ })) => {
-                *id == sched.sched_id()
-            }
-            None => {rtabort!("task home of None") }
-        }
-    }
-
-    pub fn is_home_using_id(sched_id: uint) -> bool {
-        do Local::borrow::<Task,bool> |task| {
-            match task.home {
-                Some(Sched(SchedHandle { sched_id: ref id, _ })) => {
-                    *id == sched_id
-                }
-                Some(AnySched) => { false }
-                None => { rtabort!("task home of None") }
-            }
-        }
-    }
-
-    /// Check if this *task* has a home.
-    pub fn homed(&self) -> bool {
-        match self.home {
-            Some(AnySched) => { false }
-            Some(Sched(_)) => { true }
-            None => {
-                rtabort!("task home of None")
-            }
-        }
-    }
-
-    /// On a special scheduler?
-    pub fn on_special() -> bool {
-        do Local::borrow::<Scheduler,bool> |sched| {
-            !sched.run_anything
-        }
-    }
-*/
 }
 
 impl Drop for Task {
@@ -427,9 +372,9 @@ impl Coroutine {
     }
 
     /// Destroy coroutine and try to reuse stack segment.
-    pub fn recycle(~self, stack_pool: &mut StackPool) {
+    pub fn recycle(self, stack_pool: &mut StackPool) {
         match self {
-            ~Coroutine { current_stack_segment, _ } => {
+            Coroutine { current_stack_segment, _ } => {
                 stack_pool.give_segment(current_stack_segment);
             }
         }
@@ -482,7 +427,7 @@ impl Unwinder {
         }
     }
 }
-/*
+
 #[cfg(test)]
 mod test {
     use rt::test::*;
@@ -623,4 +568,4 @@ mod test {
         }
     }
 }
-*/
+
