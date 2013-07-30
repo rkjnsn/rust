@@ -513,7 +513,7 @@ impl RuntimeGlue {
     unsafe fn kill_all_tasks(task: &TaskHandle) {
         match *task {
             OldTask(ptr) => rt::rust_task_kill_all(ptr),
-            NewTask(ref _handle) => rtabort!("unimplemented"), // FIXME(#7544)
+            NewTask(ref _handle) => (), //rtabort!("unimplemented"), // FIXME(#7544)
         }
     }
 
@@ -700,7 +700,8 @@ fn spawn_raw_newsched(mut opts: TaskOpts, f: ~fn()) {
             }
         } else {
             // Creating a 1:1 task:thread ...
-            let sched = Local::unsafe_borrow::<Scheduler>();
+            let mut sched = Local::unsafe_borrow::<Scheduler>();
+            let old_sched_handle = (*sched).make_handle();
 
             // Create a new scheduler to hold the new task
             let new_loop = ~UvEventLoop::new();
@@ -708,7 +709,7 @@ fn spawn_raw_newsched(mut opts: TaskOpts, f: ~fn()) {
                                                         (*sched).work_queue.clone(),
                                                         (*sched).sleeper_list.clone(),
                                                         false,
-                                                        None);
+                                                        Some(old_sched_handle));
             let mut new_sched_handle = new_sched.make_handle();
 
             // Allow the scheduler to exit when the pinned task exits
@@ -740,15 +741,18 @@ fn spawn_raw_newsched(mut opts: TaskOpts, f: ~fn()) {
             let join_task_cell = Cell::new(join_task);
 
             let thread = do Thread::start {
-                let new_sched = new_sched_cell.take();
+                let mut new_sched = new_sched_cell.take();
                 let mut orig_sched_handle = orig_sched_handle_cell.take();
                 let join_task = join_task_cell.take();
 
-                new_sched.run();
+                let bootstrap_task = ~do Task::new_root(&mut new_sched.stack_pool) || {
+                    rtdebug!("boostraping a new scheduler");
+                };
+                new_sched.bootstrap(bootstrap_task);
 
                 // Now tell the original scheduler to join with this thread
                 // by scheduling a thread-joining task on the original scheduler
-                orig_sched_handle.send(ForwardTask(join_task));
+                orig_sched_handle.send(TaskFromFriend(join_task));
 
                 // NB: We can't simply send a message from here to another task
                 // because this code isn't running in a task and message passing doesn't
