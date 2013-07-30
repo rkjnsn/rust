@@ -333,7 +333,7 @@ impl Scheduler {
                 return None;
             }
             Some(TaskFromFriend(task)) => {
-                this.resume_task_immediately(task);
+                this.schedule_task_sched_context(task);
                 return None;
             }
             Some(Wake) => {
@@ -488,6 +488,36 @@ impl Scheduler {
             return Some(this);
         }
     }
+
+    // BAD BAD BAD BAD BAD
+    // Do something instead of just copy-pasting this.
+    pub fn schedule_task_sched_context(~self, task: ~Task) -> Option<~Scheduler> {
+
+        // is the task home?
+        let is_home = task.is_home_no_tls(&self);
+
+        // does the task have a home?
+        let homed = task.homed();
+
+        let mut this = self;
+
+        if is_home || (!homed && this.run_anything) {
+            // here we know we are home, execute now OR we know we
+            // aren't homed, and that this sched doesn't care
+            rtdebug!("task: %u is on ok sched, executing", to_uint(task));
+            this.resume_task_immediately(task);
+            return None;
+        } else if !homed && !this.run_anything {
+            // the task isn't homed, but it can't be run here
+            this.enqueue_task(task);
+            return Some(this);
+        } else {
+            // task isn't home, so don't run it here, send it home
+            Scheduler::send_task_home(task);
+            return Some(this);
+        }
+    }
+
 
     // The primary function for changing contexts. In the current
     // design the scheduler is just a slightly modified GreenTask, so
