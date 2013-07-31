@@ -11,7 +11,7 @@
 //! Runtime calls emitted by the compiler.
 
 use cast::transmute;
-use libc::{c_char, c_uchar, c_void, size_t, uintptr_t, c_int};
+use libc::{c_char, c_uchar, c_void, size_t, uintptr_t};
 use str;
 use sys;
 use rt::{context, OldTaskContext};
@@ -139,23 +139,10 @@ pub unsafe fn annihilate() {
 pub fn start(main: *u8, argc: int, argv: **c_char,
              crate_map: *u8) -> int {
     use rt;
-    use os;
-
-    unsafe {
-        let use_old_rt = os::getenv("RUST_NEWRT").is_none();
-        if use_old_rt {
-            return rust_start(main as *c_void, argc as c_int, argv,
-                              crate_map as *c_void) as int;
-        } else {
-            return do rt::start(argc, argv as **u8, crate_map) {
-                let main: extern "Rust" fn() = transmute(main);
-                main();
-            };
+    return do rt::start(argc, argv as **u8, crate_map) {
+        unsafe {
+            let main: extern "Rust" fn() = transmute(main);
+            main();
         }
-    }
-
-    extern {
-        fn rust_start(main: *c_void, argc: c_int, argv: **c_char,
-                      crate_map: *c_void) -> c_int;
-    }
+    };
 }
