@@ -299,7 +299,7 @@ impl Task {
 impl Drop for Task {
     fn drop(&self) {
         rtdebug!("called drop for a task");
-        assert!(self.destroyed)
+        rtassert!(self.destroyed)
     }
 }
 
@@ -567,5 +567,6 @@ mod test {
             assert_eq!(result.unwrap().recv(), Failure);
         }
     }
+
 }
 

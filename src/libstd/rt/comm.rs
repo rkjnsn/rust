@@ -141,7 +141,10 @@ impl<T> ChanOne<T> {
                         let mut sched = Local::take::<Scheduler>();
                         rtdebug!("rendezvous send");
                         sched.metrics.rendezvous_sends += 1;
-                        sched.schedule_task(woken_task);
+                        match sched.schedule_task(woken_task) {
+                            None => (),
+                            Some(sched) => Local::put(sched)
+                        }
                     };
                 }
             }
@@ -262,7 +265,10 @@ impl<T> Drop for ChanOneHack<T> {
                     let recvr = BlockedTask::cast_from_uint(task_as_state);
                     do recvr.wake().map_consume |woken_task| {
                         let sched = Local::take::<Scheduler>();
-                        sched.schedule_task(woken_task);
+                        match sched.schedule_task(woken_task) {
+                            None => (),
+                            Some(sched) => Local::put(sched)
+                        }
                     };
                 }
             }

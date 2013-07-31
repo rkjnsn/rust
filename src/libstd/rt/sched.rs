@@ -39,14 +39,14 @@ use cell::Cell;
 pub struct Scheduler {
     /// A queue of available work. Under a work-stealing policy there
     /// is one per Scheduler.
-    priv work_queue: WorkQueue<~Task>,
+    work_queue: WorkQueue<~Task>,
     /// The queue of incoming messages from other schedulers.
     /// These are enqueued by SchedHandles after which a remote callback
     /// is triggered to handle the message.
     priv message_queue: MessageQueue<SchedMessage>,
     /// A shared list of sleeping schedulers. We'll use this to wake
     /// up schedulers when pushing work onto the work queue.
-    priv sleeper_list: SleeperList,
+    sleeper_list: SleeperList,
     /// Indicates that we have previously pushed a handle onto the
     /// SleeperList but have not yet received the Wake message.
     /// Being `true` does not necessarily mean that the scheduler is
@@ -158,6 +158,9 @@ impl Scheduler {
         // scheduler. Grab it out of TLS - performing the scheduler
         // action will have given it away.
         let sched = Local::take::<Scheduler>();
+
+        rtdebug!("starting scheduler %u", sched.sched_id());
+
         sched.run();
 
         // Now that we are done with the scheduler, clean up the
@@ -168,6 +171,9 @@ impl Scheduler {
 
         rtdebug!("post sched.run(), cleaning up scheduler task");
         let mut stask = Local::take::<Task>();
+
+        rtdebug!("stopping scheduler %u", stask.sched.get_ref().sched_id());
+
         stask.destroyed = true;
     }
 
@@ -333,6 +339,7 @@ impl Scheduler {
                 return None;
             }
             Some(TaskFromFriend(task)) => {
+                rtdebug!("scheduling a task from a friend");
                 this.schedule_task_sched_context(task);
                 return None;
             }
@@ -480,7 +487,7 @@ impl Scheduler {
             return None;
         } else if !homed && !this.run_anything {
             // the task isn't homed, but it can't be run here
-            this.enqueue_task(task);
+            this.send_to_friend(task);
             return Some(this);
         } else {
             // task isn't home, so don't run it here, send it home
@@ -509,7 +516,7 @@ impl Scheduler {
             return None;
         } else if !homed && !this.run_anything {
             // the task isn't homed, but it can't be run here
-            this.enqueue_task(task);
+            this.send_to_friend(task);
             return Some(this);
         } else {
             // task isn't home, so don't run it here, send it home
