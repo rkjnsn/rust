@@ -93,7 +93,6 @@ use rt::kill::KillHandle;
 use rt::sched::Scheduler;
 use rt::uv::uvio::UvEventLoop;
 use rt::thread::Thread;
-use rt::work_queue::WorkQueue;
 
 #[cfg(test)] use task::default_task_opts;
 #[cfg(test)] use comm;
@@ -624,16 +623,10 @@ fn spawn_raw_newsched(mut opts: TaskOpts, f: ~fn()) {
             let sched = Local::unsafe_borrow::<Scheduler>();
             let sched_handle = (*sched).make_handle();
 
-            // Since this is a 1:1 scheduler we create a queue not in
-            // the stealee set. The run_anything flag is set false
-            // which will disable stealing.
-            let work_queue = WorkQueue::new();
-
             // Create a new scheduler to hold the new task
             let new_loop = ~UvEventLoop::new();
             let mut new_sched = ~Scheduler::new_special(new_loop,
-                                                        work_queue,
-                                                        (*sched).work_queues.clone(),
+                                                        (*sched).work_queue.clone(),
                                                         (*sched).sleeper_list.clone(),
                                                         false,
                                                         Some(sched_handle));
