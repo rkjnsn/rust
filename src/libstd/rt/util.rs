@@ -15,6 +15,9 @@ use option::{Some, None};
 use os;
 use str::StrSlice;
 
+// Indicates whether we should perform expensive sanity checks, including rtassert!
+pub static ENFORCE_SANITY: bool = !cfg!(rtopt) || cfg!(rtdebug) || cfg!(rtassert);
+
 /// Get the number of cores available
 pub fn num_cpus() -> uint {
     unsafe {

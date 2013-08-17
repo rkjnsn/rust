@@ -84,8 +84,8 @@ pub unsafe fn borrow<T>(f: &fn(&mut T)) {
     let value_cell = Cell::new(value);
 
     do (|| {
-        f(unsafe_ptr);
-    }).finally {
+            f(unsafe_ptr);
+        }).finally {
         put(value_cell.take());
     }
 }
