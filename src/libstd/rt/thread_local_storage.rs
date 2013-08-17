@@ -25,11 +25,13 @@ pub unsafe fn create(key: &mut Key) {
 }
 
 #[cfg(unix)]
+#[inline]
 pub unsafe fn set(key: Key, value: *mut c_void) {
     assert_eq!(0, pthread_setspecific(key, value));
 }
 
 #[cfg(unix)]
+#[inline]
 pub unsafe fn get(key: Key) -> *mut c_void {
     pthread_getspecific(key)
 }
