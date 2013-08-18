@@ -102,6 +102,14 @@ enum CleanupJob {
     GiveTask(~Task, UnsafeTaskReceiver)
 }
 
+/// An indication of how hard to work on a given operation, the difference
+/// mainly being whether memory is synchronized or not
+#[deriving(Eq)]
+enum EffortLevel {
+    DontTryTooHard,
+    GiveItYourBest
+}
+
 impl Scheduler {
 
     pub fn sched_id(&self) -> uint { to_uint(self) }
@@ -265,7 +273,9 @@ impl Scheduler {
         // 4) A message from another scheduler with a non-homed task
         //    to run here.
 
-        let result = sched.interpret_message_queue();
+        // The first check may miss messages, but gives up quickly
+        // without synchronizing. Don't try too hard!
+        let result = sched.interpret_message_queue(DontTryTooHard);
         let sched = match result {
             Some(sched) => {
                 // We did not resume a task, so we returned.
@@ -279,9 +289,22 @@ impl Scheduler {
         // Second activity is to try resuming a task from the queue.
 
         let result = sched.do_work();
-        let mut sched = match result {
+        let sched = match result {
             Some(sched) => {
                 // Failed to dequeue a task, so we return.
+                sched
+            }
+            None => {
+                return;
+            }
+        };
+
+        // Now, before sleeping we need to find out if there really
+        // were any messages. Give it your best!
+        let result = sched.interpret_message_queue(GiveItYourBest);
+        let mut sched = match result {
+            Some(sched) => {
+                // We did not resume a task, so we returned.
                 sched
             }
             None => {
@@ -411,10 +434,18 @@ impl Scheduler {
     // This function returns None if the scheduler is "used", or it
     // returns the still-available scheduler. Note: currently
     // considers *any* message receive a use and returns None.
-    fn interpret_message_queue(~self) -> Option<~Scheduler> {
+    fn interpret_message_queue(~self, effort: EffortLevel) -> Option<~Scheduler> {
 
         let mut this = self;
-        match this.message_queue.pop() {
+
+        let msg = if effort == DontTryTooHard {
+            // Do a cheap check that may miss messages
+            this.message_queue.casual_pop()
+        } else {
+            this.message_queue.pop()
+        };
+
+        match msg {
             Some(PinnedTask(task)) => {
 //                this.event_loop.callback(Scheduler::run_sched_once);
                 let mut task = task;
