@@ -22,6 +22,7 @@ use cell::Cell;
 use option::{Option, Some, None};
 use unstable::finally::Finally;
 use tls = rt::thread_local_storage;
+use rt::util;
 
 static mut RT_TLS_KEY: tls::Key = -1;
 
@@ -144,15 +145,28 @@ pub unsafe fn try_unsafe_borrow<T>() -> Option<*mut T> {
 }
 
 #[inline]
+#[cfg(not(test))]
 fn tls_key() -> tls::Key {
-    match maybe_tls_key() {
-        Some(key) => key,
-        None => rtabort!("runtime tls key not initialized")
+    if util::ENFORCE_SANITY {
+        match maybe_tls_key() {
+            Some(key) => key,
+            None => rtabort!("runtime tls key not initialized")
+        }
+    } else {
+        unsafe { RT_TLS_KEY }
     }
 }
 
+// XXX: The boundary between the running runtime and the testing runtime
+// seems to be fuzzy at the moment, and trying to use two different keys
+// results in disaster. This should not be necessary.
 #[inline]
-#[cfg(not(test))]
+#[cfg(test)]
+pub fn tls_key() -> tls::Key {
+    unsafe { ::cast::transmute(::realstd::rt::local_ptr::tls_key()) }
+}
+
+#[inline]
 pub fn maybe_tls_key() -> Option<tls::Key> {
     unsafe {
         // NB: This is a little racy because, while the key is

@@ -10,7 +10,7 @@
 
 use either::{Left, Right};
 use option::{Option, Some, None};
-use cast::{transmute, transmute_mut_region, transmute_mut_unsafe};
+use cast::{transmute, transmute_mut_region};
 use clone::Clone;
 use unstable::raw;
 use super::sleeper_list::SleeperList;
@@ -24,6 +24,7 @@ use rt::kill::BlockedTask;
 use rt::local_ptr;
 use rt::local::Local;
 use rt::rtio::RemoteCallback;
+use rt::util;
 use borrow::{to_uint};
 use cell::Cell;
 use rand::{XorShiftRng, RngUtil};
@@ -704,55 +705,39 @@ impl Scheduler {
     pub fn change_task_context(~self,
                                next_task: ~Task,
                                f: &fn(&mut Scheduler, ~Task)) {
-        let mut this = self;
-
-        // The current task is grabbed from TLS, not taken as an input.
-        // Doing an unsafe_take to avoid writing back a null pointer -
-        // We're going to call `put` later to do that.
-        let current_task: ~Task = unsafe { Local::unsafe_take::<Task>() };
-
-        // Check that the task is not in an atomically() section (e.g.,
-        // holding a pthread mutex, which could deadlock the scheduler).
-        current_task.death.assert_may_sleep();
-
-        // These transmutes do something fishy with a closure.
-        let f_fake_region = unsafe {
-            transmute::<&fn(&mut Scheduler, ~Task),
-                        &fn(&mut Scheduler, ~Task)>(f)
-        };
-        let f_opaque = ClosureConverter::from_fn(f_fake_region);
-
-        // The current task is placed inside an enum with the cleanup
-        // function. This enum is then placed inside the scheduler.
-        this.enqueue_cleanup_job(GiveTask(current_task, f_opaque));
-
-        // The scheduler is then placed inside the next task.
-        let mut next_task = next_task;
-        next_task.sched = Some(this);
-
-        // However we still need an internal mutable pointer to the
-        // original task. The strategy here was "arrange memory, then
-        // get pointers", so we crawl back up the chain using
-        // transmute to eliminate borrowck errors.
         unsafe {
+            let mut this = self;
 
-            let sched: &mut Scheduler =
-                transmute_mut_region(*next_task.sched.get_mut_ref());
+            // Take a pointer to the scheduler
+            let unsafe_sched: *mut Scheduler = &mut *this;
 
-            let current_task: &mut Task = match sched.cleanup_job {
-                Some(GiveTask(ref task, _)) => {
-                    transmute_mut_region(*transmute_mut_unsafe(task))
-                }
-                Some(DoNothing) => {
-                    rtabort!("no next task");
-                }
-                None => {
-                    rtabort!("no cleanup job");
-                }
-            };
+            // The scheduler is then placed inside the next task.
+            let mut next_task = next_task;
+            next_task.sched = Some(this);
+
+            // The current task is grabbed from TLS, not taken as an input.
+            // Doing an unsafe_take to avoid writing back a null pointer -
+            // We're going to call `put` later to do that.
+            let mut current_task: ~Task = Local::unsafe_take::<Task>();
+            let unsafe_current_task: *mut Task = &mut *current_task;
+
+            // Check that the task is not in an atomically() section (e.g.,
+            // holding a pthread mutex, which could deadlock the scheduler).
+            if util::ENFORCE_SANITY {
+                current_task.death.assert_may_sleep();
+            }
+
+            // These transmutes do something fishy with a closure.
+            let f_fake_region =
+                transmute::<&fn(&mut Scheduler, ~Task), &fn(&mut Scheduler, ~Task)>(f);
+            let f_opaque = ClosureConverter::from_fn(f_fake_region);
+
+            // The current task is placed inside an enum with the cleanup
+            // function. This enum is then placed inside the scheduler.
+            (*unsafe_sched).enqueue_cleanup_job(GiveTask(current_task, f_opaque));
 
             let (current_task_context, next_task_context) =
-                Scheduler::get_contexts(current_task, next_task);
+                Scheduler::get_contexts(&mut *unsafe_current_task, next_task);
 
             // Done with everything - put the next task in TLS. This
             // works because due to transmute the borrow checker
@@ -764,12 +749,10 @@ impl Scheduler {
             // will be running the cleanup job from the context of the
             // next task.
             Context::swap(current_task_context, next_task_context);
-        }
 
-        // When the context swaps back to this task we immediately
-        // run the cleanup job, as expected by the previously called
-        // swap_contexts function.
-        unsafe {
+            // When the context swaps back to this task we immediately
+            // run the cleanup job, as expected by the previously called
+            // swap_contexts function.
             let task = Local::unsafe_borrow::<Task>();
             (*task).sched.get_mut_ref().run_cleanup_job();
 
