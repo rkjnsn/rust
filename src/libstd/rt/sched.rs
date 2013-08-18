@@ -384,16 +384,12 @@ impl Scheduler {
         // We've made work available. Notify a
         // sleeping scheduler.
 
-        // XXX: perf. Check for a sleeper without
-        // synchronizing memory.  It's not critical
-        // that we always find it.
-
         // XXX: perf. If there's a sleeper then we
         // might as well just send it the task
         // directly instead of pushing it to the
         // queue. That is essentially the intent here
         // and it is less work.
-        match this.sleeper_list.pop() {
+        match this.sleeper_list.casual_pop() {
             Some(handle) => {
                 let mut handle = handle;
                 handle.send(Wake)
