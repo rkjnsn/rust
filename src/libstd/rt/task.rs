@@ -55,7 +55,7 @@ pub struct Task {
 }
 
 pub enum TaskType {
-    GreenTask(Option<~SchedHome>),
+    GreenTask(Option<SchedHome>),
     SchedTask
 }
 
@@ -168,7 +168,7 @@ impl Task {
             name: None,
             coroutine: Some(Coroutine::new(stack_pool, stack_size, start)),
             sched: None,
-            task_type: GreenTask(Some(~home))
+            task_type: GreenTask(Some(home))
         }
     }
 
@@ -190,14 +190,14 @@ impl Task {
             name: None,
             coroutine: Some(Coroutine::new(stack_pool, stack_size, start)),
             sched: None,
-            task_type: GreenTask(Some(~home))
+            task_type: GreenTask(Some(home))
         }
     }
 
     pub fn give_home(&mut self, new_home: SchedHome) {
         match self.task_type {
             GreenTask(ref mut home) => {
-                *home = Some(~new_home);
+                *home = Some(new_home);
             }
             SchedTask => {
                 rtabort!("type error: used SchedTask as GreenTask");
@@ -209,7 +209,7 @@ impl Task {
         match self.task_type {
             GreenTask(ref mut home) => {
                 let out = home.take_unwrap();
-                return *out;
+                return out;
             }
             SchedTask => {
                 rtabort!("type error: used SchedTask as GreenTask");
@@ -265,8 +265,8 @@ impl Task {
 
     pub fn is_home_no_tls(&self, sched: &~Scheduler) -> bool {
         match self.task_type {
-            GreenTask(Some(~AnySched)) => { false }
-            GreenTask(Some(~Sched(SchedHandle { sched_id: ref id, _}))) => {
+            GreenTask(Some(AnySched)) => { false }
+            GreenTask(Some(Sched(SchedHandle { sched_id: ref id, _}))) => {
                 *id == sched.sched_id()
             }
             GreenTask(None) => {
@@ -281,8 +281,8 @@ impl Task {
 
     pub fn homed(&self) -> bool {
         match self.task_type {
-            GreenTask(Some(~AnySched)) => { false }
-            GreenTask(Some(~Sched(SchedHandle { _ }))) => { true }
+            GreenTask(Some(AnySched)) => { false }
+            GreenTask(Some(Sched(SchedHandle { _ }))) => { true }
             GreenTask(None) => {
                 rtabort!("task without home");
             }
@@ -299,11 +299,11 @@ impl Task {
             let sched_id = task.sched.get_ref().sched_id();
             let sched_run_anything = task.sched.get_ref().run_anything;
             match task.task_type {
-                GreenTask(Some(~AnySched)) => {
+                GreenTask(Some(AnySched)) => {
                     rtdebug!("anysched task in sched check ****");
                     sched_run_anything
                 }
-                GreenTask(Some(~Sched(SchedHandle { sched_id: ref id, _ }))) => {
+                GreenTask(Some(Sched(SchedHandle { sched_id: ref id, _ }))) => {
                     rtdebug!("homed task in sched check ****");
                     *id == sched_id
                 }
