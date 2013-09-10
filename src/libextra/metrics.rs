@@ -19,104 +19,104 @@ use std::local_data;
 use std::hashmap::HashMap;
 use std::container::MutableMap;
 
-pub static reg_key: local_data::Key<HashMap<~str, MetricGroup>> = &local_data::Key;
 
-/// A group of metrics with a common namespace
-pub struct MetricGroup {
-    priv name: ~str,
-    priv metrics: HashMap<~str, Metric>,
+condition! {
+    pub wrong_metric_type : ~str -> ();
 }
 
-impl MetricGroup {
-    /// Create a new MetricGroup with the given namespace
-    pub fn new(name: ~str) -> MetricGroup {
-        MetricGroup { name: name, metrics: HashMap::new() }
+/// A group of metrics with a common prefix, using TLS for storage.
+///
+/// Use `metrics!(M)` to declare a static `Metrics` value named `M`,
+/// prefixed by the current module path. The TLS map containing each metric
+/// associated with `M` will be populated automatically in response to
+/// method calls on the static `M`, such as `M.inc_counter("foo", 1)`.
+///
+/// Declaring a static `Metrics` value this way incurs zero runtime cost
+/// until actual metrics are recorded in it.
+pub struct Metrics {
+    priv prefix: &'static str,
+}
+
+impl Metrics {
+
+    /// Borrows a `Counter` temporarily with a given `name`, scoped under
+    /// the `prefix` of this `Metrics` instance, and runs callback `f` on
+    /// that `Counter`. Creates the `Counter` if it does not exist. Raises
+    /// `wrong_metric_type` if the name is already in use for some
+    /// non-`Counter` metric.
+    pub fn with_counter(&self, name: &str, f: &fn(&mut Counter)) {
+        do tls_add_or_modify(self.prefix, name,
+                             || Counter(Counter::new())) |m| {
+            match *m {
+                Counter(ref mut c) => f(c),
+                _ => wrong_metric_type::cond.raise(name.to_owned())
+            }
+        }
     }
 
-    /// Add a metric as a child with the given name.
-    pub fn insert(&mut self, name: ~str, m: Metric) {
-        self.metrics.insert(name, m);
+    /// Convenience method to increment a `Counter` as would be
+    /// borrowed using `with_counter`.
+    pub fn inc_counter(&self, name: &str, n: i64) {
+        do self.with_counter(name) |c| {
+            c.inc(n)
+        }
     }
+}
+
+
+// Private enum for storing multiple metric types in TLS.
+enum Metric {
+    Counter(Counter),
+    Meter(Meter),
+    Timer(Timer)
 }
 
 // TLS interface
+static tls_key: local_data::Key<HashMap<~str,~HashMap<~str, Metric>>> = &local_data::Key;
 
-/// Adds a metric to TLS
-///
-/// The name consists of any string, a period, and any string that doesn't
-/// contain a period. Example: `rustc.trans.insns.pop`. `rustc.trans.insns` is
-/// the namespace, `pop` is the name of the metric.
-pub fn add(name: ~str, m: Metric) {
-    let last = name.rfind('.').expect("all metrics require a namespace");
-    let prefix = name.slice_to(last);
-    let key = name.slice_from(last);
-
-    do local_data::modify(reg_key) |reg| {
-        let mut reg = reg.unwrap_or_default(HashMap::new());
-        if reg.contains_key_equiv(&prefix) {
-            // ugly allocation
-            let mg = reg.get_mut(&prefix.to_str());
-            mg.metrics.insert(key.to_str(), m);
-        } else {
-            let mut mg = MetricGroup::new(prefix.to_str());
-            mg.metrics.insert(key.to_str(), m);
-            reg.insert(prefix.to_str(), mg);
+fn tls_with_registry(f: &fn(reg: &mut HashMap<~str, ~HashMap<~str, Metric>>)) {
+    let new = do local_data::get_mut(tls_key) |r| {
+        match r {
+            None => true,
+            Some(r) => { f(r); false }
         }
-        Some(reg)
+    };
+    if new {
+        let mut h = HashMap::new();
+        f(&mut h);
+        local_data::set(tls_key, h)
     }
 }
 
-/// Modify a metric in TLS
-///
-/// The name is the name of a metric that may or may not have been added
-/// already. The passed closure receives a mutable reference to the metric, or
-/// None.
-pub fn modify(name: ~str, f: &fn(m: Option<&mut Metric>)) {
-    let last = name.rfind('.').expect("all metrics require a namespace");
-    let prefix = name.slice_to(last);
-    let key = name.slice_from(last);
-    
-    do local_data::get_mut(reg_key) |reg| {
-        match reg {
-            Some(reg) => {
-                if reg.contains_key_equiv(&prefix) {
-                    let mg = reg.get_mut(&prefix.to_str());
-                    f(mg.metrics.find_mut(&key.to_str()));
-                } else {
-                    f(None);
-                }
-            },
-            None => f(None)
+fn tls_with_prefix(prefix: &str, f: &fn(mg: &mut ~HashMap<~str, Metric>)) {
+    do tls_with_registry |reg| {
+        let new = match reg.find_mut_equiv(&prefix) {
+            None => true,
+            Some(mg) => { f(mg); false }
+        };
+        if new {
+            let mut mg = ~HashMap::new();
+            f(&mut mg);
+            reg.insert(prefix.to_owned(), mg);
         }
     }
 }
 
-/// Get a metric from TLS
-///
-/// The name is the name of a metric that may or may not have been added
-/// already. The passed closure receives a reference to the metric, or None.
-pub fn get(name: ~str, f: &fn(m: Option<&Metric>)) {
-    let last = name.rfind('.').expect("all metrics require a namespace");
-    let prefix = name.slice_to(last);
-    let key = name.slice_from(last);
-    
-    do local_data::get(reg_key) |reg| {
-        match reg {
-            Some(reg) => {
-                if reg.contains_key_equiv(&prefix) {
-                    let mg = reg.get(&prefix.to_str());
-                    f(mg.metrics.find(&key.to_str()));
-                } else {
-                    f(None);
-                }
-            },
-            None => f(None)
+fn tls_add_or_modify(prefix: &str,
+                     name: &str,
+                     create: &fn() -> Metric,
+                     existing: &fn(m: &mut Metric)) {
+    do tls_with_prefix(prefix) |mg| {
+        let new = match mg.find_mut_equiv(&name) {
+            None => true,
+            Some(m) => { existing(m); false }
+        };
+        if new {
+            let mut m = create();
+            existing(&mut m);
+            mg.insert(name.to_owned(), m);
         }
     }
-}
-/// The set of metrics which this library knows about
-pub enum Metric {
-    Counter(Counter),
 }
 
 /// A counter which increments and decrements over time
@@ -138,6 +138,18 @@ impl Counter {
     pub fn dec   (&mut self, value: i64) { self.val -= value; }
 }
 
+/// A metric that measures the rate at which some event is occurring.
+/// Stores exponentially-weighted moving averages.
+pub struct Meter {
+    priv ignore: ()
+}
+
+/// Combines a Histogram of an event's duration with a Meter
+/// of the rate of occurrence.
+pub struct Timer {
+    priv ignore: ()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,9 +168,15 @@ mod tests {
 
     #[test]
     fn test_tls() {
-        let m = Counter(Counter::new());
-        add(~"test.counter", m);
-        modify(~"test.counter", |m| m.unwrap().inc(1));
-        get(~"test.counter", |m| assert_eq!(match m.unwrap() { &Counter(ref c) => c.get() }, 1));
+
+        metrics!(M);
+
+        M.inc_counter("counter", 1);
+        M.inc_counter("counter", 1);
+        M.inc_counter("counter", 1);
+
+        do M.with_counter("counter") |c| {
+            assert_eq!(c.get(), 3);
+        }
     }
 }

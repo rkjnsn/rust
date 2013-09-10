@@ -904,6 +904,18 @@ pub fn std_macros() -> @str {
         }
     )
 
+    macro_rules! metrics (
+        ( $i:ident ) => {
+            static $i : ::extra::metrics::Metrics =
+                        ::extra::metrics::Metrics { prefix: module_path!() };
+        };
+        ( pub $i:ident ) => {
+            pub static $i : ::extra::metrics::Metrics =
+                            ::extra::metrics::Metrics { prefix: module_path!() };
+        }
+    )
+
+
     //
     // A scheme-style conditional that helps to improve code clarity in some instances when
     // the `if`, `else if`, and `else` keywords obscure predicates undesirably.

@@ -444,6 +444,17 @@ impl<K: Hash + Eq, V> HashMap<K, V> {
         }
     }
 
+    /// Return a mutable reference to the value corresponding to the key,
+    /// using equivalence
+    pub fn find_mut_equiv<'a, Q:Hash + Equiv<K>>(&'a mut self, k: &Q)
+        -> Option<&'a mut V> {
+        let idx = match self.bucket_for_key_equiv(k) {
+            FoundEntry(idx) => idx,
+            TableFull | FoundHole(_) => return None
+        };
+        Some(self.mut_value_for_bucket(idx))
+    }
+
     /// Visit all keys
     pub fn each_key(&self, blk: &fn(k: &K) -> bool) -> bool {
         self.iter().advance(|(k, _)| blk(k))
