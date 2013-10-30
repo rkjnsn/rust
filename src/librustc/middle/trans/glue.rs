@@ -269,14 +269,14 @@ pub fn call_tydesc_glue_full(bcx: @mut Block,
                              v: ValueRef,
                              tydesc: ValueRef,
                              field: uint,
-                             static_ti: Option<@mut tydesc_info>) {
+                             static_ti: Option<@mut tydesc_info>) -> @mut Block {
     let _icx = push_ctxt("call_tydesc_glue_full");
     let ccx = bcx.ccx();
     // NB: Don't short-circuit even if this block is unreachable because
     // GC-based cleanup needs to the see that the roots are live.
     let no_lpads =
         ccx.sess.opts.debugging_opts & session::no_landing_pads != 0;
-    if bcx.unreachable && !no_lpads { return; }
+    if bcx.unreachable && !no_lpads { return bcx; }
 
     let static_glue_fn = match static_ti {
       None => None,
@@ -322,7 +322,14 @@ pub fn call_tydesc_glue_full(bcx: @mut Block,
         }
     };
 
-    Call(bcx, llfn, [C_null(Type::nil().ptr_to()), llrawptr], []);
+    if !bcx.terminated {
+        let (_, bcx) = invoke(bcx, llfn, ~[C_null(Type::nil().ptr_to()), llrawptr], []);
+        bcx.terminated = false;
+        return bcx;
+    } else {
+        Call(bcx, llfn, [C_null(Type::nil().ptr_to()), llrawptr], []);
+        return bcx;
+    }
 }
 
 // See [Note-arg-mode]
@@ -330,8 +337,7 @@ pub fn call_tydesc_glue(cx: @mut Block, v: ValueRef, t: ty::t, field: uint)
     -> @mut Block {
     let _icx = push_ctxt("call_tydesc_glue");
     let ti = get_tydesc(cx.ccx(), t);
-    call_tydesc_glue_full(cx, v, ti.tydesc, field, Some(ti));
-    return cx;
+    return call_tydesc_glue_full(cx, v, ti.tydesc, field, Some(ti));
 }
 
 pub fn make_visit_glue(bcx: @mut Block, v: ValueRef, t: ty::t) -> @mut Block {
@@ -369,8 +375,8 @@ pub fn make_free_glue(bcx: @mut Block, v: ValueRef, t: ty::t) -> @mut Block {
         let valptr = GEPi(bcx, v, [0u, abi::box_field_body]);
         // Generate code that, dynamically, indexes into the
         // tydesc and calls the drop glue that got set dynamically
-        call_tydesc_glue_full(bcx, valptr, td, abi::tydesc_field_drop_glue,
-                              None);
+        let bcx = call_tydesc_glue_full(bcx, valptr, td, abi::tydesc_field_drop_glue,
+                                        None);
         trans_free(bcx, v)
       }
       ty::ty_uniq(*) => {
@@ -510,11 +516,11 @@ pub fn make_drop_glue(bcx: @mut Block, v0: ValueRef, t: ty::t) -> @mut Block {
               let llvtable = PointerCast(bcx, llvtable,
                                          ccx.tydesc_type.ptr_to().ptr_to());
               let lltydesc = Load(bcx, llvtable);
-              call_tydesc_glue_full(bcx,
-                                    lluniquevalue,
-                                    lltydesc,
-                                    abi::tydesc_field_free_glue,
-                                    None);
+              let bcx = call_tydesc_glue_full(bcx,
+                                              lluniquevalue,
+                                              lltydesc,
+                                              abi::tydesc_field_free_glue,
+                                              None);
               bcx
           }
       }
@@ -586,7 +592,7 @@ pub fn make_take_glue(bcx: @mut Block, v: ValueRef, t: ty::t) -> @mut Block {
           let llvtable = PointerCast(bcx, llvtable,
                                      bcx.ccx().tydesc_type.ptr_to().ptr_to());
           let lltydesc = Load(bcx, llvtable);
-          call_tydesc_glue_full(bcx,
+          let bcx = call_tydesc_glue_full(bcx,
                                 lluniquevalue,
                                 lltydesc,
                                 abi::tydesc_field_take_glue,

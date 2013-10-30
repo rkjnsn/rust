@@ -379,8 +379,8 @@ pub fn trans_intrinsic(ccx: @mut CrateContext,
             let td = get_param(decl, first_real_arg);
             let visitor = get_param(decl, first_real_arg + 1u);
             let td = PointerCast(bcx, td, ccx.tydesc_type.ptr_to());
-            glue::call_tydesc_glue_full(bcx, visitor, td,
-                                        abi::tydesc_field_visit_glue, None);
+            let bcx = glue::call_tydesc_glue_full(bcx, visitor, td,
+                                                  abi::tydesc_field_visit_glue, None);
             RetVoid(bcx);
         }
         "morestack_addr" => {
