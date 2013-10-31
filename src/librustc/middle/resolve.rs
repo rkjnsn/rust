@@ -1275,7 +1275,10 @@ impl Resolver {
                     } if path.segments.len() == 1 => {
                         let name = path_to_ident(path);
 
-                        let new_parent = match parent.children.find(&name.name) {
+                        let ModuleReducedGraphParent(@Module {
+                            children: ref children, _
+                        }) = parent;
+                        let new_parent = match children.find(&name.name) {
                             // It already exists
                             Some(&child) if child.get_module_if_available()
                                                  .is_some() &&
@@ -1542,7 +1545,11 @@ impl Resolver {
                                                           false,
                                                           true);
 
-                        parent.external_module_children.insert(
+                        let ModuleReducedGraphParent(@Module {
+                            external_module_children: ref external_module_children, _
+                        }) = parent;
+
+                        external_module_children.insert(
                             name.name,
                             external_module);
 
