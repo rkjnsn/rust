@@ -35,7 +35,8 @@ impl Pipe {
     }
 
     pub fn as_stream(&self) -> net::StreamWatcher {
-        net::StreamWatcher(**self as *uvll::uv_stream_t)
+        let Pipe(handle) = *self;
+        net::StreamWatcher(handle as *uvll::uv_stream_t)
     }
 
     #[fixed_stack_segment] #[inline(never)]

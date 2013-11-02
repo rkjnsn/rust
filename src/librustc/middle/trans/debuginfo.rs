@@ -503,7 +503,7 @@ pub fn set_source_location(fcx: &FunctionContext,
         let loc = span_start(cx, span);
         let scope = scope_metadata(fcx, node_id, span);
 
-        set_debug_location(cx, DebugLocation::new(scope, loc.line, *loc.col));
+        set_debug_location(cx, DebugLocation::new(scope, loc.line, loc.col.to_uint()));
     } else {
         set_debug_location(cx, UnknownLocation);
     }
@@ -943,7 +943,7 @@ fn declare_local(bcx: @mut Block,
         }
     };
 
-    set_debug_location(cx, DebugLocation::new(scope_metadata, loc.line, *loc.col));
+    set_debug_location(cx, DebugLocation::new(scope_metadata, loc.line, loc.col.to_uint()));
     unsafe {
         let instr = llvm::LLVMDIBuilderInsertDeclareAtEnd(
             DIB(cx),

@@ -99,7 +99,10 @@ pub struct Handle(*uvll::uv_handle_t);
 impl Watcher for Handle {}
 impl NativeHandle<*uvll::uv_handle_t> for Handle {
     fn from_native_handle(h: *uvll::uv_handle_t) -> Handle { Handle(h) }
-    fn native_handle(&self) -> *uvll::uv_handle_t { **self }
+    fn native_handle(&self) -> *uvll::uv_handle_t {
+        let Handle(handle) = *self;
+        handle
+    }
 }
 
 /// The trait implemented by uv 'watchers' (handles). Watchers are
@@ -285,7 +288,8 @@ impl UvError {
     }
 
     pub fn is_eof(&self) -> bool {
-        **self == uvll::EOF
+        let UvError(handle) = *self;
+        handle == uvll::EOF
     }
 }
 
@@ -308,10 +312,11 @@ pub fn uv_error_to_io_error(uverr: UvError) -> IoError {
         use std::rt::io::*;
 
         // uv error descriptions are static
-        let c_desc = uvll::strerror(*uverr);
+        let UvError(errcode) = uverr;
+        let c_desc = uvll::strerror(errcode);
         let desc = str::raw::c_str_to_static_slice(c_desc);
 
-        let kind = match *uverr {
+        let kind = match errcode {
             UNKNOWN => OtherIoError,
             OK => OtherIoError,
             EOF => EndOfFile,

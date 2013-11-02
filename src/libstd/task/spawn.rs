@@ -108,17 +108,28 @@ impl TaskSet {
     }
     #[inline]
     fn insert(&mut self, task: KillHandle) {
-        let didnt_overwrite = (**self).insert(task);
+        let didnt_overwrite = self.get_mut_ref().insert(task);
         assert!(didnt_overwrite);
     }
     #[inline]
     fn remove(&mut self, task: &KillHandle) {
-        let was_present = (**self).remove(task);
+        let was_present = self.get_mut_ref().remove(task);
         assert!(was_present);
     }
     #[inline]
     fn move_iter(self) -> HashSetMoveIterator<KillHandle> {
-        (*self).move_iter()
+        let TaskSet(handles) = self;
+        handles.move_iter()
+    }
+    #[inline]
+    fn get_ref<'a>(&'a self) -> &'a HashSet<KillHandle> {
+        let TaskSet(ref handles) = *self;
+        return handles;
+    }
+    #[inline]
+    fn get_mut_ref<'a>(&'a mut self) -> &'a mut HashSet<KillHandle> {
+        let TaskSet(ref mut handles) = *self;
+        return handles;
     }
 }
 
@@ -137,7 +148,7 @@ type TaskGroupInner<'self> = &'self mut Option<TaskGroupData>;
 
 // A taskgroup is 'dead' when nothing can cause it to fail; only members can.
 fn taskgroup_is_dead(tg: &TaskGroupData) -> bool {
-    tg.members.is_empty()
+    tg.members.get_ref().is_empty()
 }
 
 // A list-like structure by which taskgroups keep track of all ancestor groups
@@ -161,6 +172,18 @@ struct AncestorNode {
 }
 
 struct AncestorList(Option<Exclusive<AncestorNode>>);
+
+impl AncestorList {
+    fn get_ref<'a>(&'a self) -> &'a Option<Exclusive<AncestorNode>> {
+        let AncestorList(ref node) = *self;
+        return node;
+    }
+
+    fn get_mut_ref<'a>(&'a mut self) -> &'a mut Option<Exclusive<AncestorNode>> {
+        let AncestorList(ref mut node) = *self;
+        return node;
+    }
+}
 
 // Accessors for taskgroup arcs and ancestor arcs that wrap the unsafety.
 #[inline]
@@ -246,7 +269,7 @@ fn each_ancestor(list:        &mut AncestorList,
 
         // The map defaults to None, because if ancestors is None, we're at
         // the end of the list, which doesn't make sense to coalesce.
-        do ancestors.as_ref().map_default((None,false)) |ancestor_arc| {
+        do ancestors.get_ref().as_ref().map_default((None,false)) |ancestor_arc| {
             // NB: Takes a lock! (this ancestor node)
             do access_ancestors(ancestor_arc) |nobe| {
                 // Argh, but we couldn't give it to coalesce() otherwise.
@@ -501,7 +524,8 @@ fn gen_child_taskgroup(linked: bool, supervised: bool)
         // with_my_taskgroup will lazily initialize the parent's taskgroup if
         // it doesn't yet exist. We don't want to call it in the unlinked case.
         do RuntimeGlue::with_my_taskgroup |spawner_group| {
-            let ancestors = AncestorList(spawner_group.ancestors.as_ref().map(|x| x.clone()));
+            let node = spawner_group.ancestors.get_ref().as_ref().map(|x| x.clone());
+            let ancestors = AncestorList(node);
             if linked {
                 // Child is in the same group as spawner.
                 // Child's ancestors are spawner's ancestors.

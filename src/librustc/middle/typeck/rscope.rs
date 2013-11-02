@@ -54,12 +54,20 @@ impl RegionScope for EmptyRscope {
 pub struct RegionParamNames(OptVec<ast::Ident>);
 
 impl RegionParamNames {
+    fn get_ref<'a>(&'a self) -> &'a OptVec<ast::Ident> {
+        let RegionParamNames(ref v) = *self; v
+    }
+
+    fn get_mut_ref<'a>(&'a mut self) -> &'a mut OptVec<ast::Ident> {
+        let RegionParamNames(ref mut v) = *self; v
+    }
+
     fn has_self(&self) -> bool {
         self.has_ident(special_idents::self_)
     }
 
     fn has_ident(&self, ident: ast::Ident) -> bool {
-        for region_param_name in self.iter() {
+        for region_param_name in self.get_ref().iter() {
             if *region_param_name == ident {
                 return true;
             }
@@ -71,10 +79,10 @@ impl RegionParamNames {
         match generics.lifetimes {
             opt_vec::Empty => {}
             opt_vec::Vec(ref new_lifetimes) => {
-                match **self {
+                let inner = self.get_mut_ref();
+                match *inner {
                     opt_vec::Empty => {
-                        *self = RegionParamNames(
-                            opt_vec::Vec(new_lifetimes.map(|lt| lt.ident)));
+                        *inner = opt_vec::Vec(new_lifetimes.map(|lt| lt.ident));
                     }
                     opt_vec::Vec(ref mut existing_lifetimes) => {
                         for new_lifetime in new_lifetimes.iter() {
@@ -215,8 +223,12 @@ impl RegionScope for MethodRscope {
 pub struct TypeRscope(Option<RegionParameterization>);
 
 impl TypeRscope {
+    fn get_ref<'a>(&'a self) -> &'a Option<RegionParameterization> {
+        let TypeRscope(ref v) = *self; v
+    }
+
     fn replacement(&self) -> ty::Region {
-        if self.is_some() {
+        if self.get_ref().is_some() {
             ty::re_bound(ty::br_self)
         } else {
             ty::re_static
@@ -231,7 +243,7 @@ impl RegionScope for TypeRscope {
         })
     }
     fn self_region(&self, _span: Span) -> Result<ty::Region, RegionError> {
-        match **self {
+        match *self.get_ref() {
             None => {
                 // if the self region is used, region parameterization should
                 // have inferred that this type is RP

@@ -305,7 +305,8 @@ impl Task {
                 // TLS, or possibly some destructors for those objects being
                 // annihilated invoke TLS. Sadly these two operations seemed to
                 // be intertwined, and miraculously work for now...
-                self.storage.take();
+                let LocalStorage(ref mut map) = self.storage;
+                map.take();
 
                 // Destroy remaining boxes. Also may run user dtors.
                 unsafe { cleanup::annihilate(); }

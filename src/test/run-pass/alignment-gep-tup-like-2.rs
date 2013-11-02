@@ -22,7 +22,8 @@ struct Rec<A> {
 
 fn make_cycle<A:'static>(a: A) {
     let g: @mut RecEnum<A> = @mut RecEnum(Rec {val: a, rec: None});
-    g.rec = Some(g);
+    let RecEnum(ref mut gg) = *g;
+    gg.rec = Some(g);
 }
 
 struct Invoker<A,B> {

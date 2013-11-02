@@ -128,9 +128,17 @@ struct Variable(uint);
 #[deriving(Eq)]
 struct LiveNode(uint);
 
+impl Variable {
+    fn get(&self) -> uint { let Variable(v) = *self; v }
+}
+
+impl LiveNode {
+    fn get(&self) -> uint { let LiveNode(v) = *self; v }
+}
+
 impl Clone for LiveNode {
     fn clone(&self) -> LiveNode {
-        LiveNode(**self)
+        LiveNode(self.get())
     }
 }
 
@@ -177,11 +185,11 @@ pub fn check_crate(tcx: ty::ctxt,
 }
 
 impl to_str::ToStr for LiveNode {
-    fn to_str(&self) -> ~str { format!("ln({})", **self) }
+    fn to_str(&self) -> ~str { format!("ln({})", self.get()) }
 }
 
 impl to_str::ToStr for Variable {
-    fn to_str(&self) -> ~str { format!("v({})", **self) }
+    fn to_str(&self) -> ~str { format!("v({})", self.get()) }
 }
 
 // ______________________________________________________________________
@@ -208,7 +216,7 @@ impl to_str::ToStr for Variable {
 
 impl LiveNode {
     pub fn is_valid(&self) -> bool {
-        **self != uint::max_value
+        self.get() != uint::max_value
     }
 }
 
@@ -320,7 +328,7 @@ impl IrMaps {
     }
 
     pub fn variable_name(&mut self, var: Variable) -> @str {
-        match self.var_kinds[*var] {
+        match self.var_kinds[var.get()] {
             Local(LocalInfo { ident: nm, _ }) | Arg(_, nm) => {
                 self.tcx.sess.str_of(nm)
             },
@@ -342,7 +350,7 @@ impl IrMaps {
     }
 
     pub fn lnk(&mut self, ln: LiveNode) -> LiveNodeKind {
-        self.lnks[*ln]
+        self.lnks[ln.get()]
     }
 }
 
@@ -694,7 +702,7 @@ impl Liveness {
     }
 
     pub fn idx(&self, ln: LiveNode, var: Variable) -> uint {
-        *ln * self.ir.num_vars + *var
+        ln.get() * self.ir.num_vars + var.get()
     }
 
     pub fn live_on_entry(&self, ln: LiveNode, var: Variable)
@@ -709,7 +717,7 @@ impl Liveness {
     */
     pub fn live_on_exit(&self, ln: LiveNode, var: Variable)
                         -> Option<LiveNodeKind> {
-        self.live_on_entry(self.successors[*ln], var)
+        self.live_on_entry(self.successors[ln.get()], var)
     }
 
     pub fn used_on_entry(&self, ln: LiveNode, var: Variable) -> bool {
@@ -726,7 +734,7 @@ impl Liveness {
 
     pub fn assigned_on_exit(&self, ln: LiveNode, var: Variable)
                             -> Option<LiveNodeKind> {
-        self.assigned_on_entry(self.successors[*ln], var)
+        self.assigned_on_entry(self.successors[ln.get()], var)
     }
 
     pub fn indices(&self, ln: LiveNode, op: &fn(uint)) {
@@ -794,16 +802,16 @@ impl Liveness {
     pub fn ln_str(&self, ln: LiveNode) -> ~str {
         str::from_utf8_owned(do io::mem::with_mem_writer |wr| {
             let wr = wr as &mut io::Writer;
-            write!(wr, "[ln({}) of kind {:?} reads", *ln, self.ir.lnks[*ln]);
+            write!(wr, "[ln({}) of kind {:?} reads", ln.get(), self.ir.lnks[ln.get()]);
             self.write_vars(wr, ln, |idx| self.users[idx].reader );
             write!(wr, "  writes");
             self.write_vars(wr, ln, |idx| self.users[idx].writer );
-            write!(wr, "  precedes {}]", self.successors[*ln].to_str());
+            write!(wr, "  precedes {}]", self.successors[ln.get()].to_str());
         })
     }
 
     pub fn init_empty(&self, ln: LiveNode, succ_ln: LiveNode) {
-        self.successors[*ln] = succ_ln;
+        self.successors[ln.get()] = succ_ln;
 
         // It is not necessary to initialize the
         // values to empty because this is the value
@@ -817,7 +825,7 @@ impl Liveness {
 
     pub fn init_from_succ(&self, ln: LiveNode, succ_ln: LiveNode) {
         // more efficient version of init_empty() / merge_from_succ()
-        self.successors[*ln] = succ_ln;
+        self.successors[ln.get()] = succ_ln;
         self.indices2(ln, succ_ln, |idx, succ_idx| {
             self.users[idx] = self.users[succ_idx]
         });
@@ -1412,7 +1420,7 @@ impl Liveness {
                               cont_ln: LiveNode,
                               f: &fn() -> R)
                               -> R {
-      debug!("with_loop_nodes: {} {}", loop_node_id, *break_ln);
+      debug!("with_loop_nodes: {} {}", loop_node_id, break_ln.get());
         self.loop_scope.push(loop_node_id);
         self.break_ln.insert(loop_node_id, break_ln);
         self.cont_ln.insert(loop_node_id, cont_ln);

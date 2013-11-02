@@ -71,9 +71,15 @@ pub struct FlowedMoveData {
 #[deriving(Eq)]
 pub struct MovePathIndex(uint);
 
+impl MovePathIndex {
+    fn get(&self) -> uint {
+        let MovePathIndex(v) = *self; v
+    }
+}
+
 impl Clone for MovePathIndex {
     fn clone(&self) -> MovePathIndex {
-        MovePathIndex(**self)
+        MovePathIndex(self.get())
     }
 }
 
@@ -83,6 +89,12 @@ static InvalidMovePathIndex: MovePathIndex =
 /// Index into `MoveData.moves`, used like a pointer
 #[deriving(Eq)]
 pub struct MoveIndex(uint);
+
+impl MoveIndex {
+    fn get(&self) -> uint {
+        let MoveIndex(v) = *self; v
+    }
+}
 
 static InvalidMoveIndex: MoveIndex =
     MoveIndex(uint::max_value);
@@ -176,17 +188,17 @@ impl MoveData {
 
     fn path<'a>(&'a self, index: MovePathIndex) -> &'a MovePath {
         //! Type safe indexing operator
-        &self.paths[*index]
+        &self.paths[index.get()]
     }
 
     fn mut_path<'a>(&'a mut self, index: MovePathIndex) -> &'a mut MovePath {
         //! Type safe indexing operator
-        &mut self.paths[*index]
+        &mut self.paths[index.get()]
     }
 
     fn move<'a>(&'a self, index: MoveIndex) -> &'a Move {
         //! Type safe indexing operator
-        &self.moves[*index]
+        &self.moves[index.get()]
     }
 
     fn is_var_path(&self, index: MovePathIndex) -> bool {
@@ -248,7 +260,7 @@ impl MoveData {
                lp.repr(tcx),
                index);
 
-        assert_eq!(*index, self.paths.len() - 1);
+        assert_eq!(index.get(), self.paths.len() - 1);
         self.path_map.insert(lp, index);
         return index;
     }
@@ -467,7 +479,7 @@ impl MoveData {
                   kill_id: ast::NodeId,
                   dfcx_moves: &mut MoveDataFlow) {
         do self.each_applicable_move(path) |move_index| {
-            dfcx_moves.add_kill(kill_id, *move_index);
+            dfcx_moves.add_kill(kill_id, move_index.get());
             true
         };
     }

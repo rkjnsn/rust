@@ -159,7 +159,7 @@ impl GetAddrInfoRequest {
         }
     }
 
-    fn delete(self) {
+    pub fn delete(self) {
         unsafe {
             let data = uvll::get_data_for_req(self.native_handle());
             let _data = transmute::<*c_void, ~RequestData>(data);

@@ -105,7 +105,8 @@ impl<Q:Send> Sem<Q> {
     pub fn acquire(&self) {
         unsafe {
             let mut waiter_nobe = None;
-            do (**self).with |state| {
+            let Sem(ref lock) = *self;
+            do lock.with |state| {
                 state.count -= 1;
                 if state.count < 0 {
                     // Create waiter nobe, enqueue ourself, and tell
@@ -124,7 +125,8 @@ impl<Q:Send> Sem<Q> {
 
     pub fn release(&self) {
         unsafe {
-            do (**self).with |state| {
+            let Sem(ref lock) = *self;
+            do lock.with |state| {
                 state.count += 1;
                 if state.count <= 0 {
                     state.waiters.signal();
@@ -209,7 +211,8 @@ impl<'self> Condvar<'self> {
         do task::unkillable {
             // Release lock, 'atomically' enqueuing ourselves in so doing.
             unsafe {
-                do (**self.sem).with |state| {
+                let Sem(ref queue) = *self.sem;
+                do queue.with |state| {
                     if condvar_id < state.blocked.len() {
                         // Drop the lock.
                         state.count += 1;
@@ -261,7 +264,8 @@ impl<'self> Condvar<'self> {
         unsafe {
             let mut out_of_bounds = None;
             let mut result = false;
-            do (**self.sem).with |state| {
+            let Sem(ref lock) = *self.sem;
+            do lock.with |state| {
                 if condvar_id < state.blocked.len() {
                     result = state.blocked[condvar_id].signal();
                 } else {
@@ -282,7 +286,8 @@ impl<'self> Condvar<'self> {
         let mut out_of_bounds = None;
         let mut queue = None;
         unsafe {
-            do (**self.sem).with |state| {
+            let Sem(ref lock) = *self.sem;
+            do lock.with |state| {
                 if condvar_id < state.blocked.len() {
                     // To avoid :broadcast_heavy, we make a new waitqueue,
                     // swap it out with the old one, and broadcast on the
@@ -338,7 +343,8 @@ struct Semaphore { priv sem: Sem<()> }
 impl Clone for Semaphore {
     /// Create a new handle to the semaphore.
     fn clone(&self) -> Semaphore {
-        Semaphore { sem: Sem((*self.sem).clone()) }
+        let Sem(ref lock) = self.sem;
+        Semaphore { sem: Sem(lock.clone()) }
     }
 }
 
@@ -380,7 +386,9 @@ impl Semaphore {
 pub struct Mutex { priv sem: Sem<~[WaitQueue]> }
 impl Clone for Mutex {
     /// Create a new handle to the mutex.
-    fn clone(&self) -> Mutex { Mutex { sem: Sem((*self.sem).clone()) } }
+    fn clone(&self) -> Mutex {
+        let Sem(ref queue) = self.sem;
+        Mutex { sem: Sem(queue.clone()) } }
 }
 
 impl Mutex {
@@ -469,8 +477,9 @@ impl RWLock {
 
     /// Create a new handle to the rwlock.
     pub fn clone(&self) -> RWLock {
+        let Sem(ref access_lock_queue) = self.access_lock;
         RWLock { order_lock:  (&(self.order_lock)).clone(),
-                 access_lock: Sem((*self.access_lock).clone()),
+                 access_lock: Sem(access_lock_queue.clone()),
                  state:       self.state.clone() }
     }
 

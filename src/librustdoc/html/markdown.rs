@@ -126,6 +126,7 @@ fn render(w: &mut io::Writer, s: &str) {
 
 impl<'self> fmt::Default for Markdown<'self> {
     fn fmt(md: &Markdown<'self>, fmt: &mut fmt::Formatter) {
+        let Markdown(md) = *md;
         // This is actually common enough to special-case
         if md.len() == 0 { return; }
         render(fmt.buf, md.as_slice());

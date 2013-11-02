@@ -133,7 +133,8 @@ pub struct MetricMap(TreeMap<~str,Metric>);
 
 impl Clone for MetricMap {
     fn clone(&self) -> MetricMap {
-        MetricMap((**self).clone())
+        let MetricMap(ref map) = *self;
+        MetricMap(map.clone())
     }
 }
 
@@ -571,6 +572,7 @@ impl ConsoleTestState {
 }
 
 pub fn fmt_metrics(mm: &MetricMap) -> ~str {
+    let MetricMap(ref mm) = *mm;
     let v : ~[~str] = mm.iter()
         .map(|(k,v)| format!("{}: {} (+/- {})",
                           *k,
@@ -609,6 +611,7 @@ pub fn run_tests_console(opts: &TestOpts,
                     TrIgnored => st.ignored += 1,
                     TrMetrics(mm) => {
                         let tname = test.name.to_str();
+                        let MetricMap(mm) = mm;
                         for (k,v) in mm.iter() {
                             st.metrics.insert_metric(tname + "." + *k,
                                                      v.value, v.noise);
@@ -943,7 +946,8 @@ impl MetricMap {
 
     /// Write MetricDiff to a file.
     pub fn save(&self, p: &Path) {
-        self.to_json().to_pretty_writer(@mut File::create(p) as @mut io::Writer);
+        let MetricMap(ref map) = *self;
+        map.to_json().to_pretty_writer(@mut File::create(p) as @mut io::Writer);
     }
 
     /// Compare against another MetricMap. Optionally compare all
@@ -955,8 +959,10 @@ impl MetricMap {
     pub fn compare_to_old(&self, old: &MetricMap,
                           noise_pct: Option<f64>) -> MetricDiff {
         let mut diff : MetricDiff = TreeMap::new();
+        let MetricMap(ref selfmap) = *self;
+        let MetricMap(ref old) = *old;
         for (k, vold) in old.iter() {
-            let r = match self.find(k) {
+            let r = match selfmap.find(k) {
                 None => MetricRemoved,
                 Some(v) => {
                     let delta = (v.value - vold.value);
@@ -992,7 +998,8 @@ impl MetricMap {
             };
             diff.insert((*k).clone(), r);
         }
-        for (k, _) in self.iter() {
+        let MetricMap(ref map) = *self;
+        for (k, _) in map.iter() {
             if !diff.contains_key(k) {
                 diff.insert((*k).clone(), MetricAdded);
             }
@@ -1018,7 +1025,8 @@ impl MetricMap {
             value: value,
             noise: noise
         };
-        self.insert(name.to_owned(), m);
+        let MetricMap(ref mut map) = *self;
+        map.insert(name.to_owned(), m);
     }
 
     /// Attempt to "ratchet" an external metric file. This involves loading

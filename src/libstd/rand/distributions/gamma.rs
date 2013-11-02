@@ -154,7 +154,7 @@ impl IndependentSample<f64> for GammaSmallShape {
 impl IndependentSample<f64> for GammaLargeShape {
     fn ind_sample<R: Rng>(&self, rng: &mut R) -> f64 {
         loop {
-            let x = *rng.gen::<StandardNormal>();
+            let StandardNormal(x) = rng.gen::<StandardNormal>();
             let v_cbrt = 1.0 + self.c * x;
             if v_cbrt <= 0.0 { // a^3 <= 0 iff a <= 0
                 continue

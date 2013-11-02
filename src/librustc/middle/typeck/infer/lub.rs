@@ -31,6 +31,7 @@ use syntax::ast::{Onceness, purity};
 pub struct Lub(CombineFields);  // least-upper-bound: common supertype
 
 impl Lub {
+    pub fn get_ref<'a>(&'a self) -> &'a CombineFields { let Lub(ref v) = *self; v }
     pub fn bot_ty(&self, b: ty::t) -> cres<ty::t> { Ok(b) }
     pub fn ty_bot(&self, b: ty::t) -> cres<ty::t> {
         self.bot_ty(b) // commutative
@@ -38,17 +39,17 @@ impl Lub {
 }
 
 impl Combine for Lub {
-    fn infcx(&self) -> @mut InferCtxt { self.infcx }
+    fn infcx(&self) -> @mut InferCtxt { self.get_ref().infcx }
     fn tag(&self) -> ~str { ~"lub" }
-    fn a_is_expected(&self) -> bool { self.a_is_expected }
-    fn trace(&self) -> TypeTrace { self.trace }
+    fn a_is_expected(&self) -> bool { self.get_ref().a_is_expected }
+    fn trace(&self) -> TypeTrace { self.get_ref().trace }
 
-    fn sub(&self) -> Sub { Sub(**self) }
-    fn lub(&self) -> Lub { Lub(**self) }
-    fn glb(&self) -> Glb { Glb(**self) }
+    fn sub(&self) -> Sub { Sub(*self.get_ref()) }
+    fn lub(&self) -> Lub { Lub(*self.get_ref()) }
+    fn glb(&self) -> Glb { Glb(*self.get_ref()) }
 
     fn mts(&self, a: &ty::mt, b: &ty::mt) -> cres<ty::mt> {
-        let tcx = self.infcx.tcx;
+        let tcx = self.get_ref().infcx.tcx;
 
         debug!("{}.mts({}, {})",
                self.tag(),
@@ -66,7 +67,7 @@ impl Combine for Lub {
           }
 
           MutMutable => {
-            self.infcx.try(|| {
+            self.get_ref().infcx.try(|| {
                 eq_tys(self, a.ty, b.ty).then(|| {
                     Ok(ty::mt {ty: a.ty, mutbl: m})
                 })
@@ -76,7 +77,7 @@ impl Combine for Lub {
     }
 
     fn contratys(&self, a: ty::t, b: ty::t) -> cres<ty::t> {
-        Glb(**self).tys(a, b)
+        Glb(*self.get_ref()).tys(a, b)
     }
 
     fn purities(&self, a: purity, b: purity) -> cres<purity> {
@@ -102,16 +103,16 @@ impl Combine for Lub {
 
     fn contraregions(&self, a: ty::Region, b: ty::Region)
                     -> cres<ty::Region> {
-        return Glb(**self).regions(a, b);
+        return Glb(*self.get_ref()).regions(a, b);
     }
 
     fn regions(&self, a: ty::Region, b: ty::Region) -> cres<ty::Region> {
         debug!("{}.regions({:?}, {:?})",
                self.tag(),
-               a.inf_str(self.infcx),
-               b.inf_str(self.infcx));
+               a.inf_str(self.get_ref().infcx),
+               b.inf_str(self.get_ref().infcx));
 
-        Ok(self.infcx.region_vars.lub_regions(Subtype(self.trace), a, b))
+        Ok(self.get_ref().infcx.region_vars.lub_regions(Subtype(self.get_ref().trace), a, b))
     }
 
     fn fn_sigs(&self, a: &ty::FnSig, b: &ty::FnSig) -> cres<ty::FnSig> {
@@ -122,26 +123,26 @@ impl Combine for Lub {
         // phases we do want to be able to examine "all bindings that
         // were created as part of this type comparison", and making a
         // snapshot is a convenient way to do that.
-        let snapshot = self.infcx.region_vars.start_snapshot();
+        let snapshot = self.get_ref().infcx.region_vars.start_snapshot();
 
         // Instantiate each bound region with a fresh region variable.
         let (a_with_fresh, a_isr) =
-            self.infcx.replace_bound_regions_with_fresh_regions(
-                self.trace, a);
+            self.get_ref().infcx.replace_bound_regions_with_fresh_regions(
+                self.get_ref().trace, a);
         let (b_with_fresh, _) =
-            self.infcx.replace_bound_regions_with_fresh_regions(
-                self.trace, b);
+            self.get_ref().infcx.replace_bound_regions_with_fresh_regions(
+                self.get_ref().trace, b);
 
         // Collect constraints.
         let sig0 = if_ok!(super_fn_sigs(self, &a_with_fresh, &b_with_fresh));
-        debug!("sig0 = {}", sig0.inf_str(self.infcx));
+        debug!("sig0 = {}", sig0.inf_str(self.get_ref().infcx));
 
         // Generalize the regions appearing in sig0 if possible
         let new_vars =
-            self.infcx.region_vars.vars_created_since_snapshot(snapshot);
+            self.get_ref().infcx.region_vars.vars_created_since_snapshot(snapshot);
         let sig1 =
             fold_regions_in_sig(
-                self.infcx.tcx,
+                self.get_ref().infcx.tcx,
                 &sig0,
                 |r, _in_fn| generalize_region(self, snapshot, new_vars,
                                               a_isr, r));
@@ -158,7 +159,7 @@ impl Combine for Lub {
                 return r0;
             }
 
-            let tainted = this.infcx.region_vars.tainted(snapshot, r0);
+            let tainted = this.get_ref().infcx.region_vars.tainted(snapshot, r0);
 
             // Variables created during LUB computation which are
             // *related* to regions that pre-date the LUB computation
@@ -191,8 +192,8 @@ impl Combine for Lub {
 
             match ret {
                 Some(x) => x,
-                None => this.infcx.tcx.sess.span_bug(
-                            this.trace.origin.span(),
+                None => this.get_ref().infcx.tcx.sess.span_bug(
+                            this.get_ref().trace.origin.span(),
                             format!("Region {:?} is not associated with \
                                   any bound region from A!", r0))
             }

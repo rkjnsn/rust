@@ -416,14 +416,14 @@ impl ConnectRequest {
         ConnectRequest(connect_handle as *uvll::uv_connect_t)
     }
 
-    fn stream(&self) -> StreamWatcher {
+    pub fn stream(&self) -> StreamWatcher {
         unsafe {
             let stream_handle = uvll::get_stream_handle_from_connect_req(self.native_handle());
             NativeHandle::from_native_handle(stream_handle)
         }
     }
 
-    fn delete(self) {
+    pub fn delete(self) {
         unsafe { free_req(self.native_handle() as *c_void) }
     }
 }

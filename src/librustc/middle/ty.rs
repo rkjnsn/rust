@@ -799,7 +799,7 @@ pub trait Vid {
 }
 
 impl Vid for TyVid {
-    fn to_uint(&self) -> uint { **self }
+    fn to_uint(&self) -> uint { let TyVid(v) = *self; v }
 }
 
 impl ToStr for TyVid {
@@ -807,7 +807,7 @@ impl ToStr for TyVid {
 }
 
 impl Vid for IntVid {
-    fn to_uint(&self) -> uint { **self }
+    fn to_uint(&self) -> uint { let IntVid(v) = *self; v }
 }
 
 impl ToStr for IntVid {
@@ -815,7 +815,7 @@ impl ToStr for IntVid {
 }
 
 impl Vid for FloatVid {
-    fn to_uint(&self) -> uint { **self }
+    fn to_uint(&self) -> uint { let FloatVid(v) = *self; v }
 }
 
 impl ToStr for FloatVid {
@@ -2661,11 +2661,11 @@ pub fn type_param(ty: t) -> Option<uint> {
 //
 // The parameter `explicit` indicates if this is an *explicit* dereference.
 // Some types---notably unsafe ptrs---can only be dereferenced explicitly.
-pub fn deref(cx: ctxt, t: t, explicit: bool) -> Option<mt> {
-    deref_sty(cx, &get(t).sty, explicit)
+pub fn deref(t: t, explicit: bool) -> Option<mt> {
+    deref_sty(&get(t).sty, explicit)
 }
 
-pub fn deref_sty(cx: ctxt, sty: &sty, explicit: bool) -> Option<mt> {
+pub fn deref_sty(sty: &sty, explicit: bool) -> Option<mt> {
     match *sty {
       ty_rptr(_, mt) | ty_box(mt) | ty_uniq(mt) => {
         Some(mt)
@@ -2675,24 +2675,14 @@ pub fn deref_sty(cx: ctxt, sty: &sty, explicit: bool) -> Option<mt> {
         Some(mt)
       }
 
-      ty_struct(did, ref substs) => {
-        let fields = struct_fields(cx, did, substs);
-        if fields.len() == 1 && fields[0].ident ==
-                syntax::parse::token::special_idents::unnamed_field {
-            Some(mt {ty: fields[0].mt.ty, mutbl: ast::MutImmutable})
-        } else {
-            None
-        }
-      }
-
       _ => None
     }
 }
 
-pub fn type_autoderef(cx: ctxt, t: t) -> t {
+pub fn type_autoderef(t: t) -> t {
     let mut t = t;
     loop {
-        match deref(cx, t, false) {
+        match deref(t, false) {
           None => return t,
           Some(mt) => t = mt.ty
         }
@@ -3002,7 +2992,7 @@ pub fn adjust_ty(cx: ctxt,
 
             if (!ty::type_is_error(adjusted_ty)) {
                 for i in range(0, adj.autoderefs) {
-                    match ty::deref(cx, adjusted_ty, true) {
+                    match ty::deref(adjusted_ty, true) {
                         Some(mt) => { adjusted_ty = mt.ty; }
                         None => {
                             cx.sess.span_bug(

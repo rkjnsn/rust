@@ -20,9 +20,13 @@ pub type PredIterator<'self> = Map<'self, Value, BasicBlock, Filter<'self, Value
  * Wrapper for LLVM BasicBlockRef
  */
 impl BasicBlock {
+    pub fn get(&self) -> BasicBlockRef {
+        let BasicBlock(v) = *self; v
+    }
+
     pub fn as_value(self) -> Value {
         unsafe {
-            Value(llvm::LLVMBasicBlockAsValue(*self))
+            Value(llvm::LLVMBasicBlockAsValue(self.get()))
         }
     }
 

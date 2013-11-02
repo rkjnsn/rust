@@ -197,7 +197,8 @@ impl<'self> fold::DocFolder for ImplStripper<'self> {
             clean::ImplItem(ref imp) => {
                 match imp.trait_ {
                     Some(clean::ResolvedPath{ id, _ }) => {
-                        if !self.contains(&id) {
+                        let ImplStripper(s) = *self;
+                        if !s.contains(&id) {
                             return None;
                         }
                     }

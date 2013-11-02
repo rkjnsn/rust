@@ -873,10 +873,16 @@ fn check_unnecessary_allocation(cx: &Context, e: &ast::Expr) {
 struct MissingDocLintVisitor(ty::ctxt);
 
 impl MissingDocLintVisitor {
+    fn  get_ref<'a>(&'a self) -> &'a ty::ctxt {
+        let MissingDocLintVisitor(ref v) = *self; v
+    }
+}
+
+impl MissingDocLintVisitor {
     fn check_attrs(&self, attrs: &[ast::Attribute], id: ast::NodeId,
                    sp: Span, msg: ~str) {
         if !attrs.iter().any(|a| a.node.is_sugared_doc) {
-            self.sess.add_lint(missing_doc, id, sp, msg);
+            self.get_ref().sess.add_lint(missing_doc, id, sp, msg);
         }
     }
 
@@ -937,7 +943,7 @@ impl Visitor<()> for MissingDocLintVisitor {
     fn visit_item(&mut self, it: @ast::item, _: ()) {
         // If we're building a test harness, then warning about documentation is
         // probably not really relevant right now
-        if self.sess.opts.test { return }
+        if self.get_ref().sess.opts.test { return }
         if self.doc_hidden(it.attrs) { return }
 
         match it.node {

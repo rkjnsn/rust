@@ -94,7 +94,8 @@ impl Process {
                 };
 
                 match unsafe {
-                    uvll::spawn(loop_.native_handle(), **self, options)
+                    let Process(handle) = *self;
+                    uvll::spawn(loop_.native_handle(), handle, options)
                 } {
                     0 => {
                         (*self).get_watcher_data().exit_cb = Some(exit_cb.take());
@@ -120,7 +121,8 @@ impl Process {
 
     /// Returns the process id of a spawned process
     pub fn pid(&self) -> libc::pid_t {
-        unsafe { uvll::process_pid(**self) as libc::pid_t }
+        let Process(handle) = *self;
+        unsafe { uvll::process_pid(handle) as libc::pid_t }
     }
 }
 

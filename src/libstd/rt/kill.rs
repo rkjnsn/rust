@@ -173,6 +173,13 @@ static KILL_UNKILLABLE: uint = 2;
 struct KillFlag(AtomicUint);
 type KillFlagHandle = UnsafeArc<KillFlag>;
 
+impl KillFlag {
+    fn get_mut_ref<'a>(&'a mut self) -> &'a mut AtomicUint {
+        let KillFlag(ref mut val) = *self;
+        return val;
+    }
+}
+
 /// A handle to a blocked task. Usually this means having the ~Task pointer by
 /// ownership, but if the task is killable, a killer can steal it at any time.
 pub enum BlockedTask {
@@ -214,6 +221,13 @@ struct KillHandleInner {
 #[deriving(Clone)]
 pub struct KillHandle(UnsafeArc<KillHandleInner>);
 
+impl KillHandle {
+    fn get_ref<'a>(&'a self) -> &'a UnsafeArc<KillHandleInner> {
+        let KillHandle(ref arc) = *self;
+        return arc;
+    }
+}
+
 /// Per-task state related to task death, killing, failure, etc.
 pub struct Death {
     // Shared among this task, its watched children, and any linked tasks who
@@ -237,7 +251,7 @@ impl Drop for KillFlag {
     // Letting a KillFlag with a task inside get dropped would leak the task.
     // We could free it here, but the task should get awoken by hand somehow.
     fn drop(&mut self) {
-        match self.load(Relaxed) {
+        match self.get_mut_ref().load(Relaxed) {
             KILL_RUNNING | KILL_KILLED => { },
             _ => rtabort!("can't drop kill flag with a blocked task inside!"),
         }
@@ -265,7 +279,7 @@ impl BlockedTask {
         match self {
             Unkillable(task) => Some(task),
             Killable(flag_arc) => {
-                let flag = unsafe { &mut **flag_arc.get() };
+                let flag = unsafe { &mut *(*flag_arc.get()).get_mut_ref() };
                 match flag.swap(KILL_RUNNING, Relaxed) {
                     KILL_RUNNING => None, // woken from select(), perhaps
                     KILL_KILLED  => None, // a killer stole it already
@@ -298,13 +312,14 @@ impl BlockedTask {
                         // give back to us, so we restore it ourselves here. This
                         // situation should only arise when we're already failing.
                         rtassert!(task.unwinder.unwinding);
-                        (*task.death.kill_handle.get_ref().get()).killed.clone()
+                        let handle = task.death.kill_handle.get_mut_ref();
+                        (*handle.get_ref().get()).killed.clone()
                     }
                 };
-                let flag     = &mut **flag_arc.get();
+                let flag     = &mut *flag_arc.get();
                 let task_ptr = cast::transmute(task);
                 // Expect flag to contain RUNNING. If KILLED, it should stay KILLED.
-                match flag.compare_and_swap(KILL_RUNNING, task_ptr, Relaxed) {
+                match flag.get_mut_ref().compare_and_swap(KILL_RUNNING, task_ptr, Relaxed) {
                     KILL_RUNNING => Right(Killable(flag_arc)),
                     KILL_KILLED  => Left(revive_task_ptr(task_ptr, Some(flag_arc))),
                     x            => rtabort!("can't block task! kill flag = {}", x),
@@ -370,12 +385,13 @@ impl BlockedTask {
 // So that KillHandle can be hashed in the taskgroup bookkeeping code.
 impl IterBytes for KillHandle {
     fn iter_bytes(&self, lsb0: bool, f: &fn(buf: &[u8]) -> bool) -> bool {
-        self.data.iter_bytes(lsb0, f)
+        self.get_ref().data.iter_bytes(lsb0, f)
     }
 }
 impl Eq for KillHandle {
-    #[inline] fn eq(&self, other: &KillHandle) -> bool { self.data.eq(&other.data) }
-    #[inline] fn ne(&self, other: &KillHandle) -> bool { self.data.ne(&other.data) }
+    #[inline] fn eq(&self, other: &KillHandle) -> bool {
+        self.get_ref().data.eq(&other.get_ref().data)
+    }
 }
 
 impl KillHandle {
@@ -399,7 +415,7 @@ impl KillHandle {
     // signal must fail immediately, which an already-unkillable task can't do.
     #[inline]
     pub fn inhibit_kill(&mut self, already_failing: bool) {
-        let inner = unsafe { &mut *self.get() };
+        let inner = unsafe { &mut *self.get_ref().get() };
         // Expect flag to contain RUNNING. If KILLED, it should stay KILLED.
         // FIXME(#7544)(bblum): is it really necessary to prohibit double kill?
         match inner.unkillable.compare_and_swap(KILL_RUNNING, KILL_UNKILLABLE, Relaxed) {
@@ -412,7 +428,7 @@ impl KillHandle {
     // Will begin unwinding if a kill signal was received, unless already_failing.
     #[inline]
     pub fn allow_kill(&mut self, already_failing: bool) {
-        let inner = unsafe { &mut *self.get() };
+        let inner = unsafe { &mut *self.get_ref().get() };
         // Expect flag to contain UNKILLABLE. If KILLED, it should stay KILLED.
         // FIXME(#7544)(bblum): is it really necessary to prohibit double kill?
         match inner.unkillable.compare_and_swap(KILL_UNKILLABLE, KILL_RUNNING, Relaxed) {
@@ -425,11 +441,11 @@ impl KillHandle {
     // Send a kill signal to the handle's owning task. Returns the task itself
     // if it was blocked and needs punted awake. To be called by other tasks.
     pub fn kill(&mut self) -> Option<~Task> {
-        let inner = unsafe { &mut *self.get() };
+        let inner = unsafe { &mut *self.get_ref().get() };
         if inner.unkillable.swap(KILL_KILLED, Relaxed) == KILL_RUNNING {
             // Got in. Allowed to try to punt the task awake.
             let flag = unsafe { &mut *inner.killed.get() };
-            match flag.swap(KILL_KILLED, Relaxed) {
+            match flag.get_mut_ref().swap(KILL_KILLED, Relaxed) {
                 // Task either not blocked or already taken care of.
                 KILL_RUNNING | KILL_KILLED => None,
                 // Got ownership of the blocked task.
@@ -449,13 +465,13 @@ impl KillHandle {
     pub fn killed(&self) -> bool {
         // Called every context switch, so shouldn't report true if the task
         // is unkillable with a kill signal pending.
-        let inner = unsafe { &*self.get() };
-        let flag  = unsafe { &*inner.killed.get() };
+        let inner = unsafe { &*self.get_ref().get() };
+        let flag  = unsafe { &mut *inner.killed.get() };
         // A barrier-related concern here is that a task that gets killed
         // awake needs to see the killer's write of KILLED to this flag. This
         // is analogous to receiving a pipe payload; the appropriate barrier
         // should happen when enqueueing the task.
-        flag.load(Relaxed) == KILL_KILLED
+        flag.get_mut_ref().load(Relaxed) == KILL_KILLED
     }
 
     pub fn notify_immediate_failure(&mut self) {
@@ -463,7 +479,7 @@ impl KillHandle {
         // tasks that were also spawned-watched. The refcount's write barriers
         // in UnsafeArc ensure that this write will be seen by the
         // unwrapper/destructor, whichever task may unwrap it.
-        unsafe { (*self.get()).any_child_failed = true; }
+        unsafe { (*self.get_ref().get()).any_child_failed = true; }
     }
 
     // For use when a task does not need to collect its children's exit
@@ -471,12 +487,13 @@ impl KillHandle {
     pub fn reparent_children_to(self, parent: &mut KillHandle) {
         // Optimistic path: If another child of the parent's already failed,
         // we don't need to worry about any of this.
-        if unsafe { (*parent.get()).any_child_failed } {
+        if unsafe { (*parent.get_ref().get()).any_child_failed } {
             return;
         }
 
         // Try to see if all our children are gone already.
-        match self.try_unwrap() {
+        let KillHandle(this) = self;
+        match this.try_unwrap() {
             // Couldn't unwrap; children still alive. Reparent entire handle as
             // our own tombstone, to be unwrapped later.
             UnsafeArcSelf(this) => {
@@ -527,7 +544,7 @@ impl KillHandle {
         fn add_lazy_tombstone(parent: &mut KillHandle,
                               blk: &fn(Option<~fn() -> bool>) -> ~fn() -> bool) {
 
-            let inner: &mut KillHandleInner = unsafe { &mut *parent.get() };
+            let inner: &mut KillHandleInner = unsafe { &mut *parent.get_ref().get() };
             unsafe {
                 do inner.graveyard_lock.lock {
                     // Update the current "head node" of the lazy list.
@@ -587,7 +604,8 @@ impl Death {
         do self.on_exit.take().map |on_exit| {
             if success {
                 // We succeeded, but our children might not. Need to wait for them.
-                let mut inner = self.kill_handle.take_unwrap().unwrap();
+                let KillHandle(inner) = self.kill_handle.take_unwrap();
+                let mut inner = inner.unwrap();
 
                 if inner.any_child_failed {
                     success = false;

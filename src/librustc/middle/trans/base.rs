@@ -1858,7 +1858,7 @@ pub fn build_return_block(fcx: &FunctionContext, ret_cx: @mut Block) {
         // If there's only a single store to the ret slot, we can directly return
         // the value that was stored and omit the store and the alloca
         Some(s) => {
-            let retval = *s.get_operand(0).unwrap();
+            let retval = s.get_operand(0).unwrap().get();
             s.erase_from_parent();
 
             if retptr.has_no_uses() {
