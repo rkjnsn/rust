@@ -74,19 +74,6 @@ use vec::{CopyableVector, ImmutableVector, MutableVector};
 use vec;
 use unstable::intrinsics;
 
-/// Resolution options for the `null_byte` condition
-pub enum NullByteResolution {
-    /// Truncate at the null byte
-    Truncate,
-    /// Use a replacement byte
-    ReplaceWith(libc::c_char)
-}
-
-condition! {
-    // This should be &[u8] but there's a lifetime issue (#5370).
-    pub null_byte: (~[u8]) -> NullByteResolution;
-}
-
 /// The representation of a C String.
 ///
 /// This structure wraps a `*libc::c_char`, and will automatically free the
@@ -203,7 +190,7 @@ pub trait ToCStr {
     ///
     /// # Failure
     ///
-    /// Raises the `null_byte` condition if the receiver has an interior null.
+    /// Fails if the receiver has an interior null.
     fn to_c_str(&self) -> CString;
 
     /// Unsafe variant of `to_c_str()` that doesn't check for nulls.
@@ -220,7 +207,7 @@ pub trait ToCStr {
     ///
     /// # Failure
     ///
-    /// Raises the `null_byte` condition if the receiver has an interior null.
+    /// Fails if the receiver has an interior null.
     #[inline]
     fn with_c_str<T>(&self, f: &fn(*libc::c_char) -> T) -> T {
         self.to_c_str().with_ref(f)
@@ -319,10 +306,7 @@ fn check_for_null(v: &[u8], buf: *mut libc::c_char) {
         unsafe {
             let p = buf.offset(i as int);
             if *p == 0 {
-                match null_byte::cond.raise(v.to_owned()) {
-                    Truncate => break,
-                    ReplaceWith(c) => *p = c
-                }
+                fail!("Null byte in conversion to C string");
             }
         }
     }
