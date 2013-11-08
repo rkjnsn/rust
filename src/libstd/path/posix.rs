@@ -312,7 +312,7 @@ impl Path {
     ///
     /// # Failure
     ///
-    /// Raises the `null_byte` condition if the vector contains a NUL.
+    /// Fails if the path contains a `NUL` byte.
     #[inline]
     pub fn new<T: BytesContainer>(path: T) -> Path {
         GenericPath::new(path)
@@ -519,46 +519,27 @@ mod tests {
     }
 
     #[test]
+    #[should_fail]
     fn test_null_byte() {
-        use path::null_byte::cond;
-
-        let mut handled = false;
-        let mut p = do cond.trap(|v| {
-            handled = true;
-            assert_eq!(v.as_slice(), b!("foo/bar", 0));
-            (b!("/bar").to_owned())
-        }).inside {
-            Path::new(b!("foo/bar", 0))
-        };
-        assert!(handled);
-        assert_eq!(p.as_vec(), b!("/bar"));
-
-        handled = false;
-        do cond.trap(|v| {
-            handled = true;
-            assert_eq!(v.as_slice(), b!("f", 0, "o"));
-            (b!("foo").to_owned())
-        }).inside {
-            p.set_filename(b!("f", 0, "o"))
-        };
-        assert!(handled);
-        assert_eq!(p.as_vec(), b!("/foo"));
-
-        handled = false;
-        do cond.trap(|v| {
-            handled = true;
-            assert_eq!(v.as_slice(), b!("f", 0, "o"));
-            (b!("foo").to_owned())
-        }).inside {
-            p.push(b!("f", 0, "o"));
-        };
-        assert!(handled);
-        assert_eq!(p.as_vec(), b!("/foo/foo"));
+        Path::new(b!("foo/bar", 0));
     }
 
     #[test]
-    fn test_null_byte_fail() {
-        use path::null_byte::cond;
+    #[should_fail]
+    fn test_null_byte_2() {
+        let mut p = Path::new(b!("foo/bar"));
+        p.set_filename(b!("f", 0, "o"))
+    }
+
+    #[test]
+    #[should_fail]
+    fn test_null_byte_3() {
+        let mut p = Path::new(b!("foo/bar"));
+        p.push(b!("f", 0, "o"));
+    }
+
+    #[test]
+    fn test_null_byte_4() {
         use task;
 
         macro_rules! t(
@@ -574,29 +555,17 @@ mod tests {
         )
 
         t!(~"new() w/nul" => {
-            do cond.trap(|_| {
-                (b!("null", 0).to_owned())
-            }).inside {
-                Path::new(b!("foo/bar", 0))
-            };
+            Path::new(b!("foo/bar", 0))
         })
 
         t!(~"set_filename w/nul" => {
             let mut p = Path::new(b!("foo/bar"));
-            do cond.trap(|_| {
-                (b!("null", 0).to_owned())
-            }).inside {
-                p.set_filename(b!("foo", 0))
-            };
+            p.set_filename(b!("foo", 0))
         })
 
         t!(~"push w/nul" => {
             let mut p = Path::new(b!("foo/bar"));
-            do cond.trap(|_| {
-                (b!("null", 0).to_owned())
-            }).inside {
-                p.push(b!("foo", 0))
-            };
+            p.push(b!("foo", 0))
         })
     }
 
