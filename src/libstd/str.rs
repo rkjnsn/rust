@@ -113,14 +113,6 @@ use default::Default;
 use send_str::{SendStr, SendStrOwned};
 
 /*
-Section: Conditions
-*/
-
-condition! {
-    pub not_utf8: (~str) -> ~str;
-}
-
-/*
 Section: Creating a string
 */
 
@@ -128,15 +120,14 @@ Section: Creating a string
 ///
 /// # Failure
 ///
-/// Raises the `not_utf8` condition if invalid UTF-8
+/// Fails if `vv` is invalid UTF-8
 pub fn from_utf8(vv: &[u8]) -> ~str {
-    use str::not_utf8::cond;
 
     match from_utf8_opt(vv) {
         None => {
             let first_bad_byte = *vv.iter().find(|&b| !is_utf8([*b])).unwrap();
-            cond.raise(format!("from_utf8: input is not UTF-8; first bad \
-                                byte is {}", first_bad_byte))
+            fail!("from_utf8: input is not UTF-8; first bad \
+                  byte is {}", first_bad_byte);
         }
         Some(s) => s
     }
@@ -156,14 +147,13 @@ pub fn from_utf8_opt(vv: &[u8]) -> Option<~str> {
 ///
 /// # Failure
 ///
-/// Raises the `not_utf8` condition if invalid UTF-8
+/// Fails if `vv` is invalid UTF-8
 pub fn from_utf8_owned(vv: ~[u8]) -> ~str {
-    use str::not_utf8::cond;
 
     if !is_utf8(vv) {
         let first_bad_byte = *vv.iter().find(|&b| !is_utf8([*b])).unwrap();
-        cond.raise(format!("from_utf8: input is not UTF-8; first bad byte is {}",
-                           first_bad_byte))
+        fail!("from_utf8: input is not UTF-8; first bad byte is {}",
+              first_bad_byte);
     } else {
         unsafe { raw::from_utf8_owned(vv) }
     }
@@ -3141,9 +3131,8 @@ mod tests {
 
 
     #[test]
+    #[should_fail]
     fn test_from_utf8_fail() {
-        use str::not_utf8::cond;
-
         let bb = ~[0xff_u8, 0xb8_u8, 0xa8_u8,
                   0xe0_u8, 0xb9_u8, 0x84_u8,
                   0xe0_u8, 0xb8_u8, 0x97_u8,
@@ -3155,15 +3144,7 @@ mod tests {
                   0x20_u8, 0x4e_u8, 0x61_u8,
                   0x6d_u8];
 
-        let mut error_happened = false;
-        let _x = do cond.trap(|err| {
-            assert_eq!(err, ~"from_utf8: input is not UTF-8; first bad byte is 255");
-            error_happened = true;
-            ~""
-        }).inside {
-            from_utf8(bb)
-        };
-        assert!(error_happened);
+        from_utf8(bb);
     }
 
     #[test]
