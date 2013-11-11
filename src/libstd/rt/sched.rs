@@ -1367,4 +1367,32 @@ mod test {
         do spawn { }
         do spawn { }
     }
+
+    #[test]
+    fn chained_blocking_friends() {
+        use clone::Clone;
+        use task::*;
+        use comm::*;
+        use unstable::sync::*;
+
+        let (p, c) = stream();
+        let lock1 = LittleLock::new();
+        let lock2 = lock1.clone();
+
+        do spawn {
+            p.recv();
+            do lock1.lock {
+                lock1.signal();
+            }
+        }
+
+        do spawn_sched(SingleThreaded) {
+            do spawn_sched(SingleThreaded) {
+                c.send(());
+            }
+
+            do lock2.lock_and_wait() {
+            }
+        }
+    }
 }
