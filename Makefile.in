@@ -33,7 +33,7 @@
 # stageN - this is the system root, corresponding to, e.g. /usr
 #   bin - binaries compiled for the host
 #   lib - libraries used by the host compiler
-#     rustc - rustc's own place to organize libraries
+#     rustlib - rust's own place to organize libraries
 #       $(target) - target-specific artifacts
 #         bin - binaries for target architectures
 #         lib - libraries for target architectures
@@ -405,7 +405,12 @@ HBIN$(1)_H_$(3) = $$(HROOT$(1)_H_$(3))/bin
 HLIB$(1)_H_$(3) = $$(HROOT$(1)_H_$(3))/$$(CFG_LIBDIR)
 
 # Destinations of artifacts for target architectures
+# NOTE: Remove special case after snapshot
+ifeq ($(1),0)
 TROOT$(1)_T_$(2)_H_$(3) = $$(HLIB$(1)_H_$(3))/rustc/$(2)
+else
+TROOT$(1)_T_$(2)_H_$(3) = $$(HLIB$(1)_H_$(3))/rustlib/$(2)
+endif
 TBIN$(1)_T_$(2)_H_$(3) = $$(TROOT$(1)_T_$(2)_H_$(3))/bin
 TLIB$(1)_T_$(2)_H_$(3) = $$(TROOT$(1)_T_$(2)_H_$(3))/$$(CFG_LIBDIR)
 

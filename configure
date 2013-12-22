@@ -775,9 +775,13 @@ do
             make_dir $h/stage$i/test
 
             # target bin dir
-            make_dir $h/stage$i/$CFG_LIBDIR/rustc/$t/bin
+            make_dir $h/stage$i/$CFG_LIBDIR/rustlib/$t/bin
 
             # target lib dir
+            make_dir $h/stage$i/$CFG_LIBDIR/rustlib/$t/$CFG_LIBDIR
+
+			# NOTE: Remove these two after snapshot
+            make_dir $h/stage$i/$CFG_LIBDIR/rustc/$t/bin
             make_dir $h/stage$i/$CFG_LIBDIR/rustc/$t/$CFG_LIBDIR
         done
     done

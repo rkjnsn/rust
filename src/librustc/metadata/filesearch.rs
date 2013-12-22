@@ -156,7 +156,7 @@ pub fn relative_target_lib_path(target_triple: &str) -> Path {
     let dir = libdir();
     let mut p = Path::new(dir.as_slice());
     assert!(p.is_relative());
-    p.push("rustc");
+    p.push("rustlib");
     p.push(target_triple);
     p.push(dir);
     p
