@@ -26,12 +26,14 @@ extern {}
 #[link(name = "dl")]
 #[link(name = "m")]
 #[link(name = "pthread")]
+#[link(name = "stdc++")]
 extern {}
 
 #[cfg(target_os = "android")]
 #[link(name = "dl")]
 #[link(name = "log")]
 #[link(name = "m")]
+#[link(name = "stdc++")]
 extern {}
 
 #[cfg(target_os = "freebsd")]

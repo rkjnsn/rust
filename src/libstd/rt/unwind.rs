@@ -118,7 +118,9 @@ mod libunwind {
                                                           exception: *_Unwind_Exception);
 
     extern "C" {
+        #[cfg(not(target_os = "android"))]
         pub fn _Unwind_RaiseException(exception: *_Unwind_Exception) -> _Unwind_Reason_Code;
+        #[cfg(not(target_os = "android"))]
         pub fn _Unwind_DeleteException(exception: *_Unwind_Exception);
     }
 }
@@ -140,6 +142,7 @@ impl Unwinder {
         self.unwinding
     }
 
+    #[cfg(not(target_os = "android"))]
     pub fn try(&mut self, f: ||) {
         use unstable::raw::Closure;
 
@@ -174,28 +177,68 @@ impl Unwinder {
         }
     }
 
+    #[cfg(target_os = "android")]
+    pub fn try(&mut self, f: ||) {
+        use unstable::raw::Closure;
+
+        unsafe {
+            let closure: Closure = cast::transmute(f);
+            rust_cxx_try(try_fn, closure.code as *c_void, closure.env as *c_void);
+        }
+
+        extern fn try_fn(code: *c_void, env: *c_void) {
+            unsafe {
+                let closure: || = cast::transmute(Closure {
+                    code: code as *(),
+                    env: env as *(),
+                });
+                closure();
+            }
+        }
+
+        extern {
+            fn rust_cxx_try(f: extern "C" fn(*c_void, *c_void),
+                            code: *c_void,
+                            data: *c_void);
+        }
+    }
+
     pub fn begin_unwind(&mut self, cause: ~Any) -> ! {
         rtdebug!("begin_unwind()");
 
         self.unwinding = true;
         self.cause = Some(cause);
 
-        unsafe {
-            let exception = ~uw::_Unwind_Exception {
-                exception_class: rust_exception_class(),
-                exception_cleanup: exception_cleanup,
-                private_1: 0,
-                private_2: 0
-            };
-            let error = uw::_Unwind_RaiseException(cast::transmute(exception));
-            rtabort!("Could not unwind stack, error = {}", error as int)
+        throw();
+
+        #[cfg(not(target_os = "android"))]
+        fn throw() -> ! {
+            unsafe {
+                let exception = ~uw::_Unwind_Exception {
+                    exception_class: rust_exception_class(),
+                    exception_cleanup: exception_cleanup,
+                    private_1: 0,
+                    private_2: 0
+                };
+                let error = uw::_Unwind_RaiseException(cast::transmute(exception));
+                rtabort!("Could not unwind stack, error = {}", error as int)
+            }
+
+            extern "C" fn exception_cleanup(_unwind_code: uw::_Unwind_Reason_Code,
+                                            exception: *uw::_Unwind_Exception) {
+                rtdebug!("exception_cleanup()");
+                unsafe {
+                    let _: ~uw::_Unwind_Exception = cast::transmute(exception);
+                }
+            }
         }
 
-        extern "C" fn exception_cleanup(_unwind_code: uw::_Unwind_Reason_Code,
-                                        exception: *uw::_Unwind_Exception) {
-            rtdebug!("exception_cleanup()");
-            unsafe {
-                let _: ~uw::_Unwind_Exception = cast::transmute(exception);
+        #[cfg(target_os = "android")]
+        fn throw() -> ! {
+            unsafe { rust_cxx_throw(); }
+
+            extern {
+                fn rust_cxx_throw() -> !;
             }
         }
     }
@@ -211,6 +254,7 @@ impl Unwinder {
 
 // Rust's exception class identifier.  This is used by personality routines to
 // determine whether the exception was thrown by their own runtime.
+#[cfg(not(target_os = "android"))]
 fn rust_exception_class() -> uw::_Unwind_Exception_Class {
     // M O Z \0  R U S T -- vendor, language
     0x4d4f5a_00_52555354
@@ -236,7 +280,16 @@ fn rust_exception_class() -> uw::_Unwind_Exception_Class {
 //   say "catch!".
 
 extern "C" {
+    #[cfg(not(target_os = "android"))]
     fn __gcc_personality_v0(version: c_int,
+                            actions: uw::_Unwind_Action,
+                            exception_class: uw::_Unwind_Exception_Class,
+                            ue_header: *uw::_Unwind_Exception,
+                            context: *uw::_Unwind_Context)
+        -> uw::_Unwind_Reason_Code;
+
+    #[cfg(target_os = "android")]
+    fn __gxx_personality_v0(version: c_int,
                             actions: uw::_Unwind_Action,
                             exception_class: uw::_Unwind_Exception_Class,
                             ue_header: *uw::_Unwind_Exception,
@@ -256,10 +309,8 @@ pub extern "C" fn rust_eh_personality(
     context: *uw::_Unwind_Context
 ) -> uw::_Unwind_Reason_Code
 {
-    unsafe {
-        __gcc_personality_v0(version, actions, exception_class, ue_header,
-                             context)
-    }
+    native_personality(version, actions, exception_class, ue_header,
+                       context)
 }
 
 #[no_mangle] // referenced from rust_try.ll
@@ -277,10 +328,38 @@ pub extern "C" fn rust_eh_personality_catch(
         uw::_URC_HANDLER_FOUND // catch!
     }
     else { // cleanup phase
-        unsafe {
-             __gcc_personality_v0(version, actions, exception_class, ue_header,
-                                  context)
-        }
+        native_personality(version, actions, exception_class, ue_header,
+                           context)
+    }
+}
+
+#[cfg(not(target_os = "android"))]
+fn native_personality(
+    version: c_int,
+    actions: uw::_Unwind_Action,
+    exception_class: uw::_Unwind_Exception_Class,
+    ue_header: *uw::_Unwind_Exception,
+    context: *uw::_Unwind_Context
+) -> uw::_Unwind_Reason_Code
+{
+    unsafe {
+        __gcc_personality_v0(version, actions, exception_class, ue_header,
+                             context)
+    }
+}
+
+#[cfg(target_os = "android")]
+fn native_personality(
+    version: c_int,
+    actions: uw::_Unwind_Action,
+    exception_class: uw::_Unwind_Exception_Class,
+    ue_header: *uw::_Unwind_Exception,
+    context: *uw::_Unwind_Context
+) -> uw::_Unwind_Reason_Code
+{
+    unsafe {
+        __gxx_personality_v0(version, actions, exception_class, ue_header,
+                             context)
     }
 }
 
