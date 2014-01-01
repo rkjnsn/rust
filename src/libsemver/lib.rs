@@ -28,6 +28,11 @@
 //! An example version number with all five components is
 //! `0.8.1-rc.3.0+20130922.linux`.
 
+#[crate_id = "semver#0.9-pre"];
+#[license = "MIT/ASL2"];
+#[crate_type = "rlib"];
+#[crate_type = "dylib"];
+
 use std::char;
 use std::cmp;
 use std::option::{Option, Some, None};

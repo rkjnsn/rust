@@ -120,6 +120,19 @@ $$(TLIB$(1)_T_$(2)_H_$(3))/$(CFG_LIBNATIVE_$(2)): \
 	$$(call LIST_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBNATIVE_GLOB_$(2)),$$(notdir $$@))
 	$$(call LIST_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBNATIVE_RGLOB_$(2)),$$(notdir $$@))
 
+$$(TLIB$(1)_T_$(2)_H_$(3))/$(CFG_LIBSEMVER_$(2)): \
+		$$(LIBSEMVER_CRATE) $$(LIBSEMVER_INPUTS) \
+	        $$(TLIB$(1)_T_$(2)_H_$(3))/$(CFG_STDLIB_$(2)) \
+		$$(TSREQ$(1)_T_$(2)_H_$(3)) \
+		| $$(TLIB$(1)_T_$(2)_H_$(3))/
+	@$$(call E, compile_and_link: $$@)
+	$$(call REMOVE_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBSEMVER_GLOB_$(2)),$$(notdir $$@))
+	$$(call REMOVE_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBSEMVER_RGLOB_$(2)),$$(notdir $$@))
+	$$(STAGE$(1)_T_$(2)_H_$(3)) $$(WFLAGS_ST$(1)) \
+		--out-dir $$(@D) $$< && touch $$@
+	$$(call LIST_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBSEMVER_GLOB_$(2)),$$(notdir $$@))
+	$$(call LIST_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBSEMVER_RGLOB_$(2)),$$(notdir $$@))
+
 $$(TLIB$(1)_T_$(2)_H_$(3))/$(CFG_LIBSYNTAX_$(3)): \
                 $$(LIBSYNTAX_CRATE) $$(LIBSYNTAX_INPUTS) \
 		$$(TSREQ$(1)_T_$(2)_H_$(3))			\

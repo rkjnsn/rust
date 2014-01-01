@@ -12,8 +12,8 @@
 /// or a semantic version
 
 extern mod std;
+extern mod semver;
 
-use extra::semver;
 use std::{char, result, run, str};
 use extra::tempfile::TempDir;
 use path_util::rust_path;

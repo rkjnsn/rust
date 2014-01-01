@@ -39,6 +39,7 @@ $$(TLIB$(1)_T_$(4)_H_$(3))/$(CFG_LIBRUSTPKG_$(4)):		\
 		$$(RUSTPKG_LIB) $$(RUSTPKG_INPUTS)		    \
 		$$(SREQ$(1)_T_$(4)_H_$(3))			\
 		$$(TLIB$(1)_T_$(4)_H_$(3))/$(CFG_LIBRUSTC_$(4)) \
+		$$(TLIB$(1)_T_$(4)_H_$(3))/$(CFG_LIBSEMVER_$(4)) \
 		| $$(TLIB$(1)_T_$(4)_H_$(3))/
 	@$$(call E, compile_and_link: $$@)
 	$$(call REMOVE_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBRUSTPKG_GLOB_$(4)),$$(notdir $$@))
@@ -57,6 +58,7 @@ $$(TLIB$(1)_T_$(4)_H_$(3))/$(CFG_LIBRUSTDOC_$(4)):		\
 		$$(RUSTDOC_LIB) $$(RUSTDOC_INPUTS)			\
 		$$(SREQ$(1)_T_$(4)_H_$(3))			\
 		$$(TLIB$(1)_T_$(4)_H_$(3))/$(CFG_LIBRUSTC_$(4)) \
+		$$(TLIB$(1)_T_$(4)_H_$(3))/$(CFG_LIBSEMVER_$(4)) \
 		$$(SUNDOWN_LIB_$(4)) \
 		| $$(TLIB$(1)_T_$(4)_H_$(3))/
 	@$$(call E, compile_and_link: $$@)

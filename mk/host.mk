@@ -146,6 +146,21 @@ $$(HLIB$(2)_H_$(4))/$(CFG_LIBNATIVE_$(4)): \
 	$$(call LIST_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBNATIVE_GLOB_$(4)),$$(notdir $$@))
 	$$(call LIST_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBNATIVE_RGLOB_$(4)),$$(notdir $$@))
 
+$$(HLIB$(2)_H_$(4))/$(CFG_LIBSEMVER_$(4)): \
+	$$(TLIB$(1)_T_$(4)_H_$(3))/$(CFG_LIBSEMVER_$(4)) \
+	$$(HLIB$(2)_H_$(4))/$(CFG_STDLIB_$(4)) \
+	| $$(HLIB$(2)_H_$(4))/
+	@$$(call E, cp: $$@)
+	$$(call REMOVE_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBSEMVER_GLOB_$(4)),$$(notdir $$@))
+	$$(call REMOVE_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBSEMVER_RGLOB_$(4)),$$(notdir $$@))
+	$$(Q)cp $$< $$@
+	$$(Q)cp -R $$(TLIB$(1)_T_$(4)_H_$(3))/$(LIBSEMVER_GLOB_$(4)) \
+		$$(wildcard $$(TLIB$(1)_T_$(4)_H_$(3))/$(LIBSEMVER_RGLOB_$(4))) \
+		$$(wildcard $$(TLIB$(1)_T_$(4)_H_$(3))/$(LIBSEMVER_DSYM_GLOB_$(4))) \
+	        $$(HLIB$(2)_H_$(4))
+	$$(call LIST_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBSEMVER_GLOB_$(4)),$$(notdir $$@))
+	$$(call LIST_ALL_OLD_GLOB_MATCHES_EXCEPT,$$(dir $$@),$(LIBSEMVER_RGLOB_$(4)),$$(notdir $$@))
+
 $$(HBIN$(2)_H_$(4))/:
 	mkdir -p $$@
 

@@ -14,7 +14,7 @@
 ######################################################################
 
 # The names of crates that must be tested
-TEST_TARGET_CRATES = std extra rustuv green native
+TEST_TARGET_CRATES = std extra rustuv green native semver
 TEST_DOC_CRATES = std extra
 TEST_HOST_CRATES = rustpkg rustc rustdoc syntax
 TEST_CRATES = $(TEST_TARGET_CRATES) $(TEST_HOST_CRATES)
@@ -375,6 +375,12 @@ $(3)/stage$(1)/test/nativetest-$(2)$$(X_$(2)):			\
 
 $(3)/stage$(1)/test/greentest-$(2)$$(X_$(2)):			\
 		$$(LIBGREEN_CRATE) $$(LIBGREEN_INPUTS)	\
+		$$(STDTESTDEP_$(1)_$(2)_$(3))
+	@$$(call E, compile_and_link: $$@)
+	$$(STAGE$(1)_T_$(2)_H_$(3)) -o $$@ $$< --test
+
+$(3)/stage$(1)/test/semvertest-$(2)$$(X_$(2)):			\
+		$$(LIBSEMVER_CRATE) $$(LIBSEMVER_INPUTS)	\
 		$$(STDTESTDEP_$(1)_$(2)_$(3))
 	@$$(call E, compile_and_link: $$@)
 	$$(STAGE$(1)_T_$(2)_H_$(3)) -o $$@ $$< --test

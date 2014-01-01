@@ -98,6 +98,8 @@ install-target-$(1)-host-$(2): $$(TSREQ$$(ISTAGE)_T_$(1)_H_$(2)) $$(SREQ$$(ISTAG
 	$$(Q)$$(call INSTALL_LIB,$$(LIBGREEN_RGLOB_$(1)))
 	$$(Q)$$(call INSTALL_LIB,$$(LIBNATIVE_GLOB_$(1)))
 	$$(Q)$$(call INSTALL_LIB,$$(LIBNATIVE_RGLOB_$(1)))
+	$$(Q)$$(call INSTALL_LIB,$$(LIBSEMVER_GLOB_$(1)))
+	$$(Q)$$(call INSTALL_LIB,$$(LIBSEMVER_RGLOB_$(1)))
 	$$(Q)$$(call INSTALL_LIB,libmorestack.a)
 
 endef
@@ -117,6 +119,8 @@ install-target-$(1)-host-$(2): $$(CSREQ$$(ISTAGE)_T_$(1)_H_$(2))
 	$$(Q)$$(call INSTALL_LIB,$$(LIBGREEN_RGLOB_$(1)))
 	$$(Q)$$(call INSTALL_LIB,$$(LIBNATIVE_GLOB_$(1)))
 	$$(Q)$$(call INSTALL_LIB,$$(LIBNATIVE_RGLOB_$(1)))
+	$$(Q)$$(call INSTALL_LIB,$$(LIBSEMVER_GLOB_$(1)))
+	$$(Q)$$(call INSTALL_LIB,$$(LIBSEMVER_RGLOB_$(1)))
 	$$(Q)$$(call INSTALL_LIB,$$(LIBRUSTC_GLOB_$(1)))
 	$$(Q)$$(call INSTALL_LIB,$$(LIBSYNTAX_GLOB_$(1)))
 	$$(Q)$$(call INSTALL_LIB,$$(LIBRUSTPKG_GLOB_$(1)))
@@ -160,6 +164,7 @@ install-host: $(CSREQ$(ISTAGE)_T_$(CFG_BUILD_)_H_$(CFG_BUILD_))
 	$(Q)$(call INSTALL_LIB,$(LIBGREEN_GLOB_$(CFG_BUILD)))
 	$(Q)$(call INSTALL_LIB,$(LIBRUSTC_GLOB_$(CFG_BUILD)))
 	$(Q)$(call INSTALL_LIB,$(LIBSYNTAX_GLOB_$(CFG_BUILD)))
+	$(Q)$(call INSTALL_LIB,$(LIBSEMVER_GLOB_$(CFG_BUILD)))
 	$(Q)$(call INSTALL_LIB,$(LIBRUSTPKG_GLOB_$(CFG_BUILD)))
 	$(Q)$(call INSTALL_LIB,$(LIBRUSTDOC_GLOB_$(CFG_BUILD)))
 	$(Q)$(call INSTALL,$(S)/man,$(CFG_MANDIR)/man1,rustc.1)
@@ -187,6 +192,8 @@ uninstall:
           $(call HOST_LIB_FROM_HL_GLOB,$(LIBGREEN_RGLOB_$(CFG_BUILD))) \
           $(call HOST_LIB_FROM_HL_GLOB,$(LIBNATIVE_GLOB_$(CFG_BUILD))) \
           $(call HOST_LIB_FROM_HL_GLOB,$(LIBNATIVE_RGLOB_$(CFG_BUILD))) \
+          $(call HOST_LIB_FROM_HL_GLOB,$(LIBSEMVER_GLOB_$(CFG_BUILD))) \
+          $(call HOST_LIB_FROM_HL_GLOB,$(LIBSEMVER_RGLOB_$(CFG_BUILD))) \
           $(call HOST_LIB_FROM_HL_GLOB,$(LIBRUSTC_GLOB_$(CFG_BUILD))) \
           $(call HOST_LIB_FROM_HL_GLOB,$(LIBSYNTAX_GLOB_$(CFG_BUILD))) \
           $(call HOST_LIB_FROM_HL_GLOB,$(LIBRUSTPKG_GLOB_$(CFG_BUILD))) \
