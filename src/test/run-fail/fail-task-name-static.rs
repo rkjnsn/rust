@@ -11,9 +11,12 @@
 // error-pattern:task 'static name' failed at 'test'
 
 fn main() {
+    let (port, chan) = Chan::new();
     let mut t = ::std::task::task();
     t.name("static name");
-    do t.try {
+    do t.spawn {
         fail!("test");
-    }.unwrap()
+        chan.send(());
+    }
+    port.recv();
 }

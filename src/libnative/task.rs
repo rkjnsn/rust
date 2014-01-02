@@ -58,6 +58,7 @@ pub fn spawn_opts(opts: TaskOpts, f: proc()) {
         Some(chan) => {
             let on_exit = proc(task_result) { chan.send(task_result) };
             task.death.on_exit = Some(on_exit);
+            task.death.log_failure = false;
         }
         None => {}
     }

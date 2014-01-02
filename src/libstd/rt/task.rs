@@ -87,6 +87,11 @@ pub struct Death {
     // Action to be done with the exit code. If set, also makes the task wait
     // until all its watched children exit before collecting the status.
     on_exit: Option<proc(TaskResult)>,
+    // Ugh this is pretty unfortunate. Indicates whether a failure should be
+    // logged prior to unwinding. In general, if there's an on_exit handler
+    // then we should not log, *except* the main task has a handler and it
+    // should log on failure.
+    log_failure: bool
 }
 
 pub struct BlockedTaskIterator {
@@ -394,7 +399,7 @@ impl BlockedTask {
 
 impl Death {
     pub fn new() -> Death {
-        Death { on_exit: None, }
+        Death { on_exit: None, log_failure: true }
     }
 
     /// Collect failure exit codes from children and propagate them to a parent.

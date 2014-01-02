@@ -110,7 +110,15 @@ pub fn run(main: proc()) -> int {
     let mut opts = TaskOpts::new();
     opts.notify_chan = Some(chan);
     opts.name = Some(SendStrStatic("<main>"));
-    pool.spawn(opts, main);
+    pool.spawn(opts, proc() {
+        // The spawn function turns failure logging off when notify_chan is
+        // used, but since this is an internal use of notify_chan we still
+        // want the error to be logged, so turn logging back on.
+        let mut task: ~Task = Local::take();
+        task.death.log_failure = true;
+        Local::put(task);
+        main()
+    });
 
     // Wait for the main task to return, and set the process error code
     // appropriately.

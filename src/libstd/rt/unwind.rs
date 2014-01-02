@@ -68,6 +68,7 @@ use rt::task::Task;
 use str::Str;
 use task::TaskResult;
 use unstable::intrinsics;
+use rt::logging::Logger;
 
 use uw = self::libunwind;
 
@@ -312,52 +313,80 @@ pub fn begin_unwind_raw(msg: *c_char, file: *c_char, line: size_t) -> ! {
 
 /// This is the entry point of unwinding for fail!() and assert!().
 pub fn begin_unwind<M: Any + Send>(msg: M, file: &'static str, line: uint) -> ! {
+    // Note that this should be the only allocation performed in this block.
+    // Currently this means that fail!() on OOM will invoke this code path,
+    // but then again we're not really ready for failing on OOM anyway. If
+    // we do start doing this, then we should propagate this allocation to
+    // be performed in the parent of this task instead of the task that's
+    // failing.
+    let msg = ~msg as ~Any;
+
+    maybe_log_failure(&msg, file, line);
+
     unsafe {
-        let task: *mut Task;
-        // Note that this should be the only allocation performed in this block.
-        // Currently this means that fail!() on OOM will invoke this code path,
-        // but then again we're not really ready for failing on OOM anyway. If
-        // we do start doing this, then we should propagate this allocation to
-        // be performed in the parent of this task instead of the task that's
-        // failing.
-        let msg = ~msg as ~Any;
-
-        {
-            let msg_s = match msg.as_ref::<&'static str>() {
-                Some(s) => *s,
-                None => match msg.as_ref::<~str>() {
-                    Some(s) => s.as_slice(),
-                    None => "~Any",
+        match Local::try_unsafe_borrow() {
+            Some(t) => {
+                let _: *mut Task = t;
+                if (*t).unwinder.unwinding {
+                    rtabort!("unwinding again");
                 }
-            };
 
-            // It is assumed that all reasonable rust code will have a local
-            // task at all times. This means that this `try_unsafe_borrow` will
-            // succeed almost all of the time. There are border cases, however,
-            // when the runtime has *almost* set up the local task, but hasn't
-            // quite gotten there yet. In order to get some better diagnostics,
-            // we print on failure and immediately abort the whole process if
-            // there is no local task available.
-            match Local::try_unsafe_borrow() {
-                Some(t) => {
-                    task = t;
-                    let n = (*task).name.as_ref()
-                                   .map(|n| n.as_slice()).unwrap_or("<unnamed>");
-
-                    rterrln!("task '{}' failed at '{}', {}:{}", n, msg_s,
-                             file, line);
-                }
-                None => {
-                    rterrln!("failed at '{}', {}:{}", msg_s, file, line);
-                    intrinsics::abort();
-                }
+                (*t).unwinder.begin_unwind(msg);
             }
-
-            if (*task).unwinder.unwinding {
-                rtabort!("unwinding again");
+            None => {
+                // No task. Can't unwind.
+                intrinsics::abort();
             }
         }
+    }
+}
 
-        (*task).unwinder.begin_unwind(msg);
+fn maybe_log_failure(msg: &~Any, file: &'static str, line: uint) {
+    let msg_s = match msg.as_ref::<&'static str>() {
+        Some(s) => *s,
+        None => match msg.as_ref::<~str>() {
+            Some(s) => s.as_slice(),
+            None => "~Any",
+        }
+    };
+
+    // It is assumed that all reasonable rust code will have a local
+    // task at all times. This means that this `try_unsafe_borrow` will
+    // succeed almost all of the time. There are border cases, however,
+    // when the runtime has *almost* set up the local task, but hasn't
+    // quite gotten there yet. In order to get some better diagnostics,
+    // we print on failure.
+    unsafe {
+        match Local::try_unsafe_borrow() {
+            Some(t) => {
+                let _: *mut Task = t;
+                let n = (*t).name.as_ref()
+                    .map(|n| n.as_slice()).unwrap_or("<unnamed>");
+
+                if (*t).death.log_failure {
+                    // If nobody is handling task exit then log an error,
+                    // otherwise assume that whomever handles the exit will
+                    // deal with it.
+                    match (*t).logger {
+                        Some(ref mut l) => {
+                            format_args!(|args| l.log(args),
+                                         "task '{}' failed at '{}', {}:{}",
+                                         n, msg_s, file, line);
+                        }
+                        None => {
+                            rterrln!("task '{}' failed at '{}', {}:{}",
+                                     n, msg_s, file, line);
+
+                        }
+                    }
+                } else {
+                    info!("task '{}' failed at '{}', {}:{}",
+                          n, msg_s, file, line);
+                }
+            }
+            None => {
+                rterrln!("failed at '{}', {}:{}", msg_s, file, line);
+            }
+        }
     }
 }

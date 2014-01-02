@@ -11,10 +11,12 @@
 // error-pattern:task 'send name' failed at 'test'
 
 fn main() {
+    let (port, chan) = Chan::new();
     let mut t = ::std::task::task();
     t.name("send name".to_send_str());
-    do t.try {
+    do t.spawn {
         fail!("test");
-        3
-    }.unwrap()
+        chan.send(());
+    }
+    port.recv();
 }

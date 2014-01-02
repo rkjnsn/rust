@@ -13,10 +13,12 @@
 use std::task;
 
 fn main() {
+    let (port, chan) = Chan::new();
     let mut t = task::task();
     t.name(~"owned name");
-    do t.try {
+    do t.spawn {
         fail!("test");
-        1
-    }.unwrap()
+        chan.send(());
+    }
+    port.recv();
 }

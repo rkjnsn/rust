@@ -13,8 +13,10 @@
 use std::task;
 
 fn main() {
-    do task::try {
+    let (port, chan) = Chan::new();
+    do spawn {
         fail!("test");
-        1
-    }.unwrap()
+        chan.send(());
+    }
+    port.recv();
 }
