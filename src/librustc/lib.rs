@@ -55,6 +55,7 @@ use syntax::diagnostic;
 use syntax::parse;
 
 // Define the diagnostic macros
+#[path = "../libsyntax/diag_macros.rs"]
 pub mod diag_macros;
 // The index of all diagnostic codes used by this crate. This must be defined
 // lexically before any diagnostics are used.
@@ -202,12 +203,6 @@ pub fn run_compiler(args: &[~str], demitter: @diagnostic::Emitter) {
 
     if args.is_empty() { usage(binary); return; }
 
-    let new_diag_test = if args[0] == ~"new-diag-test" {
-        args.shift(); true
-    } else {
-        false
-    };
-
     let matches =
         &match getopts::groups::getopts(args, d::optgroups()) {
           Ok(m) => m,
@@ -258,7 +253,7 @@ pub fn run_compiler(args: &[~str], demitter: @diagnostic::Emitter) {
     };
 
     let sopts = d::build_session_options(binary, matches, demitter);
-    let sess = d::build_session(sopts, input_file_path, demitter);
+    let sess = d::build_session(sopts, demitter);
     if new_diag_test {
         #[cfg(not(stage0))]
         fn foo(sess: session::Session) {
