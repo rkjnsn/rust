@@ -53,7 +53,7 @@ use syntax::attr;
 use syntax::diagnostic::Emitter;
 use syntax::diagnostic;
 use syntax::parse;
-use syntax::diag_db::{DiagnosticDb, explain_diagnostic};
+use syntax::diag_db::{explain_diagnostic, explain_diag_help};
 
 // Define the diagnostic macros
 #[path = "../libsyntax/diag_macros.rs"]
@@ -218,8 +218,12 @@ pub fn run_compiler(args: &[~str], demitter: @diagnostic::Emitter) {
     }
 
     match matches.opt_str("explain") {
+        Some(ref code) if code == &~"help" => {
+            explain_diag_help();
+            return;
+        },
         Some(code) => {
-            if !explain_diagnostic(&load_diag_db(), code) {
+            if !explain_diagnostic(&diag_db::load(), code) {
                 d::early_error(demitter,
                                format!("no extended information about code {}", code));
             }
@@ -343,11 +347,6 @@ pub fn run_compiler(args: &[~str], demitter: @diagnostic::Emitter) {
     }
 
     d::compile_input(sess, cfg, &input, &odir, &ofile);
-}
-
-/// Load the database of extended diagnostic descriptions
-fn load_diag_db() -> DiagnosticDb {
-    DiagnosticDb::new(~[diag_db::load, syntax::diag_db::load])
 }
 
 fn parse_crate_attrs(sess: session::Session,
