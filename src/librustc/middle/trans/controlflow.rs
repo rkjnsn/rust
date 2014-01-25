@@ -14,6 +14,7 @@ use middle::trans::base::*;
 use middle::trans::build::*;
 use middle::trans::callee;
 use middle::trans::common::*;
+use middle::trans::datum::rvalue_scratch_datum;
 use middle::trans::debuginfo;
 use middle::trans::cleanup;
 use middle::trans::cleanup::CleanupMethods;
@@ -48,7 +49,9 @@ pub fn trans_stmt<'a>(cx: &'a Block<'a>,
 
     match s.node {
         ast::StmtExpr(e, _) | ast::StmtSemi(e, _) => {
-            bcx = expr::trans_into(cx, e, expr::Ignore);
+            let adjusted_ty = ty::expr_ty_adjusted(bcx.tcx(), e);
+            let scratch = rvalue_scratch_datum(bcx, adjusted_ty, "__ignore");
+            bcx = expr::trans_into(cx, e, expr::SaveIn(scratch.val));
         }
         ast::StmtDecl(d, _) => {
             match d.node {
