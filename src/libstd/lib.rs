@@ -66,6 +66,8 @@
 #[deny(missing_doc)];
 #[allow(unknown_features)];
 
+extern crate mini;
+
 // When testing libstd, bring in libuv as the I/O backend so tests can print
 // things and all of the std::io tests have an I/O interface to run on top
 // of
@@ -79,11 +81,12 @@
 
 // Make std testable by not duplicating lang items. See #2912
 #[cfg(test)] extern crate realstd = "std";
-#[cfg(test)] pub use kinds = realstd::kinds;
 #[cfg(test)] pub use ops = realstd::ops;
 #[cfg(test)] pub use cmp = realstd::cmp;
 
-pub mod macros;
+pub use mini::kinds;
+
+mod macros;
 
 mod rtdeps;
 
@@ -134,7 +137,6 @@ pub mod gc;
 
 /* Core language traits */
 
-#[cfg(not(test))] pub mod kinds;
 #[cfg(not(test))] pub mod ops;
 #[cfg(not(test))] pub mod cmp;
 
