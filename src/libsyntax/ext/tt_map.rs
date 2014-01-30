@@ -32,14 +32,14 @@ pub fn insert_expr(ecx: &mut ExtCtxt, sp: Span,
                    tts: &[ast::TokenTree]) -> MacResult {
 
     if tts.len() != 5 {
-        ecx.span_fatal(sp, "incorrect number of arguments");
+        span_fatal!(ecx, sp, B0002, "incorrect number of arguments")
     }
 
     let idxs = [1, 3];
     for i in idxs.iter() {
         match &tts[*i] {
             &ast::TTTok(_, token::COMMA) => (),
-            _ => ecx.span_fatal(sp, "expecting comma")
+            _ => span_fatal!(ecx, sp, B0003, "expecting comma")
         }
     }
 
@@ -58,8 +58,7 @@ pub fn insert_expr(ecx: &mut ExtCtxt, sp: Span,
     };
 
     if existed {
-        let key_name = interner_get(key_name);
-        ecx.span_fatal(sp, format!("key {} already exists in map", key_name));
+        span_fatal!(ecx, sp, B0004, "key {} already exists in map", interner_get(key_name))
     }
 
     // This item isn't used
@@ -72,12 +71,12 @@ pub fn get_expr(ecx: &mut ExtCtxt, sp: Span,
                 tts: &[ast::TokenTree]) -> MacResult {
 
     if tts.len() != 3 {
-        ecx.span_fatal(sp, "incorrect number of arguments");
+        span_fatal!(ecx, sp, B0005, "incorrect number of arguments")
     }
 
     match &tts[1] {
         &ast::TTTok(_, token::COMMA) => (),
-        _ => ecx.span_fatal(sp, "expecting comma")
+        _ => span_fatal!(ecx, sp, B0006, "expecting comma")
     }
 
     let map_name = tree_2_name(ecx, &tts[0]);
@@ -91,12 +90,13 @@ pub fn get_expr(ecx: &mut ExtCtxt, sp: Span,
                 }
                 None => {
                     let key_name = interner_get(key_name);
-                    ecx.span_fatal(sp, format!("key {} does not exist in map", key_name));
+                    span_fatal!(ecx, sp, B0015,
+                                "key {} does not exist in map", key_name)
                 }
             }
         }
         None => {
-            ecx.span_fatal(sp, "map does not exist");
+            span_fatal!(ecx, sp, B0016, "map does not exist")
         }
     }
 }

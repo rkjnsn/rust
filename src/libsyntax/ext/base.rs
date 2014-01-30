@@ -354,6 +354,12 @@ impl<'a> ExtCtxt<'a> {
             _ => self.bug("tried to pop without a push")
         }
     }
+
+    pub fn span_fatal(&self, sp: Span, msg: &str) -> ! {
+        self.print_backtrace();
+        self.parse_sess.span_diagnostic.span_fatal(sp, msg);
+    }
+
     /// Emit `msg` attached to `sp`, and stop compilation immediately.
     ///
     /// `span_err` should be strongly prefered where-ever possible:
@@ -365,9 +371,9 @@ impl<'a> ExtCtxt<'a> {
     ///   in most cases one can construct a dummy expression/item to
     ///   substitute; we never hit resolve/type-checking so the dummy
     ///   value doesn't have to match anything)
-    pub fn span_fatal(&self, sp: Span, msg: &str) -> ! {
+    pub fn span_fatal_with_diagnostic_code(&self, sp: Span, code: &str, msg: &str) -> ! {
         self.print_backtrace();
-        self.parse_sess.span_diagnostic.span_fatal(sp, msg);
+        self.parse_sess.span_diagnostic.span_fatal_with_diagnostic_code(sp, code, msg);
     }
 
     /// Emit `msg` attached to `sp`, without immediately stopping

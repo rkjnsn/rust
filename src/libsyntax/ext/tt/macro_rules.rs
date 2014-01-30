@@ -17,7 +17,7 @@ use ext::base::{NormalTT, MacroExpander};
 use ext::base;
 use ext::tt::macro_parser::{Success, Error, Failure};
 use ext::tt::macro_parser::{NamedMatch, MatchedSeq, MatchedNonterminal};
-use ext::tt::macro_parser::{parse, parse_or_else};
+use ext::tt::macro_parser::{parse};
 use parse::lexer::{new_tt_reader, Reader};
 use parse::parser::Parser;
 use parse::attr::ParserAttr;
@@ -25,6 +25,7 @@ use parse::token::{get_ident_interner, special_idents, gensym_ident, ident_to_st
 use parse::token::{FAT_ARROW, SEMI, NtMatchers, NtTT, EOF};
 use print;
 use std::cell::RefCell;
+use std::hashmap::HashMap;
 use util::small_vector::SmallVector;
 
 struct ParserAnyMacro {
@@ -120,7 +121,7 @@ fn generic_extension(cx: &ExtCtxt,
 
     // Which arm's failure should we report? (the one furthest along)
     let mut best_fail_spot = DUMMY_SP;
-    let mut best_fail_msg = ~"internal error: ran no matchers";
+    let mut best_fail_msg = ~"ran no matchers";
 
     let s_d = cx.parse_sess().span_diagnostic;
 
@@ -139,8 +140,8 @@ fn generic_extension(cx: &ExtCtxt,
                             TTDelim(ref tts) => {
                                 (*tts).slice(1u,(*tts).len()-1u).to_owned()
                             }
-                            _ => cx.span_fatal(
-                                sp, "macro rhs must be delimited")
+                            _ => span_fatal!(cx, sp, B0007,
+                                             "macro rhs must be delimited")
                         }
                     },
                     _ => cx.span_bug(sp, "bad thing in rhs")
@@ -159,13 +160,33 @@ fn generic_extension(cx: &ExtCtxt,
                 best_fail_spot = sp;
                 best_fail_msg = (*msg).clone();
               },
-              Error(sp, ref msg) => cx.span_fatal(sp, (*msg))
+              Error(sp, ref msg) => raise_macro_parse_err(cx, sp, *msg)
             }
           }
           _ => cx.bug("non-matcher found in parsed lhses")
         }
     }
-    cx.span_fatal(best_fail_spot, best_fail_msg);
+    raise_macro_parse_failure(cx, best_fail_spot, best_fail_msg);
+}
+
+pub fn parse_or_else(cx: &ExtCtxt,
+                     cfg: ast::CrateConfig,
+                     rdr: @Reader,
+                     ms: ~[Matcher])
+                     -> HashMap<Ident, @NamedMatch> {
+    match parse(cx.parse_sess(), cfg, rdr, ms) {
+        Success(m) => m,
+        Failure(sp, str) => raise_macro_parse_failure(cx, sp, str),
+        Error(sp, str) => raise_macro_parse_err(cx, sp, str)
+    }
+}
+
+pub fn raise_macro_parse_err(cx: &ExtCtxt, sp: Span, msg: &str) -> ! {
+    span_fatal!(cx, sp, B0008, "error parsing macro: {}", msg)
+}
+
+pub fn raise_macro_parse_failure(cx: &ExtCtxt, sp: Span, msg: &str) -> ! {
+    span_fatal!(cx, sp, B0009, "macro parse failed: {}", msg)
 }
 
 // this procedure performs the expansion of the
@@ -206,7 +227,7 @@ pub fn add_new_extension(cx: &mut ExtCtxt,
     let arg_reader = new_tt_reader(cx.parse_sess().span_diagnostic,
                                    None,
                                    arg.clone());
-    let argument_map = parse_or_else(cx.parse_sess(),
+    let argument_map = parse_or_else(cx,
                                      cx.cfg(),
                                      arg_reader as @Reader,
                                      argument_gram);

@@ -183,8 +183,8 @@ pub fn nameize(p_s: @ParseSess, ms: &[Matcher], res: &[@NamedMatch])
                 node: MatchNonterminal(ref bind_name, _, idx), span: sp
           } => {
             if ret_val.contains_key(bind_name) {
-                p_s.span_diagnostic.span_fatal(sp,
-                                               "Duplicated bind name: "+ ident_to_str(bind_name))
+                span_fatal!(p_s.span_diagnostic, sp, B0017,
+                            "Duplicated bind name: {}", ident_to_str(bind_name))
             }
             ret_val.insert(*bind_name, res[idx]);
           }
@@ -199,18 +199,6 @@ pub enum ParseResult {
     Success(HashMap<Ident, @NamedMatch>),
     Failure(codemap::Span, ~str),
     Error(codemap::Span, ~str)
-}
-
-pub fn parse_or_else(sess: @ParseSess,
-                     cfg: ast::CrateConfig,
-                     rdr: @Reader,
-                     ms: ~[Matcher])
-                     -> HashMap<Ident, @NamedMatch> {
-    match parse(sess, cfg, rdr, ms) {
-        Success(m) => m,
-        Failure(sp, str) => sess.span_diagnostic.span_fatal(sp, str),
-        Error(sp, str) => sess.span_diagnostic.span_fatal(sp, str)
-    }
 }
 
 // perform a token equality check, ignoring syntax context (that is, an unhygienic comparison)

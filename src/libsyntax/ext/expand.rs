@@ -434,14 +434,18 @@ fn load_extern_macros(crate: &ast::ViewItem, fld: &mut MacroExpander) {
         // this is fatal: there are almost certainly macros we need
         // inside this crate, so continue would spew "macro undefined"
         // errors
-        Err(err) => fld.cx.span_fatal(crate.span, err)
+        Err(err) => {
+            span_fatal!(fld.cx, crate.span, B0000,
+                        "error opening crate for external macros: {}", err)
+        }
     };
 
     unsafe {
         let registrar: MacroCrateRegistrationFun = match lib.symbol(registrar) {
             Ok(registrar) => registrar,
             // again fatal if we can't register macros
-            Err(err) => fld.cx.span_fatal(crate.span, err)
+            Err(err) => span_fatal!(fld.cx, crate.span, B0001,
+                                    "error finding registrar sybol: {}", err)
         };
         registrar(|name, extension| {
             let extension = match extension {

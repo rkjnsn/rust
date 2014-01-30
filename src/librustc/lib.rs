@@ -270,19 +270,7 @@ pub fn run_compiler(args: &[~str], demitter: @diagnostic::Emitter) {
     };
 
     let sopts = d::build_session_options(binary, matches, demitter);
-    let sess = d::build_session(sopts, demitter);
-    if new_diag_test {
-        #[cfg(not(stage0))]
-        fn foo(sess: session::Session) {
-            let diagdb = ::diag_db::load();
-            alert_error!(sess, A0000, "This is a {} of the new diagnostic system", "test");
-            let (_name, _msg, desc) = diagdb[0];
-            println!("{}", desc);
-            fail!();
-        }
-        #[cfg(stage0)] fn foo(_: session::Session) { }
-        foo(sess)
-    }
+    let sess = d::build_session(sopts, input_file_path, demitter);
     let odir = matches.opt_str("out-dir").map(|o| Path::new(o));
     let ofile = matches.opt_str("o").map(|o| Path::new(o));
     let cfg = d::build_configuration(sess);

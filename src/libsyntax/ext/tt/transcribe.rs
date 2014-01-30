@@ -122,9 +122,8 @@ fn lookup_cur_matched(r: &TtReader, name: Ident) -> @NamedMatch {
     match matched_opt {
         Some(s) => lookup_cur_matched_by_matched(r, s),
         None => {
-            r.sp_diag.span_fatal(r.cur_span.get(),
-                                 format!("unknown macro variable `{}`",
-                                         ident_to_str(&name)));
+            span_fatal!(r.sp_diag, r.cur_span.get(), B0010,
+                        "unknown macro variable `{}`", ident_to_str(&name))
         }
     }
 }
@@ -254,23 +253,23 @@ pub fn tt_next_token(r: &TtReader) -> TokenAndSpan {
             let t = TTSeq(sp, tts, sep.clone(), zerok);
             match lockstep_iter_size(&t, r) {
               LisUnconstrained => {
-                r.sp_diag.span_fatal(
-                    sp, /* blame macro writer */
-                      "attempted to repeat an expression \
-                       containing no syntax \
-                       variables matched as repeating at this depth");
+                span_fatal!(r.sp_diag, sp, B0011,
+                            /* blame macro writer */
+                            "attempted to repeat an expression \
+                            containing no syntax \
+                            variables matched as repeating at this depth")
                   }
                   LisContradiction(ref msg) => {
                       /* FIXME #2887 blame macro invoker instead*/
-                      r.sp_diag.span_fatal(sp, (*msg));
+                      span_fatal!(r.sp_diag, sp, B0012,
+                                  "list contradiction: {}", (*msg))
                   }
                   LisConstraint(len, _) => {
                     if len == 0 {
                       if !zerok {
-                        r.sp_diag.span_fatal(sp, /* FIXME #2887 blame invoker
-                        */
-                                             "this must repeat at least \
-                                              once");
+                        /* FIXME #2887 blame invokerb */
+                        span_fatal!(r.sp_diag, sp, B0013,
+                                    "this must repeat at least once")
                           }
 
                     r.stack.get().idx.set(r.stack.get().idx.get() + 1u);
@@ -313,10 +312,11 @@ pub fn tt_next_token(r: &TtReader) -> TokenAndSpan {
                 return ret_val;
               }
               MatchedSeq(..) => {
-                r.sp_diag.span_fatal(
-                    r.cur_span.get(), /* blame the macro writer */
-                    format!("variable '{}' is still repeating at this depth",
-                         ident_to_str(&ident)));
+                span_fatal!(r.sp_diag,
+                            r.cur_span.get(), /* blame the macro writer */
+                            B0014,
+                            "variable '{}' is still repeating at this depth",
+                            ident_to_str(&ident))
               }
             }
           }
