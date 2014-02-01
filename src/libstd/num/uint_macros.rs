@@ -32,18 +32,6 @@ impl CheckedDiv for $T {
 
 impl Num for $T {}
 
-#[cfg(not(test))]
-impl Ord for $T {
-    #[inline]
-    fn lt(&self, other: &$T) -> bool { (*self) < (*other) }
-}
-
-#[cfg(not(test))]
-impl Eq for $T {
-    #[inline]
-    fn eq(&self, other: &$T) -> bool { return (*self) == (*other); }
-}
-
 impl Orderable for $T {
     #[inline]
     fn min(&self, other: &$T) -> $T {

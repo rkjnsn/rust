@@ -274,36 +274,6 @@ impl BitXor<bool, bool> for bool {
 }
 
 #[cfg(not(test))]
-impl Ord for bool {
-    #[inline]
-    fn lt(&self, other: &bool) -> bool { self.to_bit::<u8>() < other.to_bit() }
-}
-
-#[cfg(not(test))]
-impl TotalOrd for bool {
-    #[inline]
-    fn cmp(&self, other: &bool) -> Ordering { self.to_bit::<u8>().cmp(&other.to_bit()) }
-}
-
-/// Equality between two boolean values.
-///
-/// Two booleans are equal if they have the same value.
-///
-/// # Examples
-///
-/// ```rust
-/// assert_eq!(false.eq(&true), false);
-/// assert_eq!(false == false, true);
-/// assert_eq!(false != true, true);
-/// assert_eq!(false.ne(&false), false);
-/// ```
-#[cfg(not(test))]
-impl Eq for bool {
-    #[inline]
-    fn eq(&self, other: &bool) -> bool { (*self) == (*other) }
-}
-
-#[cfg(not(test))]
 impl Default for bool {
     fn default() -> bool { false }
 }

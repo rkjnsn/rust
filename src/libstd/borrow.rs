@@ -25,51 +25,6 @@ pub fn ref_eq<'a, 'b, T>(thing: &'a T, other: &'b T) -> bool {
     (thing as *T) == (other as *T)
 }
 
-// Equality for region pointers
-#[cfg(not(test))]
-impl<'a, T: Eq> Eq for &'a T {
-    #[inline]
-    fn eq(&self, other: & &'a T) -> bool {
-        *(*self) == *(*other)
-    }
-    #[inline]
-    fn ne(&self, other: & &'a T) -> bool {
-        *(*self) != *(*other)
-    }
-}
-
-// Comparison for region pointers
-#[cfg(not(test))]
-impl<'a, T: Ord> Ord for &'a T {
-    #[inline]
-    fn lt(&self, other: & &'a T) -> bool {
-        *(*self) < *(*other)
-    }
-    #[inline]
-    fn le(&self, other: & &'a T) -> bool {
-        *(*self) <= *(*other)
-    }
-    #[inline]
-    fn ge(&self, other: & &'a T) -> bool {
-        *(*self) >= *(*other)
-    }
-    #[inline]
-    fn gt(&self, other: & &'a T) -> bool {
-        *(*self) > *(*other)
-    }
-}
-
-#[cfg(not(test))]
-impl<'a, T: TotalOrd> TotalOrd for &'a T {
-    #[inline]
-    fn cmp(&self, other: & &'a T) -> Ordering { (**self).cmp(*other) }
-}
-
-#[cfg(not(test))]
-impl<'a, T: TotalEq> TotalEq for &'a T {
-    #[inline]
-    fn equals(&self, other: & &'a T) -> bool { (**self).equals(*other) }
-}
 
 #[cfg(test)]
 mod tests {

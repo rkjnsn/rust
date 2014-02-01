@@ -20,6 +20,7 @@
 #[feature(globs)];
 #[feature(phase)];
 #[feature(macro_rules)];
+#[feature(managed_boxes)];
 
 #[cfg(test)] #[phase(syntax)] extern mod std;
 
@@ -29,14 +30,17 @@
 #[cfg(test)] extern mod green;
 #[cfg(test)] extern mod native;
 
+#[cfg(test)] pub use kinds = realprim::cmp;
 #[cfg(test)] pub use kinds = realprim::kinds;
 
 pub mod cast;
+#[cfg(not(test))] pub mod cmp;
 pub mod intrinsics;
 #[cfg(not(test))] pub mod kinds;
 pub mod mem;
 pub mod ptr;
 pub mod tuple;
+pub mod vec;
 
 /**
  * Swap the values at two mutable locations of the same type, without

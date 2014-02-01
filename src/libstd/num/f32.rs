@@ -171,24 +171,6 @@ pub mod consts {
 
 impl Num for f32 {}
 
-#[cfg(not(test))]
-impl Eq for f32 {
-    #[inline]
-    fn eq(&self, other: &f32) -> bool { (*self) == (*other) }
-}
-
-#[cfg(not(test))]
-impl Ord for f32 {
-    #[inline]
-    fn lt(&self, other: &f32) -> bool { (*self) < (*other) }
-    #[inline]
-    fn le(&self, other: &f32) -> bool { (*self) <= (*other) }
-    #[inline]
-    fn ge(&self, other: &f32) -> bool { (*self) >= (*other) }
-    #[inline]
-    fn gt(&self, other: &f32) -> bool { (*self) > (*other) }
-}
-
 impl Orderable for f32 {
     /// Returns `NAN` if either of the numbers are `NAN`.
     #[inline]

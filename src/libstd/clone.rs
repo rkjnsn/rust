@@ -22,6 +22,7 @@ the `clone` method.
 */
 
 use std::kinds::Freeze;
+use prim::cmp::Ordering;
 
 /// A common trait for cloning an object.
 pub trait Clone {
@@ -38,6 +39,13 @@ pub trait Clone {
     #[inline(always)]
     fn clone_from(&mut self, source: &Self) {
         *self = source.clone()
+    }
+}
+
+impl Clone for Ordering {
+    #[inline]
+    fn clone(&self) -> Ordering {
+        *self
     }
 }
 

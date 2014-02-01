@@ -76,9 +76,9 @@ extern mod prim;
 // Make std testable by not duplicating lang items. See #2912
 #[cfg(test)] extern mod realstd = "std";
 #[cfg(test)] pub use ops = realstd::ops;
-#[cfg(test)] pub use cmp = realstd::cmp;
 
 pub use prim::cast;
+pub use prim::cmp;
 pub use prim::kinds;
 pub use prim::mem;
 pub use prim::ptr;
@@ -136,7 +136,6 @@ pub mod gc;
 /* Core language traits */
 
 #[cfg(not(test))] pub mod ops;
-#[cfg(not(test))] pub mod cmp;
 
 
 /* Common traits */

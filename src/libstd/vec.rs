@@ -123,6 +123,8 @@ use unstable::intrinsics;
 use unstable::raw::{Repr, Slice, Vec};
 use util;
 
+pub use prim::Vector;
+
 /**
  * Creates and initializes an owned vector.
  *
@@ -627,119 +629,6 @@ pub mod traits {
     use iter::order;
     use ops::Add;
 
-    impl<'a,T:Eq> Eq for &'a [T] {
-        fn eq(&self, other: & &'a [T]) -> bool {
-            self.len() == other.len() &&
-                order::eq(self.iter(), other.iter())
-        }
-        fn ne(&self, other: & &'a [T]) -> bool {
-            self.len() != other.len() ||
-                order::ne(self.iter(), other.iter())
-        }
-    }
-
-    impl<T:Eq> Eq for ~[T] {
-        #[inline]
-        fn eq(&self, other: &~[T]) -> bool { self.as_slice() == *other }
-        #[inline]
-        fn ne(&self, other: &~[T]) -> bool { !self.eq(other) }
-    }
-
-    impl<T:Eq> Eq for @[T] {
-        #[inline]
-        fn eq(&self, other: &@[T]) -> bool { self.as_slice() == *other }
-        #[inline]
-        fn ne(&self, other: &@[T]) -> bool { !self.eq(other) }
-    }
-
-    impl<'a,T:TotalEq> TotalEq for &'a [T] {
-        fn equals(&self, other: & &'a [T]) -> bool {
-            self.len() == other.len() &&
-                order::equals(self.iter(), other.iter())
-        }
-    }
-
-    impl<T:TotalEq> TotalEq for ~[T] {
-        #[inline]
-        fn equals(&self, other: &~[T]) -> bool { self.as_slice().equals(&other.as_slice()) }
-    }
-
-    impl<T:TotalEq> TotalEq for @[T] {
-        #[inline]
-        fn equals(&self, other: &@[T]) -> bool { self.as_slice().equals(&other.as_slice()) }
-    }
-
-    impl<'a,T:Eq, V: Vector<T>> Equiv<V> for &'a [T] {
-        #[inline]
-        fn equiv(&self, other: &V) -> bool { self.as_slice() == other.as_slice() }
-    }
-
-    impl<'a,T:Eq, V: Vector<T>> Equiv<V> for ~[T] {
-        #[inline]
-        fn equiv(&self, other: &V) -> bool { self.as_slice() == other.as_slice() }
-    }
-
-    impl<'a,T:Eq, V: Vector<T>> Equiv<V> for @[T] {
-        #[inline]
-        fn equiv(&self, other: &V) -> bool { self.as_slice() == other.as_slice() }
-    }
-
-    impl<'a,T:TotalOrd> TotalOrd for &'a [T] {
-        fn cmp(&self, other: & &'a [T]) -> Ordering {
-            order::cmp(self.iter(), other.iter())
-        }
-    }
-
-    impl<T: TotalOrd> TotalOrd for ~[T] {
-        #[inline]
-        fn cmp(&self, other: &~[T]) -> Ordering { self.as_slice().cmp(&other.as_slice()) }
-    }
-
-    impl<T: TotalOrd> TotalOrd for @[T] {
-        #[inline]
-        fn cmp(&self, other: &@[T]) -> Ordering { self.as_slice().cmp(&other.as_slice()) }
-    }
-
-    impl<'a, T: Eq + Ord> Ord for &'a [T] {
-        fn lt(&self, other: & &'a [T]) -> bool {
-            order::lt(self.iter(), other.iter())
-        }
-        #[inline]
-        fn le(&self, other: & &'a [T]) -> bool {
-            order::le(self.iter(), other.iter())
-        }
-        #[inline]
-        fn ge(&self, other: & &'a [T]) -> bool {
-            order::ge(self.iter(), other.iter())
-        }
-        #[inline]
-        fn gt(&self, other: & &'a [T]) -> bool {
-            order::gt(self.iter(), other.iter())
-        }
-    }
-
-    impl<T: Eq + Ord> Ord for ~[T] {
-        #[inline]
-        fn lt(&self, other: &~[T]) -> bool { self.as_slice() < other.as_slice() }
-        #[inline]
-        fn le(&self, other: &~[T]) -> bool { self.as_slice() <= other.as_slice() }
-        #[inline]
-        fn ge(&self, other: &~[T]) -> bool { self.as_slice() >= other.as_slice() }
-        #[inline]
-        fn gt(&self, other: &~[T]) -> bool { self.as_slice() > other.as_slice() }
-    }
-
-    impl<T: Eq + Ord> Ord for @[T] {
-        #[inline]
-        fn lt(&self, other: &@[T]) -> bool { self.as_slice() < other.as_slice() }
-        #[inline]
-        fn le(&self, other: &@[T]) -> bool { self.as_slice() <= other.as_slice() }
-        #[inline]
-        fn ge(&self, other: &@[T]) -> bool { self.as_slice() >= other.as_slice() }
-        #[inline]
-        fn gt(&self, other: &@[T]) -> bool { self.as_slice() > other.as_slice() }
-    }
-
     impl<'a,T:Clone, V: Vector<T>> Add<V, ~[T]> for &'a [T] {
         #[inline]
         fn add(&self, rhs: &V) -> ~[T] {
@@ -761,26 +650,6 @@ pub mod traits {
 #[cfg(test)]
 pub mod traits {}
 
-/// Any vector that can be represented as a slice.
-pub trait Vector<T> {
-    /// Work with `self` as a slice.
-    fn as_slice<'a>(&'a self) -> &'a [T];
-}
-
-impl<'a,T> Vector<T> for &'a [T] {
-    #[inline(always)]
-    fn as_slice<'a>(&'a self) -> &'a [T] { *self }
-}
-
-impl<T> Vector<T> for ~[T] {
-    #[inline(always)]
-    fn as_slice<'a>(&'a self) -> &'a [T] { let v: &'a [T] = *self; v }
-}
-
-impl<T> Vector<T> for @[T] {
-    #[inline(always)]
-    fn as_slice<'a>(&'a self) -> &'a [T] { let v: &'a [T] = *self; v }
-}
 
 impl<'a, T> Container for &'a [T] {
     /// Returns the length of a vector

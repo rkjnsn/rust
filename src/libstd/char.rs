@@ -431,18 +431,6 @@ impl Char for char {
 }
 
 #[cfg(not(test))]
-impl Eq for char {
-    #[inline]
-    fn eq(&self, other: &char) -> bool { (*self) == (*other) }
-}
-
-#[cfg(not(test))]
-impl Ord for char {
-    #[inline]
-    fn lt(&self, other: &char) -> bool { *self < *other }
-}
-
-#[cfg(not(test))]
 impl Default for char {
     #[inline]
     fn default() -> char { '\x00' }

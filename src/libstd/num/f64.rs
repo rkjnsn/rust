@@ -178,24 +178,6 @@ pub mod consts {
 
 impl Num for f64 {}
 
-#[cfg(not(test))]
-impl Eq for f64 {
-    #[inline]
-    fn eq(&self, other: &f64) -> bool { (*self) == (*other) }
-}
-
-#[cfg(not(test))]
-impl Ord for f64 {
-    #[inline]
-    fn lt(&self, other: &f64) -> bool { (*self) < (*other) }
-    #[inline]
-    fn le(&self, other: &f64) -> bool { (*self) <= (*other) }
-    #[inline]
-    fn ge(&self, other: &f64) -> bool { (*self) >= (*other) }
-    #[inline]
-    fn gt(&self, other: &f64) -> bool { (*self) > (*other) }
-}
-
 impl Orderable for f64 {
     /// Returns `NAN` if either of the numbers are `NAN`.
     #[inline]

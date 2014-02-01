@@ -28,38 +28,6 @@ pub fn ptr_eq<T>(a: @T, b: @T) -> bool {
     a_ptr == b_ptr
 }
 
-#[cfg(not(test))]
-impl<T:Eq> Eq for @T {
-    #[inline]
-    fn eq(&self, other: &@T) -> bool { *(*self) == *(*other) }
-    #[inline]
-    fn ne(&self, other: &@T) -> bool { *(*self) != *(*other) }
-}
-
-#[cfg(not(test))]
-impl<T:Ord> Ord for @T {
-    #[inline]
-    fn lt(&self, other: &@T) -> bool { *(*self) < *(*other) }
-    #[inline]
-    fn le(&self, other: &@T) -> bool { *(*self) <= *(*other) }
-    #[inline]
-    fn ge(&self, other: &@T) -> bool { *(*self) >= *(*other) }
-    #[inline]
-    fn gt(&self, other: &@T) -> bool { *(*self) > *(*other) }
-}
-
-#[cfg(not(test))]
-impl<T: TotalOrd> TotalOrd for @T {
-    #[inline]
-    fn cmp(&self, other: &@T) -> Ordering { (**self).cmp(*other) }
-}
-
-#[cfg(not(test))]
-impl<T: TotalEq> TotalEq for @T {
-    #[inline]
-    fn equals(&self, other: &@T) -> bool { (**self).equals(*other) }
-}
-
 #[test]
 fn test() {
     let x = @3;
