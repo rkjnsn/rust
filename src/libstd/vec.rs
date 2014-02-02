@@ -650,23 +650,6 @@ pub mod traits {
 #[cfg(test)]
 pub mod traits {}
 
-
-impl<'a, T> Container for &'a [T] {
-    /// Returns the length of a vector
-    #[inline]
-    fn len(&self) -> uint {
-        self.repr().len
-    }
-}
-
-impl<T> Container for ~[T] {
-    /// Returns the length of a vector
-    #[inline]
-    fn len(&self) -> uint {
-        self.as_slice().len()
-    }
-}
-
 /// Extension methods for vector slices with cloneable elements
 pub trait CloneableVector<T> {
     /// Copy `self` into a new owned vector

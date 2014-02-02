@@ -740,11 +740,7 @@ impl Ord for char {
 impl<'a,T:Eq> Eq for &'a [T] {
     fn eq(&self, other: & &'a [T]) -> bool {
         self.len() == other.len() &&
-            order::eq(self.iter(), other.iter())
-    }
-    fn ne(&self, other: & &'a [T]) -> bool {
-        self.len() != other.len() ||
-            order::ne(self.iter(), other.iter())
+            order::eq(*self, *other)
     }
 }
 
@@ -765,7 +761,7 @@ impl<T:Eq> Eq for @[T] {
 impl<'a,T:TotalEq> TotalEq for &'a [T] {
     fn equals(&self, other: & &'a [T]) -> bool {
         self.len() == other.len() &&
-            order::equals(self.iter(), other.iter())
+            order::equals(*self, *other)
     }
 }
 
@@ -796,7 +792,7 @@ impl<'a,T:Eq, V: Vector<T>> Equiv<V> for @[T] {
 
 impl<'a,T:TotalOrd> TotalOrd for &'a [T] {
     fn cmp(&self, other: & &'a [T]) -> Ordering {
-        order::cmp(self.iter(), other.iter())
+        order::cmp(*self, *other)
     }
 }
 
@@ -813,19 +809,7 @@ impl<T: TotalOrd> TotalOrd for @[T] {
 impl<'a, T: Eq + Ord> Ord for &'a [T] {
     #[inline]
     fn lt(&self, other: & &'a [T]) -> bool {
-        order::lt(self.iter(), other.iter())
-    }
-    #[inline]
-    fn le(&self, other: & &'a [T]) -> bool {
-        order::le(self.iter(), other.iter())
-    }
-    #[inline]
-    fn ge(&self, other: & &'a [T]) -> bool {
-        order::ge(self.iter(), other.iter())
-    }
-    #[inline]
-    fn gt(&self, other: & &'a [T]) -> bool {
-        order::gt(self.iter(), other.iter())
+        order::lt(*self, *other)
     }
 }
 
@@ -851,6 +835,23 @@ impl<T: Eq + Ord> Ord for @[T] {
     fn gt(&self, other: &@[T]) -> bool { self.as_slice() > other.as_slice() }
 }
 
+mod order {
+
+    use super::{Eq, TotalEq, Ord, TotalOrd};
+    use super::{Ordering, Less, Equal, Greater};
+
+    fn eq<T: Eq>(this: &[T], other: &[T]) -> bool {
+    }
+
+    fn equals<T: TotalEq>(this: &[T], other: &[T]) -> bool {
+    }
+
+    fn lt<T: Ord>(this: &[T], other: &[T]) -> bool {
+    }
+
+    fn cmp<T: TotalOrd>(this: &[T], other: &[T]) -> Ordering {
+    }
+}
 
 #[cfg(test)]
 mod test {
