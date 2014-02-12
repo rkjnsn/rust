@@ -553,11 +553,7 @@ include $(CFG_SRC_DIR)mk/llvm.mk
 # Secondary makefiles, conditionalized for speed
 ######################################################################
 
-ifneq ($(strip $(findstring dist,$(MAKECMDGOALS))   \
-               $(findstring check,$(MAKECMDGOALS))  \
-               $(findstring test,$(MAKECMDGOALS))   \
-               $(findstring tidy,$(MAKECMDGOALS))   \
-               $(findstring clean,$(MAKECMDGOALS))),)
+ifneq ($(strip $(findstring dist,$(MAKECMDGOALS))),)
   CFG_INFO := $(info cfg: including dist rules)
   include $(CFG_SRC_DIR)mk/dist.mk
 endif
