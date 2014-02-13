@@ -582,6 +582,12 @@ ifneq ($(findstring clean,$(MAKECMDGOALS)),)
   include $(CFG_SRC_DIR)mk/clean.mk
 endif
 
+ifneq ($(strip $(findstring prepare,$(MAKECMDGOALS)) \
+               $(findstring install,$(MAKECMDGOALS))),)
+  CFG_INFO := $(info cfg: including prepare rules)
+  include $(CFG_SRC_DIR)mk/prepare.mk
+endif
+
 ifneq ($(findstring install,$(MAKECMDGOALS)),)
   CFG_INFO := $(info cfg: including install rules)
   include $(CFG_SRC_DIR)mk/install.mk
