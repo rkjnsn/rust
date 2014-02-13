@@ -553,11 +553,6 @@ include $(CFG_SRC_DIR)mk/llvm.mk
 # Secondary makefiles, conditionalized for speed
 ######################################################################
 
-ifneq ($(strip $(findstring dist,$(MAKECMDGOALS))),)
-  CFG_INFO := $(info cfg: including dist rules)
-  include $(CFG_SRC_DIR)mk/dist.mk
-endif
-
 ifneq ($(strip $(findstring snap,$(MAKECMDGOALS))   \
                $(findstring clean,$(MAKECMDGOALS))),)
   CFG_INFO := $(info cfg: including snap rules)
@@ -583,6 +578,7 @@ ifneq ($(findstring clean,$(MAKECMDGOALS)),)
 endif
 
 ifneq ($(strip $(findstring prepare,$(MAKECMDGOALS)) \
+               $(findstring dist,$(MAKECMDGOALS)) \
                $(findstring install,$(MAKECMDGOALS))),)
   CFG_INFO := $(info cfg: including prepare rules)
   include $(CFG_SRC_DIR)mk/prepare.mk
@@ -591,6 +587,11 @@ endif
 ifneq ($(findstring install,$(MAKECMDGOALS)),)
   CFG_INFO := $(info cfg: including install rules)
   include $(CFG_SRC_DIR)mk/install.mk
+endif
+
+ifneq ($(strip $(findstring dist,$(MAKECMDGOALS))),)
+  CFG_INFO := $(info cfg: including dist rules)
+  include $(CFG_SRC_DIR)mk/dist.mk
 endif
 
 ifneq ($(strip $(findstring TAGS.emacs,$(MAKECMDGOALS)) \
