@@ -90,53 +90,80 @@ endef
 
 PREPARE_TOOLS = $(filter-out compiletest, $(TOOLS))
 
-prepare-host: prepare-host-dirs $(PREPARE_PREREQS) \
-         $(foreach tool, $(PREPARE_TOOLS),prepare-host-tool-$(tool))
+prepare-host: prepare-host-dirs prepare-host-tools
 
 prepare-host-dirs:
 	$(call PREPARE_DIR,$(PREPARE_DEST_BIN_DIR))
 	$(call PREPARE_DIR,$(PREPARE_DEST_LIB_DIR))
 	$(call PREPARE_DIR,$(PREPARE_DEST_MAN_DIR))
 
+prepare-host-tools:\
+        $(foreach tool, $(PREPARE_TOOLS),\
+          $(foreach stage,1 2 3,\
+            $(foreach host,$(CFG_HOST),\
+              prepare-host-tool-$(tool)-$(stage)-$(host))))
+
+# $(1) is tool
+# $(2) is stage
+# $(3) is host
 define DEF_PREPARE_HOST_TOOL
-prepare-host-tool-$(1): $$(foreach dep,$$(TOOL_DEPS_$(1)),prepare-host-lib-$$(dep)) \
-                        $$(CSREQ$$(PREPARE_STAGE)_T_$$(PREPARE_HOST))
-	$$(call PREPARE_BIN,$(1)$$(X_$$(PREPARE_HOST)))
-	$$(call PREPARE_MAN,$(1).1)
+prepare-host-tool-$(1)-$(2)-$(3): $$(foreach dep,$$(TOOL_DEPS_$(1)),prepare-host-lib-$$(dep)-$(2)-$(3)) \
+                                  $$(HBIN$(2)_H_$(3))/$(1)$$(X_$(3))
+    $$(if $$(findstring $(2), $$(PREPARE_STAGE)),\
+      $$(if $$(findstring $(3), $$(PREPARE_HOST)),\
+        $$(call PREPARE_BIN,$(1)$$(X_$$(PREPARE_HOST)))\
+        $$(call PREPARE_MAN,$(1).1),),)
 endef
 
-$(foreach tool,$(PREPARE_TOOLS),$(eval $(call DEF_PREPARE_HOST_TOOL,$(tool))))
+$(foreach tool,$(PREPARE_TOOLS),\
+  $(foreach stage,1 2 3,\
+    $(foreach host,$(CFG_HOST),\
+        $(eval $(call DEF_PREPARE_HOST_TOOL,$(tool),$(stage),$(host))))))
 
+# $(1) is tool
+# $(2) is stage
+# $(3) is host
 define DEF_PREPARE_HOST_LIB
-prepare-host-lib-$(1): PREPARE_WORKING_SOURCE_LIB_DIR=$$(PREPARE_SOURCE_LIB_DIR)
-prepare-host-lib-$(1): PREPARE_WORKING_DEST_LIB_DIR=$$(PREPARE_DEST_LIB_DIR)
-prepare-host-lib-$(1): $$(foreach dep,$$(RUST_DEPS_$(1)),prepare-host-lib-$$(dep)) \
-                       $$(CSREQ$$(PREPARE_STAGE)_T_$$(PREPARE_HOST))
-	$$(call PREPARE_LIB,$$(call CFG_LIB_GLOB_$$(PREPARE_HOST),$(1)))
+prepare-host-lib-$(1)-$(2)-$(3): PREPARE_WORKING_SOURCE_LIB_DIR=$$(PREPARE_SOURCE_LIB_DIR)
+prepare-host-lib-$(1)-$(2)-$(3): PREPARE_WORKING_DEST_LIB_DIR=$$(PREPARE_DEST_LIB_DIR)
+prepare-host-lib-$(1)-$(2)-$(3): $$(foreach dep,$$(RUST_DEPS_$(1)),prepare-host-lib-$$(dep)-$(2)-$(3))\
+                                 $$(HLIB$(2)_H_$(3))/stamp.$(1)
+    $$(if $$(findstring $(2), $$(PREPARE_STAGE)),\
+      $$(if $$(findstring $(3), $$(PREPARE_HOST)),\
+        $$(call PREPARE_LIB,$$(call CFG_LIB_GLOB_$$(PREPARE_HOST),$(1))),),)
 endef
 
-$(foreach lib,$(CRATES),$(eval $(call DEF_PREPARE_HOST_LIB,$(lib))))
+$(foreach lib,$(CRATES),\
+  $(foreach stage,1 2 3,\
+    $(foreach host,$(CFG_HOST),\
+      $(eval $(call DEF_PREPARE_HOST_LIB,$(lib),$(stage),$(host))))))
 
-prepare-targets: $(foreach host,$(CFG_HOST),\
-                   $(foreach target,$(CFG_TARGET),\
-                     prepare-target-$(target)-host-$(host)))
+prepare-targets:\
+        $(foreach host,$(CFG_HOST),\
+           $(foreach target,$(CFG_TARGET),\
+             $(foreach stage,1 2 3,\
+               prepare-target-$(target)-host-$(host)-$(stage))))
 
+# $(1) is target
+# $(2) is host
+# $(3) is stage
 define DEF_PREPARE_TARGET_N
 # Rebind PREPARE_*_LIB_DIR to point to rustlib, then install the libs for the targets
-prepare-target-$(1)-host-$(2): PREPARE_WORKING_SOURCE_LIB_DIR=$$(PREPARE_SOURCE_LIB_DIR)/rustlib/$(1)/lib
-prepare-target-$(1)-host-$(2): PREPARE_WORKING_DEST_LIB_DIR=$$(PREPARE_DEST_LIB_DIR)/rustlib/$(1)/lib
-prepare-target-$(1)-host-$(2): $$(TSREQ$$(PREPARE_STAGE)_T_$(1)_H_$(2)) \
-                               $$(SREQ$$(PREPARE_STAGE)_T_$(1)_H_$(2))
+prepare-target-$(1)-host-$(2)-$(3): PREPARE_WORKING_SOURCE_LIB_DIR=$$(PREPARE_SOURCE_LIB_DIR)/rustlib/$(1)/lib
+prepare-target-$(1)-host-$(2)-$(3): PREPARE_WORKING_DEST_LIB_DIR=$$(PREPARE_DEST_LIB_DIR)/rustlib/$(1)/lib
+prepare-target-$(1)-host-$(2)-$(3):
 # Only install if this host and target combo is being prepared
 	$$(if $$(findstring $(2), $$(PREPARE_HOST)),\
       $$(if $$(findstring $(1), $$(PREPARE_TARGETS)),\
-	    $$(call PREPARE_DIR,$$(PREPARE_WORKING_DEST_LIB_DIR))\
-        $$(foreach crate,$$(TARGET_CRATES),\
-          $$(call PREPARE_LIB,$$(call CFG_LIB_GLOB_$(1),$$(crate)))\
-          $$(call PREPARE_LIB,$$(call CFG_RLIB_GLOB,$$(crate))))\
-        $$(call INSTALL_LIB,libmorestack.a),),)
+        $$(if $$(findstring $(3), $$(PREPARE_STAGE)),\
+          $$(call PREPARE_DIR,$$(PREPARE_WORKING_DEST_LIB_DIR))\
+          $$(foreach crate,$$(TARGET_CRATES),\
+            $$(call PREPARE_LIB,$$(call CFG_LIB_GLOB_$(1),$$(crate)))\
+            $$(call PREPARE_LIB,$$(call CFG_RLIB_GLOB,$$(crate))))\
+          $$(call INSTALL_LIB,libmorestack.a),),),)
 endef
 
 $(foreach host,$(CFG_HOST),\
   $(foreach target,$(CFG_TARGET), \
-    $(eval $(call DEF_PREPARE_TARGET_N,$(target),$(host)))))
+    $(foreach stage,1 2 3,\
+      $(eval $(call DEF_PREPARE_TARGET_N,$(target),$(host),$(stage))))))

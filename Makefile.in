@@ -572,11 +572,6 @@ ifneq ($(findstring perf,$(MAKECMDGOALS)),)
   include $(CFG_SRC_DIR)mk/perf.mk
 endif
 
-ifneq ($(findstring clean,$(MAKECMDGOALS)),)
-  CFG_INFO := $(info cfg: including clean rules)
-  include $(CFG_SRC_DIR)mk/clean.mk
-endif
-
 ifneq ($(strip $(findstring prepare,$(MAKECMDGOALS)) \
                $(findstring dist,$(MAKECMDGOALS)) \
                $(findstring install,$(MAKECMDGOALS))),)
@@ -589,9 +584,15 @@ ifneq ($(findstring install,$(MAKECMDGOALS)),)
   include $(CFG_SRC_DIR)mk/install.mk
 endif
 
-ifneq ($(strip $(findstring dist,$(MAKECMDGOALS))),)
+ifneq ($(strip $(findstring dist,$(MAKECMDGOALS)) \
+               $(findstring clean,$(MAKECMDGOALS))),)
   CFG_INFO := $(info cfg: including dist rules)
   include $(CFG_SRC_DIR)mk/dist.mk
+endif
+
+ifneq ($(findstring clean,$(MAKECMDGOALS)),)
+  CFG_INFO := $(info cfg: including clean rules)
+  include $(CFG_SRC_DIR)mk/clean.mk
 endif
 
 ifneq ($(strip $(findstring TAGS.emacs,$(MAKECMDGOALS)) \
