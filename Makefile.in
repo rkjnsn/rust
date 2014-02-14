@@ -50,6 +50,7 @@
 #                          (may require `CFG_ENABLE_VALGRIND`)
 # * `NO_REBUILD=1` - Don't rebootstrap when testing std, possibly
 #                    other crates
+# * `NO_MKFILE_DEPS=1` - Don't rebuild when .mk files change
 #
 # This is hardly all there is to know of The Rust Build System's
 # mysteries. Your journey continues on the wiki[1][2].
