@@ -8,7 +8,23 @@
 # option. This file may not be copied, modified, or distributed
 # except according to those terms.
 
-# An explanation of how the build is structured:
+# # The Rust Build System
+#
+# "Unfortunately, nobody can be told what the Matrix is.
+#                 You have to see it for yourself."
+#
+# # HOWTO control the beast
+#
+# Wield these environment variables to harness the ultimate power of
+# The Rust Buildsystem.
+#
+# * 
+#
+# # An (old) explanation of how the build is structured:
+#
+# *Note: Hey, like, this is probably inaccurate, and is definitely
+# an outdated and insufficient explanation of the remarkable
+# and discomfiting Rust Build System.*
 #
 # There are multiple build stages (0-3) needed to verify that the
 # compiler is properly self-hosting. Each stage is divided between
