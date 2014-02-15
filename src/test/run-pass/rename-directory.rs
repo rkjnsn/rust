@@ -11,7 +11,6 @@
 // This test can't be a unit test in std,
 // because it needs TempDir, which is in extra
 
-// ignore-fast
 extern crate extra;
 
 use extra::tempfile::TempDir;

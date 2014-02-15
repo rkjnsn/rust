@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-// ignore-fast
 // compile-flags:--test
 
 // NB: These tests kill child processes. Valgrind sees these children as leaking

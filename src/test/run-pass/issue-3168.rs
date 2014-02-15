@@ -9,7 +9,6 @@
 // except according to those terms.
 
 // ignore-test linked failure
-// ignore-fast
 
 use std::comm;
 use std::task;

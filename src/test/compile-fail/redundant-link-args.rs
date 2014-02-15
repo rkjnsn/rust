@@ -8,7 +8,6 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-// ignore-fast
 // ignore-test
 
 // error-pattern:library 'm' already added: can't specify link_args.
