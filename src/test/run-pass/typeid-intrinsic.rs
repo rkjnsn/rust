@@ -15,8 +15,8 @@
 extern crate other1 = "typeid-intrinsic";
 extern crate other2 = "typeid-intrinsic2";
 
-use std::unstable::intrinsics;
-use std::unstable::intrinsics::TypeId;
+use std::intrinsics;
+use std::intrinsics::TypeId;
 
 struct A;
 struct Test;

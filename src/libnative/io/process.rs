@@ -372,7 +372,7 @@ fn spawn_process_os(prog: &str, args: &[~str],
     use std::libc::funcs::posix88::unistd::{fork, dup2, close, chdir, execvp};
     use std::libc::funcs::bsd44::getdtablesize;
     use std::libc::c_ulong;
-    use std::unstable::intrinsics;
+    use std::intrinsics;
 
     mod rustrt {
         extern {

@@ -29,7 +29,7 @@ use result::{Ok, Err};
 use str::StrSlice;
 use to_str::ToStr;
 use vec::OwnedVector;
-use unstable::intrinsics::{Disr, Opaque, TyDesc, TyVisitor, get_tydesc, visit_tydesc};
+use intrinsics::{Disr, Opaque, TyDesc, TyVisitor, get_tydesc, visit_tydesc};
 use unstable::raw;
 
 macro_rules! if_ok( ($me:expr, $e:expr) => (
