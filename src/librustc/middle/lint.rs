@@ -40,6 +40,7 @@ use metadata::csearch;
 use middle::dead::DEAD_CODE_LINT_STR;
 use middle::pat_util;
 use middle::privacy;
+use middle::stabby;
 use middle::trans::adt; // for `adt::is_ffi_safe`
 use middle::ty;
 use middle::typeck::astconv::{ast_ty_to_ty, AstConv};
@@ -1647,6 +1648,7 @@ impl<'a> IdVisitingOperation for Context<'a> {
 pub fn check_crate(tcx: ty::ctxt,
                    method_map: typeck::MethodMap,
                    exported_items: &privacy::ExportedItems,
+                   _stabby_index: &stabby::StabilityIndex,
                    krate: &ast::Crate) {
     let mut cx = Context {
         dict: @get_lint_dict(),

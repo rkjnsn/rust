@@ -358,8 +358,12 @@ pub fn phase_3_run_analysis_passes(sess: Session,
         });
     }
 
+    let stabby_index = time(time_passes, "stability indexing", (), |_| {
+        middle::stabby::index_stability(ty_cx, krate)
+    });
+
     time(time_passes, "lint checking", (), |_|
-         lint::check_crate(ty_cx, method_map, &exported_items, krate));
+         lint::check_crate(ty_cx, method_map, &exported_items, &stabby_index, krate));
 
     CrateAnalysis {
         exp_map2: exp_map2,

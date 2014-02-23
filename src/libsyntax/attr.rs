@@ -335,6 +335,7 @@ pub fn test_cfg<AM: AttrMetaMethods, It: Iterator<AM>>
 }
 
 /// Represents the #[deprecated="foo"] (etc) attributes.
+#[deriving(Clone)]
 pub struct Stability {
     level: StabilityLevel,
     text: Option<InternedString>
