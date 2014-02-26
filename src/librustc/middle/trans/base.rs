@@ -2554,6 +2554,7 @@ pub fn crate_ctxt_to_encode_parms<'r>(cx: &'r CrateContext, ie: encoder::EncodeI
             encode_inlined_item: ie,
             reachable: cx.reachable,
             codemap: cx.sess.codemap,
+            stabby_index: cx.stabby_index
         }
 }
 
@@ -2632,7 +2633,8 @@ pub fn trans_crate(sess: session::Session,
                                      analysis.maps,
                                      symbol_hasher,
                                      link_meta,
-                                     analysis.reachable);
+                                     analysis.reachable,
+                                     analysis.stabby_index);
     {
         let _icx = push_ctxt("text");
         trans_mod(ccx, &krate.module);

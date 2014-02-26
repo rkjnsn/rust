@@ -17,6 +17,7 @@ use metadata::common::*;
 use metadata::cstore;
 use metadata::decoder;
 use metadata::tyencode;
+use middle::stabby::StabilityIndex;
 use middle::ty::{node_id_to_type, lookup_item_type};
 use middle::astencode;
 use middle::ty;
@@ -75,6 +76,7 @@ pub struct EncodeParams<'a> {
     encode_inlined_item: EncodeInlinedItem<'a>,
     reachable: @RefCell<HashSet<ast::NodeId>>,
     codemap: @codemap::CodeMap,
+    stabby_index: &'a StabilityIndex
 }
 
 struct Stats {
@@ -106,6 +108,7 @@ pub struct EncodeContext<'a> {
     type_abbrevs: abbrev_map,
     reachable: @RefCell<HashSet<ast::NodeId>>,
     codemap: @codemap::CodeMap,
+    stabby_index: &'a StabilityIndex
 }
 
 pub fn reachable(ecx: &EncodeContext, id: NodeId) -> bool {
@@ -1799,6 +1802,7 @@ fn encode_metadata_inner(wr: &mut MemWriter, parms: EncodeParams, krate: &Crate)
         reachable,
         non_inlineable_statics,
         codemap,
+        stabby_index,
         ..
     } = parms;
     let type_abbrevs = @RefCell::new(HashMap::new());
@@ -1816,6 +1820,7 @@ fn encode_metadata_inner(wr: &mut MemWriter, parms: EncodeParams, krate: &Crate)
         type_abbrevs: type_abbrevs,
         reachable: reachable,
         codemap: codemap,
+        stabby_index: stabby_index
      };
 
     let mut ebml_w = writer::Encoder(wr);

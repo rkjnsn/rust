@@ -248,7 +248,8 @@ pub struct CrateAnalysis {
     public_items: middle::privacy::PublicItems,
     ty_cx: ty::ctxt,
     maps: astencode::Maps,
-    reachable: @RefCell<HashSet<ast::NodeId>>
+    reachable: @RefCell<HashSet<ast::NodeId>>,
+    stabby_index: @middle::stabby::StabilityIndex
 }
 
 /// Run the resolution, typechecking, region checking and other
@@ -376,7 +377,8 @@ pub fn phase_3_run_analysis_passes(sess: Session,
             vtable_map: vtable_map,
             capture_map: capture_map
         },
-        reachable: reachable_map
+        reachable: reachable_map,
+        stabby_index: @stabby_index
     }
 }
 

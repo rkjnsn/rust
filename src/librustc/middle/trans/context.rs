@@ -16,6 +16,7 @@ use lib::llvm::mk_target_data;
 use metadata::common::LinkMeta;
 use middle::astencode;
 use middle::resolve;
+use middle::stabby::StabilityIndex;
 use middle::trans::adt;
 use middle::trans::base;
 use middle::trans::builder::Builder;
@@ -114,6 +115,7 @@ pub struct CrateContext {
     uses_gc: bool,
     dbg_cx: Option<debuginfo::CrateDebugContext>,
     do_not_commit_warning_issued: Cell<bool>,
+    stabby_index: @StabilityIndex
 }
 
 impl CrateContext {
@@ -124,7 +126,8 @@ impl CrateContext {
                maps: astencode::Maps,
                symbol_hasher: Sha256,
                link_meta: LinkMeta,
-               reachable: @RefCell<HashSet<ast::NodeId>>)
+               reachable: @RefCell<HashSet<ast::NodeId>>,
+               stabby_index: @StabilityIndex)
                -> CrateContext {
         unsafe {
             let llcx = llvm::LLVMContextCreate();
@@ -235,6 +238,7 @@ impl CrateContext {
                  uses_gc: false,
                  dbg_cx: dbg_cx,
                  do_not_commit_warning_issued: Cell::new(false),
+                 stabby_index: stabby_index
             }
         }
     }
