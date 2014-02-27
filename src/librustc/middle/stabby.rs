@@ -16,7 +16,7 @@
 //! level required of code in the local crate.
 
 use middle::ty;
-use std::hashmap::HashMap;
+use collections::HashMap;
 use syntax::ast;
 use syntax::ast::{NodeId, Attribute, Crate, Item, ForeignItem};
 use syntax::attr;

@@ -88,6 +88,7 @@ struct Stats {
     macro_registrar_fn_bytes: Cell<u64>,
     macro_defs_bytes: Cell<u64>,
     impl_bytes: Cell<u64>,
+    stabby_bytes: Cell<u64>,
     misc_bytes: Cell<u64>,
     item_bytes: Cell<u64>,
     index_bytes: Cell<u64>,
@@ -1714,6 +1715,18 @@ fn encode_impls(ecx: &EncodeContext,
     ebml_w.end_tag();
 }
 
+fn encode_stability_levels(ecx: &EncodeContext,
+                           ebml_w: &mut writer::Encoder) {
+    ebml_w.start_tag(tag_stability_index);
+    for (&node, &maybe_stabby) in ecx.stabby_index.iter() {
+        ebml_w.start_tag(tag_stability_level);
+        node.encode(ebml_w);
+        maybe_stabby.encode(ebml_w);
+        ebml_w.end_tag(tag_stability_level);
+    }
+    ebml_w.end_tag(tag_stability_index);
+}
+
 fn encode_misc_info(ecx: &EncodeContext,
                     krate: &Crate,
                     ebml_w: &mut writer::Encoder) {
@@ -1785,6 +1798,7 @@ fn encode_metadata_inner(wr: &mut MemWriter, parms: EncodeParams, krate: &Crate)
         macro_registrar_fn_bytes: Cell::new(0),
         macro_defs_bytes: Cell::new(0),
         impl_bytes: Cell::new(0),
+        stabby_bytes: Cell::new(0),
         misc_bytes: Cell::new(0),
         item_bytes: Cell::new(0),
         index_bytes: Cell::new(0),
@@ -1860,6 +1874,11 @@ fn encode_metadata_inner(wr: &mut MemWriter, parms: EncodeParams, krate: &Crate)
     i = ebml_w.writer.tell().unwrap();
     encode_impls(&ecx, krate, &mut ebml_w);
     ecx.stats.impl_bytes.set(ebml_w.writer.tell().unwrap() - i);
+
+    // Encode stability levels
+    i = ebml_w.writer.tell().unwrap();
+    encode_stability_levels(&ecx, &mut ebml_w);
+    ecx.stats.stabby_bytes.set(ebml_w.writer.tell().unwrap() - i);
 
     // Encode miscellaneous info.
     i = ebml_w.writer.tell().unwrap();

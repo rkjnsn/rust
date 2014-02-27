@@ -647,6 +647,11 @@ pub fn each_child_of_item(intr: @IdentInterner,
                                 callback)
 }
 
+/// Load the crate's stability index
+pub fn load_stability_index(cdata: Cmd) -> HashMap<NodeId, Option<Stability>> {
+    
+}
+
 /// Iterates over all the top-level crate items.
 pub fn each_top_level_item_of_crate(intr: @IdentInterner,
                                     cdata: Cmd,
