@@ -1718,9 +1718,10 @@ fn encode_impls(ecx: &EncodeContext,
 fn encode_stability_levels(ecx: &EncodeContext,
                            ebml_w: &mut writer::Encoder) {
     ebml_w.start_tag(tag_stability_index);
-    for (&node, &maybe_stabby) in ecx.stabby_index.iter() {
+    for (&node, &maybe_stabby) in ecx.stabby_index.stab_map.iter() {
         ebml_w.start_tag(tag_stability_level);
         node.encode(ebml_w);
+        let maybe_stabby = maybe_stabby.map(|s| s.level);
         maybe_stabby.encode(ebml_w);
         ebml_w.end_tag(tag_stability_level);
     }

@@ -647,11 +647,6 @@ pub fn each_child_of_item(intr: @IdentInterner,
                                 callback)
 }
 
-/// Load the crate's stability index
-pub fn load_stability_index(cdata: Cmd) -> HashMap<NodeId, Option<Stability>> {
-    
-}
-
 /// Iterates over all the top-level crate items.
 pub fn each_top_level_item_of_crate(intr: @IdentInterner,
                                     cdata: Cmd,
@@ -1038,6 +1033,14 @@ pub fn get_item_visibility(cdata: Cmd, id: ast::NodeId)
                         -> ast::Visibility {
     item_visibility(lookup_item(id, cdata.data()))
 }
+
+
+/// Load the crate's stability index
+//pub fn load_stability_index(cdata: Cmd) -> HashMap<NodeId, Option<Stability>> {
+    /*let root_doc = reader::Doc(cdata.data());
+    let items = reader::get_doc(root_doc, tag_stability_index);
+    reader::tagged_docs(items, tag_stability_level,*/
+//}
 
 fn get_meta_items(md: ebml::Doc) -> ~[@ast::MetaItem] {
     let mut items: ~[@ast::MetaItem] = ~[];
