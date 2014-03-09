@@ -397,28 +397,30 @@ pub fn rng() -> StdRng {
     StdRng::new()
 }
 
+
+
 /// The standard RNG. This is designed to be efficient on the current
 /// platform.
 #[cfg(not(target_word_size="64"))]
-pub struct StdRng { priv rng: IsaacRng }
+pub struct StdRng { priv rng: OSRng }
 
 /// The standard RNG. This is designed to be efficient on the current
 /// platform.
 #[cfg(target_word_size="64")]
-pub struct StdRng { priv rng: Isaac64Rng }
+pub struct StdRng { priv rng: OSRng }
 
 impl StdRng {
     /// Create a randomly seeded instance of `StdRng`. This reads
     /// randomness from the OS to seed the PRNG.
     #[cfg(not(target_word_size="64"))]
     pub fn new() -> StdRng {
-        StdRng { rng: IsaacRng::new() }
+        StdRng { rng: OSRng::new() }
     }
     /// Create a randomly seeded instance of `StdRng`. This reads
     /// randomness from the OS to seed the PRNG.
     #[cfg(target_word_size="64")]
     pub fn new() -> StdRng {
-        StdRng { rng: Isaac64Rng::new() }
+        StdRng { rng: OSRng::new() }
     }
 }
 
