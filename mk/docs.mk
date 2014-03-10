@@ -29,7 +29,7 @@
 DOCS := index tutorial guide-ffi guide-macros guide-lifetimes \
 	guide-tasks guide-container guide-pointers \
 	complement-cheatsheet guide-runtime \
-	rust rustdoc
+	rust rustdoc new-tutorial guide-syntax
 
 PDF_DOCS := tutorial rust
 
