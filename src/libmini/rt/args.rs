@@ -22,8 +22,8 @@
 
 use option::Option;
 #[cfg(test)] use option::{Some, None};
-#[cfg(test)] use realstd;
-#[cfg(test)] use realargs = realstd::rt::args;
+#[cfg(test)] use realmini;
+#[cfg(test)] use realargs = realmini::rt::args;
 
 /// One-time global initialization.
 #[cfg(not(test))]
@@ -39,8 +39,8 @@ pub unsafe fn init(argc: int, argv: **u8) { realargs::init(argc, argv) }
 #[cfg(not(test))] pub fn take() -> Option<~[~[u8]]> { imp::take() }
 #[cfg(test)]      pub fn take() -> Option<~[~[u8]]> {
     match realargs::take() {
-        realstd::option::Some(a) => Some(a),
-        realstd::option::None => None,
+        realmini::option::Some(a) => Some(a),
+        realmini::option::None => None,
     }
 }
 
@@ -54,8 +54,8 @@ pub unsafe fn init(argc: int, argv: **u8) { realargs::init(argc, argv) }
 #[cfg(not(test))] pub fn clone() -> Option<~[~[u8]]> { imp::clone() }
 #[cfg(test)]      pub fn clone() -> Option<~[~[u8]]> {
     match realargs::clone() {
-        realstd::option::Some(a) => Some(a),
-        realstd::option::None => None,
+        realmini::option::Some(a) => Some(a),
+        realmini::option::None => None,
     }
 }
 

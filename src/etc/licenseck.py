@@ -38,9 +38,9 @@ exceptions = [
     "rt/isaac/randport.cpp", # public domain
     "rt/isaac/rand.h", # public domain
     "rt/isaac/standard.h", # public domain
-    "libstd/sync/mpsc_queue.rs", # BSD
-    "libstd/sync/spsc_queue.rs", # BSD
-    "libstd/sync/mpmc_bounded_queue.rs", # BSD
+    "libmini/sync/mpsc_queue.rs", # BSD
+    "libmini/sync/spsc_queue.rs", # BSD
+    "libmini/sync/mpmc_bounded_queue.rs", # BSD
     "libsync/sync/mpsc_intrusive.rs", # BSD
 ]
 

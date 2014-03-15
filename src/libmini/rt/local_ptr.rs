@@ -83,7 +83,7 @@ pub mod compiled {
     use ptr::RawPtr;
 
     #[cfg(test)]
-    pub use realstd::rt::shouldnt_be_public::RT_TLS_PTR;
+    pub use realmini::rt::shouldnt_be_public::RT_TLS_PTR;
 
     #[cfg(not(test))]
     #[thread_local]
@@ -389,9 +389,9 @@ pub mod native {
 
     #[inline] #[cfg(test)]
     pub fn maybe_tls_key() -> Option<tls::Key> {
-        use realstd;
+        use realmini;
         unsafe {
-            cast::transmute(realstd::rt::shouldnt_be_public::maybe_tls_key())
+            cast::transmute(realmini::rt::shouldnt_be_public::maybe_tls_key())
         }
     }
 }
