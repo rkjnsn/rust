@@ -85,6 +85,7 @@ extern crate mini;
 #[cfg(test)] pub use cmp = realstd::cmp;
 
 pub use mini::kinds;
+pub use mini::intrinsics;
 
 mod macros;
 
@@ -193,8 +194,6 @@ pub mod reflect;
 // Private APIs
 #[unstable]
 pub mod unstable;
-#[experimental]
-pub mod intrinsics;
 #[experimental]
 pub mod raw;
 

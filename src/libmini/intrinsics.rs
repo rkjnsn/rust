@@ -45,7 +45,7 @@ A quick refresher on memory ordering:
 
 // This is needed to prevent duplicate lang item definitions.
 #[cfg(test)]
-pub use realstd::intrinsics::{TyDesc, Opaque, TyVisitor, TypeId};
+pub use realmini::intrinsics::{TyDesc, Opaque, TyVisitor, TypeId};
 
 pub type GlueFn = extern "Rust" fn(*i8);
 
@@ -444,7 +444,6 @@ extern "rust-intrinsic" {
 /// `TypeId` represents a globally unique identifier for a type
 #[lang="type_id"] // This needs to be kept in lockstep with the code in trans/intrinsic.rs and
                   // middle/lang_items.rs
-#[deriving(Eq, Hash, Show)]
 #[cfg(not(test))]
 pub struct TypeId {
     priv t: u64,

@@ -26,4 +26,5 @@
 
 #[cfg(test)] pub use kinds = realmini::kinds;
 
+pub mod intrinsics;
 #[cfg(not(test))] pub mod kinds;

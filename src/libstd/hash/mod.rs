@@ -65,6 +65,7 @@
 
 use container::Container;
 use io::Writer;
+use intrinsics;
 use iter::Iterator;
 use ops::Deref;
 use option::{Option, Some, None};
@@ -281,6 +282,17 @@ impl<S: Writer, T> Hash<S> for *mut T {
         // NB: raw-pointer Hash does _not_ dereference
         // to the target; it just gives you the pointer-bytes.
         (*self as uint).hash(state);
+    }
+}
+
+impl<S: Writer> Hash<S> for intrinsics::TypeId {
+    #[inline]
+    fn hash(&self, state: &mut S) {
+        // XXX TypeId is opaque. Casting it to do the comparison.
+        unsafe {
+            let self_: u64 = intrinsics::transmute(*self);
+            self_.hash(state)
+        }
     }
 }
 

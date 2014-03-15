@@ -23,6 +23,7 @@ and `Eq` to overload the `==` and `!=` operators.
 #[allow(missing_doc)];
 
 use kinds::marker;
+use intrinsics;
 
 /**
 * Trait for values that can be compared for equality and inequality.
@@ -243,6 +244,18 @@ impl Eq for marker::NoPod {
 impl Eq for marker::Managed {
     #[inline]
     fn eq(&self, _other: &marker::Managed) -> bool { true }
+}
+
+impl Eq for intrinsics::TypeId {
+    #[inline]
+    fn eq(&self, other: &intrinsics::TypeId) -> bool {
+        // XXX TypeId is opaque. Casting it to do the comparison.
+        unsafe {
+            let self_: u64 = intrinsics::transmute(*self);
+            let other: u64 = intrinsics::transmute(*other);
+            self_.eq(&other)
+        }
+    }
 }
 
 #[cfg(test)]

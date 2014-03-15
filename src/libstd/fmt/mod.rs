@@ -481,6 +481,7 @@ use any;
 use cast;
 use char::Char;
 use container::Container;
+use intrinsics;
 use io::MemWriter;
 use io;
 use iter::{Iterator, range};
@@ -1183,6 +1184,12 @@ impl<T> Show for *T {
 }
 impl<T> Show for *mut T {
     fn fmt(&self, f: &mut Formatter) -> Result { secret_pointer(self, f) }
+}
+
+impl Show for intrinsics::TypeId {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        secret_string(& &"TypeId", f)
+    }
 }
 
 // If you expected tests to be here, look instead at the run-pass/ifmt.rs test,
