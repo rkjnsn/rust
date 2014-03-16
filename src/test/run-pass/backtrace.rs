@@ -41,7 +41,7 @@ fn runtest(me: &str) {
         Some(i) => { env.remove(i); }
         None => {}
     }
-    env.push((~"RUST_LOG", ~"std::rt::backtrace"));
+    env.push((~"RUST_BACKTRACE", ~"1"));
 
     // Make sure that the stack trace is printed
     let mut p = Process::configure(ProcessConfig {

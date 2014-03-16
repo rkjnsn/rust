@@ -24,7 +24,7 @@ pub use self::imp::write;
 // This function is defined in this module so that the way to enable logging of
 // backtraces has the word 'backtrace' in it: std::rt::backtrace.
 pub fn log_enabled() -> bool {
-    log_enabled!(::logging::DEBUG)
+    ::os::getenv("RUST_BACKTRACE").is_some()
 }
 
 #[cfg(target_word_size = "64")] static HEX_WIDTH: uint = 18;
