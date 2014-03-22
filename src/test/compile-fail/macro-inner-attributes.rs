@@ -8,18 +8,18 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-#[feature(macro_rules)];
+#![feature(macro_rules)]
 
 macro_rules! test ( ($nm:ident,
                      $a:attr,
-                     $i:item) => (mod $nm { $a; $i }); )
+                     $i:item) => (mod $nm { #![cfg(qux)] $i }); )
 
 test!(a,
-      #[cfg(qux)],
+      #![cfg(qux)],
       pub fn bar() { })
 
 test!(b,
-      #[cfg(not(qux))],
+      #![cfg(not(qux))],
       pub fn bar() { })
 
 #[qux]
