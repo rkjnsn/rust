@@ -2262,6 +2262,8 @@ impl<'a> Parser<'a> {
               }
               _ => self.mk_unary(UnUniq, e)
             };
+
+            self.span_warn(e.span, "deprecated `~` expression. Use `box` instead.");
           }
           token::IDENT(_, _) if self.is_keyword(keywords::Box) => {
             self.bump();
