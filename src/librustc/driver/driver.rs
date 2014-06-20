@@ -264,6 +264,35 @@ pub struct CrateAnalysis {
     pub reachable: NodeSet,
 }
 
+fn dump_def_map(tycx: &ty::ctxt) {
+    use syntax::ast::NodeId;
+    use middle::def;
+    use middle::def::Def;
+    use util::nodemap::NodeMap;
+
+    let def_map: &middle::resolve::DefMap = &tycx.def_map;
+    let map: &NodeMap<Def> = &*def_map.borrow();
+    for i in map.iter() {
+        let (_, def): (&NodeId, &Def) = i;
+        match *def {
+            def::DefFn(id, _) |
+            def::DefStaticMethod(id, _, _) |
+            def::DefMod(id) |
+            def::DefStatic(id, _) |
+            def::DefVariant(id, _, _) |
+            def::DefTy(id) |
+            def::DefTrait(id) |
+            def::DefUse(id) |
+            def::DefStruct(id) |
+            def::DefMethod(id, _) => {
+                let path = ty::item_path_str(tycx, id);
+                println!("XYX: {}", path);
+            }
+            _ => ()
+        }
+    }
+}
+
 /// Run the resolution, typechecking, region checking and other
 /// miscellaneous analysis passes on the crate. Return various
 /// structures carrying the results of the analysis.
@@ -314,6 +343,8 @@ pub fn phase_3_run_analysis_passes(sess: Session,
 
     let ty_cx = ty::mk_ctxt(sess, def_map, named_region_map, ast_map,
                             freevars, region_map, lang_items);
+
+    dump_def_map(&ty_cx);
 
     // passes are timed inside typeck
     typeck::check_crate(&ty_cx, trait_map, krate);
