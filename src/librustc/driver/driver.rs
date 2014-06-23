@@ -264,33 +264,117 @@ pub struct CrateAnalysis {
     pub reachable: NodeSet,
 }
 
+#[allow(unused_imports)]
 fn dump_def_map(tycx: &ty::ctxt) {
-    use syntax::ast::NodeId;
+    use syntax::ast_map;
+    use metadata::csearch;
+    use syntax::ast::{NodeId, ExprMethodCall, ExprBinary};
     use middle::def;
     use middle::def::Def;
-    use util::nodemap::NodeMap;
+    use util::nodemap::{NodeMap, FnvHashMap};
+    use middle::typeck::{MethodCall, MethodCallee, MethodStatic, MethodParam, MethodObject};
+    use syntax::ast_map::NodeExpr;
 
-    let def_map: &middle::resolve::DefMap = &tycx.def_map;
+    let method_map: &middle::typeck::MethodMap = &tycx.method_map;
+    let map: &FnvHashMap<MethodCall, MethodCallee> = &*method_map.borrow();
+    for i in map.iter() {
+        let (caller, callee): (&MethodCall, &MethodCallee) = i;
+        let origin = callee.origin;
+        let (maybe_krate, path) = match origin {
+            MethodStatic(id) => {
+                let maybe_krate = match id.krate {
+                    ast::LOCAL_CRATE => "(local)::",
+                    _ => "",
+                };
+                let path = ty::item_path_str(tycx, id);
+                (maybe_krate, path)
+            }
+            MethodParam(p) => {
+                let id = p.trait_id;
+                let maybe_krate = match id.krate {
+                    ast::LOCAL_CRATE => "(local)::",
+                    _ => "",
+                };
+                let path = ty::item_path_str(tycx, id);
+                (maybe_krate, path)
+            }
+            MethodObject(o) => {
+                let id = o.trait_id;
+                let maybe_krate = match id.krate {
+                    ast::LOCAL_CRATE => "(local)::",
+                    _ => "",
+                };
+                let path = ty::item_path_str(tycx, id);
+                (maybe_krate, path)
+            }
+        };
+        let method = match tycx.map.find(caller.expr_id) {
+            Some(NodeExpr(e)) => {
+                let e: &ast::Expr = e;
+                match e.node {
+                    ExprMethodCall(i, _, _) => {
+                        token::get_ident(i.node).get().to_string()
+                    }
+                    ExprBinary(..) => "(binop)".to_string(),
+                    _ => format!("({})", pprust::expr_to_str(e))
+                }
+            }
+            _ => fail!("wup")
+        };
+        println!("XYX: {}{}.{}", maybe_krate, path, method);
+    }
+
+    /*let def_map: &middle::resolve::DefMap = &tycx.def_map;
     let map: &NodeMap<Def> = &*def_map.borrow();
     for i in map.iter() {
         let (_, def): (&NodeId, &Def) = i;
         match *def {
             def::DefFn(id, _) |
-            def::DefStaticMethod(id, _, _) |
             def::DefMod(id) |
             def::DefStatic(id, _) |
             def::DefVariant(id, _, _) |
             def::DefTy(id) |
             def::DefTrait(id) |
             def::DefUse(id) |
-            def::DefStruct(id) |
-            def::DefMethod(id, _) => {
+            def::DefStruct(id) => {
+                let maybe_krate = match id.krate {
+                    ast::LOCAL_CRATE => "(local)::",
+                    _ => "",
+                };
                 let path = ty::item_path_str(tycx, id);
-                println!("XYX: {}", path);
+                println!("XYX: {}{}", maybe_krate, path);
             }
+            /*def::DefMethod(id, _) => {
+                let maybe_krate = match id.krate {
+                    ast::LOCAL_CRATE => "(local)::",
+                    _ => "",
+                };
+                let path = ty::item_path_str(tycx, id);
+                let method_name = match id.krate {
+                    ast::LOCAL_CRATE => {
+                        let ast_map = &tycx.map;
+                        match ast_map.find(id.node) {
+                            Some(ast_map::NodeMethod(method)) => {
+                                let name_ident = method.ident;
+                                let name = token::get_ident(name_ident);
+                                name.get().to_string()
+                            }
+                            Some(_) | None => fail!()
+                        }
+                    }
+                    _ => {
+                        let (name_ident, _) = csearch::get_method_name_and_explicit_self(
+                            &tycx.sess.cstore, id);
+                        let name = token::get_ident(name_ident);
+                        let name: &str = name.get();
+                        name.to_string()
+                    }
+                };
+                println!("XYX: {}{}.{}", maybe_krate, path, method_name);
+            }*/
             _ => ()
         }
-    }
+    }*/
 }
 
 /// Run the resolution, typechecking, region checking and other
@@ -344,10 +428,10 @@ pub fn phase_3_run_analysis_passes(sess: Session,
     let ty_cx = ty::mk_ctxt(sess, def_map, named_region_map, ast_map,
                             freevars, region_map, lang_items);
 
-    dump_def_map(&ty_cx);
-
     // passes are timed inside typeck
     typeck::check_crate(&ty_cx, trait_map, krate);
+
+    dump_def_map(&ty_cx);
 
     time(time_passes, "check static items", (), |_|
          middle::check_static::check_crate(&ty_cx, krate));
