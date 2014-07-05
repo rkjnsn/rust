@@ -42,6 +42,7 @@ extern crate serialize;
 extern crate syntax;
 extern crate time;
 #[phase(plugin, link)] extern crate log;
+extern crate llvm = "rustc_llvm";
 
 pub mod middle {
     pub mod def;
@@ -123,8 +124,7 @@ pub mod util {
 }
 
 pub mod lib {
-    pub mod llvm;
-    pub mod llvmdeps;
+    pub use llvm;
 }
 
 // A private module so that macro-expanded idents like
