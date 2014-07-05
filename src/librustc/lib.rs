@@ -42,6 +42,7 @@ extern crate serialize;
 extern crate syntax;
 extern crate time;
 #[phase(plugin, link)] extern crate log;
+extern crate back = "librustc_back";
 
 pub mod middle {
     pub mod def;
@@ -89,21 +90,6 @@ pub mod front {
     pub mod assign_node_ids_and_map;
     pub mod feature_gate;
     pub mod show_span;
-}
-
-pub mod back {
-    pub mod abi;
-    pub mod archive;
-    pub mod arm;
-    pub mod link;
-    pub mod lto;
-    pub mod mips;
-    pub mod mipsel;
-    pub mod rpath;
-    pub mod svh;
-    pub mod target_strs;
-    pub mod x86;
-    pub mod x86_64;
 }
 
 pub mod metadata;

@@ -8,8 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use back::archive::ArchiveRO;
-use back::link;
+use archive::ArchiveRO;
+use link;
 use driver::session;
 use driver::config;
 use lib::llvm::{ModuleRef, TargetMachineRef, llvm, True, False};
