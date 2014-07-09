@@ -8,7 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use metadata::csearch;
+//use metadata::csearch;
 use middle::def::DefFn;
 use middle::subst::Subst;
 use middle::ty::{TransmuteRestriction, ctxt, ty_bare_fn};
@@ -17,9 +17,9 @@ use middle::ty;
 use syntax::abi::RustIntrinsic;
 use syntax::ast::DefId;
 use syntax::ast;
-use syntax::ast_map::NodeForeignItem;
+//use syntax::ast_map::NodeForeignItem;
 use syntax::codemap::Span;
-use syntax::parse::token;
+//use syntax::parse::token;
 use syntax::visit::Visitor;
 use syntax::visit;
 
@@ -72,8 +72,8 @@ struct IntrinsicCheckingVisitor<'a> {
 }
 
 impl<'a> IntrinsicCheckingVisitor<'a> {
-    fn def_id_is_transmute(&self, def_id: DefId) -> bool {
-        if def_id.krate == ast::LOCAL_CRATE {
+    fn def_id_is_transmute(&self, _def_id: DefId) -> bool {
+        /*if def_id.krate == ast::LOCAL_CRATE {
             match self.tcx.map.get(def_id.node) {
                 NodeForeignItem(ref item) => {
                     token::get_ident(item.ident) ==
@@ -89,7 +89,9 @@ impl<'a> IntrinsicCheckingVisitor<'a> {
                         token::intern_and_get_ident("transmute")
                 }
             }
-        }
+        }*/
+        // TODO
+        false
     }
 
     fn check_transmute(&self, span: Span, from: ty::t, to: ty::t) {

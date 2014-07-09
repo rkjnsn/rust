@@ -719,7 +719,9 @@ pub fn check_item(ccx: &CrateCtxt, it: &ast::Item) {
             for item in m.items.iter() {
                 let pty = ty::lookup_item_type(ccx.tcx, local_def(item.id));
                 if !pty.generics.types.is_empty() {
-                    ccx.tcx.sess.span_err(item.span, "foreign items may not have type parameters");
+                    // This item has generics.
+                    // TODO
+                    //ccx.tcx.sess.span_err(item.span, "foreign items may not have type parameters");
                 }
 
                 match item.node {

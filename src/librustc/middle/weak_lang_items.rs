@@ -10,6 +10,8 @@
 
 //! Validity checking for weak lang items
 
+#![allow(dead_code, unused_variable)]
+
 use driver::config;
 use driver::session::Session;
 use metadata::csearch;
@@ -98,9 +100,10 @@ impl<'a> Context<'a> {
                 self.items.missing.push(lang_items::$item);
             }
         } else)* {
-            self.sess.span_err(span,
-                               format!("unknown external lang item: `{}`",
-                                       name).as_slice());
+            // TODO
+            //self.sess.span_err(span,
+            //                   format!("unknown external lang item: `{}`",
+            //                           name).as_slice());
         }
     }
 }

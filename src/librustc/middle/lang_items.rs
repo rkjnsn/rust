@@ -122,6 +122,7 @@ impl<'a> Visitor<()> for LanguageItemCollector<'a> {
 
                 match item_index {
                     Some(item_index) => {
+                        println!("XXX: {}", value.get());
                         self.collect_item(item_index, local_def(item.id))
                     }
                     None => {}
@@ -299,4 +300,6 @@ lets_do_this! {
     ManagedItem,                     "managed_bound",           managed_bound;
 
     StackExhaustedLangItem,          "stack_exhausted",         stack_exhausted;
+
+    TransmuteLangItem,               "transmute",               transmute;
 }
