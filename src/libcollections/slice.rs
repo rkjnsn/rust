@@ -107,7 +107,7 @@ use core::mem;
 use core::ptr;
 use core::iter::{range_step, MultiplicativeIterator};
 
-use Collection;
+use {Collection, MutableSeq};
 use vec::Vec;
 
 pub use core::slice::{ref_slice, mut_ref_slice, Splits, Windows};
@@ -719,7 +719,7 @@ mod tests {
     use std::rt;
     use slice::*;
 
-    use Mutable;
+    use {Mutable, MutableSeq};
     use vec::Vec;
 
     fn square(n: uint) -> uint { n * n }
@@ -2121,6 +2121,7 @@ mod bench {
     use test::Bencher;
 
     use vec::Vec;
+    use MutableSeq;
 
     #[bench]
     fn iterator(b: &mut Bencher) {

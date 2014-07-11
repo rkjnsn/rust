@@ -21,7 +21,7 @@ use core::slice;
 use core::uint;
 use std::hash;
 
-use {Collection, Mutable, Set, MutableSet};
+use {Collection, Mutable, Set, MutableSet, MutableSeq};
 use vec::Vec;
 
 
