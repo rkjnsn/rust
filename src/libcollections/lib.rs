@@ -180,9 +180,11 @@ pub trait Deque<T> : MutableSeq<T> {
     fn push_front(&mut self, elt: T);
 
     /// Insert an element last in the sequence
+    #[deprecated = "use the `push` method"]
     fn push_back(&mut self, elt: T);
 
     /// Remove the last element and return it, or None if the sequence is empty
+    #[deprecated = "use the `pop` method"]
     fn pop_back(&mut self) -> Option<T>;
 
     /// Remove the first element and return it, or None if the sequence is empty
