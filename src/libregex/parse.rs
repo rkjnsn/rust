@@ -999,7 +999,7 @@ fn concat_flatten(x: Ast, y: Ast) -> Ast {
     match (x, y) {
         (Cat(mut xs), Cat(ys)) => { xs.push_all_move(ys); Cat(xs) }
         (Cat(mut xs), ast) => { xs.push(ast); Cat(xs) }
-        (ast, Cat(mut xs)) => { xs.unshift(ast); Cat(xs) }
+        (ast, Cat(mut xs)) => { xs.push_front(ast); Cat(xs) }
         (ast1, ast2) => Cat(vec!(ast1, ast2)),
     }
 }

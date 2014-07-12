@@ -114,7 +114,7 @@ impl<'a> Drop for Guard<'a> {
             mem::transmute(self.access.inner.get())
         };
 
-        match inner.queue.shift() {
+        match inner.queue.pop_front() {
             // Here we have found a task that was waiting for access, and we
             // current have the "access lock" we need to relinquish access to
             // this sleeping task.

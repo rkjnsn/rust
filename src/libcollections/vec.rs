@@ -23,7 +23,7 @@ use core::num;
 use core::ptr;
 use core::uint;
 
-use {Collection, Mutable, MutableSeq};
+use {Collection, Mutable, MutableSeq, Deque};
 use slice::{MutableOrdVector, MutableVectorAllocating, CloneableVector};
 use slice::{Items, MutItems};
 
@@ -875,6 +875,7 @@ impl<T> Vec<T> {
     /// assert_eq!(vec, vec!(4, 1, 2, 3));
     /// ```
     #[inline]
+    #[deprecated = "use push_front"]
     pub fn unshift(&mut self, element: T) {
         self.insert(0, element)
     }
@@ -895,6 +896,7 @@ impl<T> Vec<T> {
     /// assert_eq!(vec, vec!(2, 3));
     /// ```
     #[inline]
+    #[deprecated = "use pop_front"]
     pub fn shift(&mut self) -> Option<T> {
         self.remove(0)
     }
@@ -1447,6 +1449,36 @@ impl<T> MutableSeq<T> for Vec<T> {
         }
     }
 
+}
+
+impl<T> Deque<T> for Vec<T> {
+    fn front<'a>(&'a self) -> Option<&'a T> {
+        self.as_slice().head()
+    }
+
+    fn front_mut<'a>(&'a mut self) -> Option<&'a mut T> {
+        if !self.is_empty() {
+            Some(&mut self.as_mut_slice()[0])
+        } else {
+            None
+        }
+    }
+
+    fn back<'a>(&'a self) -> Option<&'a T> {
+        self.as_slice().last()
+    }
+
+    fn back_mut<'a>(&'a mut self) -> Option<&'a mut T> {
+        self.as_mut_slice().mut_last()
+    }
+
+    fn push_front(&mut self, elt: T) {
+        self.insert(0, elt)
+    }
+
+    fn pop_front(&mut self) -> Option<T> {
+        self.remove(0)
+    }
 }
 
 /// An iterator that moves out of a vector.
