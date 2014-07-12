@@ -204,11 +204,11 @@ pub trait Deque<T> : MutableSeq<T> {
 
     /// Insert an element last in the sequence
     #[deprecated = "use the `push` method"]
-    fn push_back(&mut self, elt: T);
+    fn push_back(&mut self, elt: T) { self.push(elt) }
 
     /// Remove the last element and return it, or None if the sequence is empty
     #[deprecated = "use the `pop` method"]
-    fn pop_back(&mut self) -> Option<T>;
+    fn pop_back(&mut self) -> Option<T> { self.pop() }
 
     /// Remove the first element and return it, or None if the sequence is empty
     fn pop_front(&mut self) -> Option<T>;
