@@ -710,6 +710,8 @@ pub mod raw {
     use string::String;
     use vec::Vec;
 
+    use MutableSeq;
+
     pub use core::str::raw::{from_utf8, c_str_to_static_slice, slice_bytes};
     pub use core::str::raw::{slice_unchecked};
 
@@ -967,7 +969,7 @@ mod tests {
     use std::option::{Some, None};
     use std::ptr::RawPtr;
     use std::iter::{Iterator, DoubleEndedIterator};
-    use Collection;
+    use {Collection, MutableSeq};
 
     use super::*;
     use std::slice::{Vector, ImmutableVector};

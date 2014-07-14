@@ -662,7 +662,7 @@ mod test_map {
     use std::iter::range_step;
     use std::uint;
 
-    use {MutableMap, Map};
+    use {MutableMap, Map, MutableSeq};
     use super::{TrieMap, TrieNode, Internal, External, Nothing};
 
     fn check_integrity<T>(trie: &TrieNode<T>) {
@@ -1050,7 +1050,7 @@ mod test_set {
     use std::prelude::*;
     use std::uint;
 
-    use {MutableSet, Set};
+    use {MutableSet, Set, MutableSeq};
     use super::TrieSet;
 
     #[test]
