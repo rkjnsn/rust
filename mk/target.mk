@@ -79,7 +79,7 @@ $$(TLIB$(1)_T_$(2)_H_$(3))/stamp.$(4): \
 	    $$(dir $$@)$$(call CFG_LIB_GLOB_$(2),$(4)))
 	$$(call REMOVE_ALL_OLD_GLOB_MATCHES, \
 	    $$(dir $$@)$$(call CFG_RLIB_GLOB,$(4)))
-	$$(STAGE$(1)_T_$(2)_H_$(3)) \
+	$$(STAGE$(1)_T_$(2)_H_$(3)_$(4)) \
 		$$(WFLAGS_ST$(1)) \
 		-L "$$(RT_OUTPUT_DIR_$(2))" \
 		-L "$$(LLVM_LIBDIR_$(2))" \

@@ -60,6 +60,8 @@ CFG_VERSION_WIN = $(CFG_RELEASE_NUM)
 # More configuration
 ######################################################################
 
+STAGES = 0 1 2 3
+
 # We track all of the object files we might build so that we can find
 # and include all of the .d files in one fell swoop.
 ALL_OBJ_FILES :=
@@ -91,14 +93,6 @@ CFG_RUSTC_FLAGS := $(RUSTFLAGS)
 CFG_GCCISH_CFLAGS :=
 CFG_GCCISH_LINK_FLAGS :=
 
-ifdef CFG_DISABLE_OPTIMIZE
-  $(info cfg: disabling rustc optimization (CFG_DISABLE_OPTIMIZE))
-  CFG_RUSTC_FLAGS +=
-else
-  # The rtopt cfg turns off runtime sanity checks
-  CFG_RUSTC_FLAGS += -O --cfg rtopt
-endif
-
 ifdef CFG_DISABLE_DEBUG
   CFG_RUSTC_FLAGS += --cfg ndebug
   CFG_GCCISH_CFLAGS += -DRUST_NDEBUG
@@ -126,6 +120,35 @@ endif
 ifdef CFG_ENABLE_RPATH
 CFG_RUSTC_FLAGS += -C rpath
 endif
+
+define PER_STAGE_CRATE_RUSTC_FLAGS
+
+# $(1) is the stage number
+# $(2) is the crate name
+
+CFG_RUSTC_FLAGS_$(1)_$(2) := $$(CFG_RUSTC_FLAGS)
+
+ifdef CFG_DISABLE_OPTIMIZE
+else
+  ifndef BOOTSTRAP_DEOPT_STAGE_$(1)_$(2)
+    CFG_RUSTC_FLAGS_$(1)_$(2) += -O --cfg rtopt
+  endif
+endif
+
+endef
+
+$(foreach stage,$(STAGES), \
+ $(eval $(foreach crate,$(CRATES), \
+  $(eval $(call PER_STAGE_CRATE_RUSTC_FLAGS,$(stage),$(crate))))))
+
+ifdef CFG_DISABLE_OPTIMIZE
+  $(info cfg: disabling rustc optimization (CFG_DISABLE_OPTIMIZE))
+  CFG_RUSTC_FLAGS +=
+else
+  # The rtopt cfg turns off runtime sanity checks
+  CFG_RUSTC_FLAGS += -O --cfg rtopt
+endif
+
 
 # The executables crated during this compilation process have no need to include
 # static copies of libstd and libextra. We also generate dynamic versions of all
@@ -297,8 +320,6 @@ export CFG_DISABLE_INJECT_STD_VERSION
 # Per-stage targets and runner
 ######################################################################
 
-STAGES = 0 1 2 3
-
 define SREQ
 # $(1) is the stage number
 # $(2) is the target triple
@@ -423,7 +444,7 @@ STAGE$(1)_T_$(2)_H_$(3) := \
 		$$(HBIN$(1)_H_$(3))/rustc$$(X_$(3)) \
 		--cfg $$(CFGFLAG$(1)_T_$(2)_H_$(3)) \
 		$$(CFG_RUSTC_FLAGS) $$(EXTRAFLAGS_STAGE$(1)) --target=$(2)) \
-                $$(RUSTC_FLAGS_$(2))
+		$$(RUSTC_FLAGS_$(2))
 
 PERF_STAGE$(1)_T_$(2)_H_$(3) := \
 	$$(Q)$$(call CFG_RUN_TARG_$(3),$(1), \
@@ -431,7 +452,7 @@ PERF_STAGE$(1)_T_$(2)_H_$(3) := \
 		$$(HBIN$(1)_H_$(3))/rustc$$(X_$(3)) \
 		--cfg $$(CFGFLAG$(1)_T_$(2)_H_$(3)) \
 		$$(CFG_RUSTC_FLAGS) $$(EXTRAFLAGS_STAGE$(1)) --target=$(2)) \
-                $$(RUSTC_FLAGS_$(2))
+		$$(RUSTC_FLAGS_$(2))
 
 endef
 
@@ -444,6 +465,32 @@ $(foreach build,$(CFG_HOST), \
  $(eval $(foreach target,$(CFG_TARGET), \
   $(eval $(foreach stage,$(STAGES), \
    $(eval $(call SREQ_CMDS,$(stage),$(target),$(build))))))))
+
+
+# Yup
+define PER_CRATE_COMPILER
+
+# $(1) is the stage number
+# $(2) is the target triple
+# $(3) is the host triple
+# $(4) is the crate name
+
+STAGE$(1)_T_$(2)_H_$(3)_$(4) := \
+        $$(Q)$$(RPATH_VAR$(1)_T_$(2)_H_$(3)) \
+                $$(call CFG_RUN_TARG_$(3),$(1), \
+                $$(CFG_VALGRIND_COMPILE$(1)) \
+                $$(HBIN$(1)_H_$(3))/rustc$$(X_$(3)) \
+                --cfg $$(CFGFLAG$(1)_T_$(2)_H_$(3)) \
+		$$(CFG_RUSTC_FLAGS_$(1)_$(4)) $$(EXTRAFLAGS_STAGE$(1)) --target=$(2)) \
+                $$(RUSTC_FLAGS_$(2)) $$(AA_$(1)_$(4))
+
+endef
+
+$(foreach build,$(CFG_HOST), \
+ $(eval $(foreach target,$(CFG_TARGET), \
+  $(eval $(foreach stage,$(STAGES), \
+   $(eval $(foreach crate,$(CRATES), \
+    $(eval $(call PER_CRATE_COMPILER,$(stage),$(target),$(build),$(crate))))))))))
 
 ######################################################################
 # rustc-H-targets

@@ -115,6 +115,22 @@ ONLY_RLIB_rand := 1
 ONLY_RLIB_collections := 1
 ONLY_RLIB_unicode := 1
 
+BOOTSTRAP_DEOPT_STAGE_0_core := 1
+BOOTSTRAP_DEOPT_STAGE_0_flate := 1
+BOOTSTRAP_DEOPT_STAGE_0_getopts := 1
+BOOTSTRAP_DEOPT_STAGE_0_time := 1
+BOOTSTRAP_DEOPT_STAGE_0_log := 1
+BOOTSTRAP_DEOPT_STAGE_0_graphviz := 1
+BOOTSTRAP_DEOPT_STAGE_0_debug := 1
+BOOTSTRAP_DEOPT_STAGE_0_rustc_llvm := 1
+BOOTSTRAP_DEOPT_STAGE_0_rustc_back := 1
+BOOTSTRAP_DEOPT_STAGE_0_rustrt := 1
+BOOTSTRAP_DEOPT_STAGE_0_sync := 1
+BOOTSTRAP_DEOPT_STAGE_0_std := 1
+BOOTSTRAP_DEOPT_STAGE_0_term := 1
+BOOTSTRAP_DEOPT_STAGE_0_native := 1
+
+
 ################################################################################
 # You should not need to edit below this line
 ################################################################################
