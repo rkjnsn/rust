@@ -26,6 +26,7 @@ pub struct Page<'a> {
     pub title: &'a str,
     pub ty: &'a str,
     pub root_path: &'a str,
+    pub canonical_url: Option<String>,
 }
 
 pub fn render<T: fmt::Show, S: fmt::Show>(
@@ -47,6 +48,7 @@ r##"<!DOCTYPE html>
 
     {favicon}
     {in_header}
+    {canonical_url}
 </head>
 <body class="rustdoc">
     <!--[if lte IE 8]>
@@ -139,6 +141,12 @@ r##"<!DOCTYPE html>
         "".to_string()
     } else {
         format!(r#"<link rel="shortcut icon" href="{}">"#, layout.favicon)
+    },
+    canonical_url = match page.canonical_url {
+        Some(ref url) => {
+            format!(r#"<link rel="canonical" href="{}">"#, url)
+        }
+        None => "".to_string()
     },
     in_header = layout.external_html.in_header,
     before_content = layout.external_html.before_content,

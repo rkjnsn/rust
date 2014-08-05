@@ -98,6 +98,9 @@ pub struct Context {
     /// real location of an item. This is used to allow external links to
     /// publicly reused items to redirect to the right location.
     pub render_redirect_pages: bool,
+    /// The optional value of the html_root_url doc attribute. If present,
+    /// it is used to generate the `<link rel="canonical" ...>` tag.
+    pub html_root_url: Option<String>
 }
 
 /// Indicates where an external crate can be found.
@@ -248,6 +251,7 @@ pub fn run(mut krate: clean::Crate, external_html: &ExternalHtml, dst: Path) -> 
         },
         include_sources: true,
         render_redirect_pages: false,
+        html_root_url: get_root_url(&krate)
     };
 
     try!(mkdir(&cx.dst));
@@ -746,6 +750,7 @@ impl<'a> SourceCollector<'a> {
             title: title.as_slice(),
             ty: "source",
             root_path: root_path.as_slice(),
+            canonical_url: None
         };
         try!(layout::render(&mut w as &mut Writer, &self.cx.layout,
                             &page, &(""), &Source(contents)));
@@ -1076,6 +1081,7 @@ impl Context {
                 ty: "mod",
                 root_path: this.root_path.as_slice(),
                 title: title.as_slice(),
+                canonical_url: None
             };
             let html_dst = &this.dst.join("stability.html");
             let mut html_out = BufferedWriter::new(try!(File::create(html_dst)));
@@ -1124,6 +1130,7 @@ impl Context {
                 ty: shortty(it).to_static_str(),
                 root_path: cx.root_path.as_slice(),
                 title: title.as_slice(),
+                canonical_url: make_canonical_url(cx, w.path())
             };
 
             markdown::reset_headers();
@@ -2150,5 +2157,65 @@ fn ignore_private_item(it: &clean::Item) -> bool {
         }
         clean::PrimitiveItem(..) => it.visibility != Some(ast::Public),
         _ => false,
+    }
+}
+
+fn get_root_url(krate: &clean::Crate) -> Option<String> {
+    match krate.module {
+        Some(ref item) => {
+            for attr in item.attrs.iter() {
+                match *attr {
+                    clean::List(ref s, ref inner_attrs) if s.as_slice() == "doc" => {
+                        for inner_attr in inner_attrs.iter() {
+                            match *inner_attr {
+                                clean::NameValue(ref n, ref v) if n.as_slice() == "html_root_url" => {
+                                    return Some(v.clone())
+                                }
+                                _ => ()
+                            }
+                        }
+                    }
+                    _ => ()
+                }
+            }
+        }
+        _ => ()
+    }
+
+    return None;
+}
+
+/// Build the 'canonical url' used in `<meta rel="canonical" ...>`
+/// by combining the 'html_root_url' attribute, the 'current'
+/// path recorded in the `Context`, and the local filename.
+fn make_canonical_url(cx: &Context, path: &Path) -> Option<String> {
+    match cx.html_root_url {
+        Some(ref url) => {
+            let filename_suffix = match path.filename_str() {
+                Some(f) => {
+                    if f == "index.html" {
+                        "/".to_string()
+                    } else {
+                        format!("/{}", f)
+                    }
+                }
+                None => {
+                    // Probably not possible, but maybe someday
+                    fail!("weird case in make_canonical_url")
+                }
+            };
+
+            let mut url = url.clone();
+            if !url.as_slice().ends_with("/") { url.push_str("/") }
+
+            // Append the module path elements
+            url.push_str(cx.current.connect("/").as_slice());
+
+            // Append the file name
+            url.push_str(filename_suffix.as_slice());
+
+            Some(url)
+        }
+        None => None
     }
 }
