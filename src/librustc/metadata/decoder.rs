@@ -244,7 +244,7 @@ fn item_trait_ref(doc: rbml::Doc, tcx: &ty::ctxt, cdata: Cmd) -> ty::TraitRef {
 fn item_ty_param_defs(item: rbml::Doc,
                       tcx: &ty::ctxt,
                       cdata: Cmd,
-                      tag: uint)
+                      tag: rbml::Tag)
                       -> subst::VecPerParamSpace<ty::TypeParameterDef> {
     let mut bounds = subst::VecPerParamSpace::empty();
     reader::tagged_docs(item, tag, |p| {
@@ -1110,7 +1110,7 @@ pub fn get_crate_deps(data: &[u8]) -> Vec<CrateDep> {
     let cratedoc = rbml::Doc::new(data);
     let depsdoc = reader::get_doc(cratedoc, tag_crate_deps);
     let mut crate_num = 1;
-    fn docstr(doc: rbml::Doc, tag_: uint) -> String {
+    fn docstr(doc: rbml::Doc, tag_: rbml::Tag) -> String {
         let d = reader::get_doc(doc, tag_);
         d.as_str_slice().to_string()
     }

@@ -92,7 +92,7 @@ pub fn encode_inlined_item(ecx: &e::EncodeContext,
     let ii = simplify_ast(ii);
     let id_range = ast_util::compute_id_range_for_inlined_item(&ii);
 
-    rbml_w.start_tag(c::tag_ast as uint);
+    rbml_w.start_tag(c::tag_ast as rbml::Tag);
     id_range.encode(rbml_w);
     encode_ast(rbml_w, ii);
     encode_side_tables_for_ii(ecx, rbml_w, &ii);
@@ -294,7 +294,7 @@ impl<D:serialize::Decoder<E>, E> def_id_decoder_helpers for D {
 // but eventually we should add entries to the local codemap as required.
 
 fn encode_ast(rbml_w: &mut Encoder, item: ast::InlinedItem) {
-    rbml_w.start_tag(c::tag_tree as uint);
+    rbml_w.start_tag(c::tag_tree as rbml::Tag);
     item.encode(rbml_w);
     rbml_w.end_tag();
 }
@@ -353,7 +353,7 @@ fn simplify_ast(ii: e::InlinedItemRef) -> ast::InlinedItem {
 }
 
 fn decode_ast(par_doc: rbml::Doc) -> ast::InlinedItem {
-    let chi_doc = par_doc.get(c::tag_tree as uint);
+    let chi_doc = par_doc.get(c::tag_tree as rbml::Tag);
     let mut d = reader::Decoder::new(chi_doc);
     Decodable::decode(&mut d).unwrap()
 }
@@ -967,13 +967,13 @@ impl<'a> write_tag_and_id for Encoder<'a> {
     fn tag(&mut self,
            tag_id: c::astencode_tag,
            f: |&mut Encoder<'a>|) {
-        self.start_tag(tag_id as uint);
+        self.start_tag(tag_id as rbml::Tag);
         f(self);
         self.end_tag();
     }
 
     fn id(&mut self, id: ast::NodeId) {
-        self.wr_tagged_u64(c::tag_table_id as uint, id as u64);
+        self.wr_tagged_u64(c::tag_table_id as rbml::Tag, id as u64);
     }
 }
 
@@ -1004,7 +1004,7 @@ impl<'a,'b> ast_util::IdVisitingOperation for
 fn encode_side_tables_for_ii(ecx: &e::EncodeContext,
                              rbml_w: &mut Encoder,
                              ii: &ast::InlinedItem) {
-    rbml_w.start_tag(c::tag_table as uint);
+    rbml_w.start_tag(c::tag_table as rbml::Tag);
     let mut new_rbml_w = unsafe {
         rbml_w.unsafe_clone()
     };
@@ -1180,7 +1180,7 @@ trait doc_decoder_helpers {
 impl<'a> doc_decoder_helpers for rbml::Doc<'a> {
     fn as_int(&self) -> int { reader::doc_as_u64(*self) as int }
     fn opt_child(&self, tag: c::astencode_tag) -> Option<rbml::Doc<'a>> {
-        reader::maybe_get_doc(*self, tag as uint)
+        reader::maybe_get_doc(*self, tag as rbml::Tag)
     }
 }
 
@@ -1424,23 +1424,23 @@ impl<'a> rbml_decoder_decoder_helpers for reader::Decoder<'a> {
 fn decode_side_tables(xcx: &ExtendedDecodeContext,
                       ast_doc: rbml::Doc) {
     let dcx = xcx.dcx;
-    let tbl_doc = ast_doc.get(c::tag_table as uint);
+    let tbl_doc = ast_doc.get(c::tag_table as rbml::Tag);
     reader::docs(tbl_doc, |tag, entry_doc| {
-        let id0 = entry_doc.get(c::tag_table_id as uint).as_int();
+        let id0 = entry_doc.get(c::tag_table_id as rbml::Tag).as_int();
         let id = xcx.tr_id(id0 as ast::NodeId);
 
         debug!(">> Side table document with tag 0x{:x} \
                 found for id {} (orig {})",
                tag, id, id0);
 
-        match c::astencode_tag::from_uint(tag) {
+        match c::astencode_tag::from_tag(tag) {
             None => {
                 xcx.dcx.tcx.sess.bug(
                     format!("unknown tag found in side tables: {:x}",
                             tag).as_slice());
             }
             Some(value) => {
-                let val_doc = entry_doc.get(c::tag_table_val as uint);
+                let val_doc = entry_doc.get(c::tag_table_val as rbml::Tag);
                 let mut val_dsr = reader::Decoder::new(val_doc);
                 let val_dsr = &mut val_dsr;
 

@@ -12,88 +12,89 @@
 
 use std::mem;
 use back::svh::Svh;
+use rbml::Tag;
 
 // EBML enum definitions and utils shared by the encoder and decoder
 
-pub static tag_items: uint = 0x00;
+pub static tag_items: Tag = 0x00;
 
-pub static tag_paths_data_name: uint = 0x01;
+pub static tag_paths_data_name: Tag = 0x01;
 
-pub static tag_def_id: uint = 0x02;
+pub static tag_def_id: Tag = 0x02;
 
-pub static tag_items_data: uint = 0x03;
+pub static tag_items_data: Tag = 0x03;
 
-pub static tag_items_data_item: uint = 0x04;
+pub static tag_items_data_item: Tag = 0x04;
 
-pub static tag_items_data_item_family: uint = 0x05;
+pub static tag_items_data_item_family: Tag = 0x05;
 
-pub static tag_items_data_item_ty_param_bounds: uint = 0x06;
+pub static tag_items_data_item_ty_param_bounds: Tag = 0x06;
 
-pub static tag_items_data_item_type: uint = 0x07;
+pub static tag_items_data_item_type: Tag = 0x07;
 
-pub static tag_items_data_item_symbol: uint = 0x08;
+pub static tag_items_data_item_symbol: Tag = 0x08;
 
-pub static tag_items_data_item_variant: uint = 0x09;
+pub static tag_items_data_item_variant: Tag = 0x09;
 
-pub static tag_items_data_parent_item: uint = 0x0a;
+pub static tag_items_data_parent_item: Tag = 0x0a;
 
-pub static tag_items_data_item_is_tuple_struct_ctor: uint = 0x0b;
+pub static tag_items_data_item_is_tuple_struct_ctor: Tag = 0x0b;
 
-pub static tag_index: uint = 0x0c;
+pub static tag_index: Tag = 0x0c;
 
-pub static tag_index_buckets: uint = 0x0d;
+pub static tag_index_buckets: Tag = 0x0d;
 
-pub static tag_index_buckets_bucket: uint = 0x0e;
+pub static tag_index_buckets_bucket: Tag = 0x0e;
 
-pub static tag_index_buckets_bucket_elt: uint = 0x0f;
+pub static tag_index_buckets_bucket_elt: Tag = 0x0f;
 
-pub static tag_index_table: uint = 0x10;
+pub static tag_index_table: Tag = 0x10;
 
-pub static tag_meta_item_name_value: uint = 0x11;
+pub static tag_meta_item_name_value: Tag = 0x11;
 
-pub static tag_meta_item_name: uint = 0x12;
+pub static tag_meta_item_name: Tag = 0x12;
 
-pub static tag_meta_item_value: uint = 0x13;
+pub static tag_meta_item_value: Tag = 0x13;
 
-pub static tag_attributes: uint = 0x14;
+pub static tag_attributes: Tag = 0x14;
 
-pub static tag_attribute: uint = 0x15;
+pub static tag_attribute: Tag = 0x15;
 
-pub static tag_meta_item_word: uint = 0x16;
+pub static tag_meta_item_word: Tag = 0x16;
 
-pub static tag_meta_item_list: uint = 0x17;
+pub static tag_meta_item_list: Tag = 0x17;
 
 // The list of crates that this crate depends on
-pub static tag_crate_deps: uint = 0x18;
+pub static tag_crate_deps: Tag = 0x18;
 
 // A single crate dependency
-pub static tag_crate_dep: uint = 0x19;
+pub static tag_crate_dep: Tag = 0x19;
 
-pub static tag_crate_hash: uint = 0x1a;
-pub static tag_crate_crate_name: uint = 0x1b;
+pub static tag_crate_hash: Tag = 0x1a;
+pub static tag_crate_crate_name: Tag = 0x1b;
 
-pub static tag_crate_dep_crate_name: uint = 0x1d;
-pub static tag_crate_dep_hash: uint = 0x1e;
+pub static tag_crate_dep_crate_name: Tag = 0x1d;
+pub static tag_crate_dep_hash: Tag = 0x1e;
 
-pub static tag_mod_impl: uint = 0x1f;
+pub static tag_mod_impl: Tag = 0x1f;
 
-pub static tag_item_trait_method: uint = 0x20;
+pub static tag_item_trait_method: Tag = 0x20;
 
-pub static tag_item_trait_ref: uint = 0x21;
-pub static tag_item_super_trait_ref: uint = 0x22;
+pub static tag_item_trait_ref: Tag = 0x21;
+pub static tag_item_super_trait_ref: Tag = 0x22;
 
 // discriminator value for variants
-pub static tag_disr_val: uint = 0x23;
+pub static tag_disr_val: Tag = 0x23;
 
 // used to encode ast_map::PathElem
-pub static tag_path: uint = 0x24;
-pub static tag_path_len: uint = 0x25;
-pub static tag_path_elem_mod: uint = 0x26;
-pub static tag_path_elem_name: uint = 0x27;
-pub static tag_item_field: uint = 0x28;
-pub static tag_item_field_origin: uint = 0x29;
+pub static tag_path: Tag = 0x24;
+pub static tag_path_len: Tag = 0x25;
+pub static tag_path_elem_mod: Tag = 0x26;
+pub static tag_path_elem_name: Tag = 0x27;
+pub static tag_item_field: Tag = 0x28;
+pub static tag_item_field_origin: Tag = 0x29;
 
-pub static tag_item_variances: uint = 0x2a;
+pub static tag_item_variances: Tag = 0x2a;
 /*
   trait items contain tag_item_trait_method elements,
   impl items contain tag_item_impl_method elements, and classes
@@ -102,19 +103,19 @@ pub static tag_item_variances: uint = 0x2a;
   both, tag_item_trait_method and tag_item_impl_method have to be two
   different tags.
  */
-pub static tag_item_impl_method: uint = 0x30;
-pub static tag_item_trait_method_explicit_self: uint = 0x31;
+pub static tag_item_impl_method: Tag = 0x30;
+pub static tag_item_trait_method_explicit_self: Tag = 0x31;
 
 
 // Reexports are found within module tags. Each reexport contains def_ids
 // and names.
-pub static tag_items_data_item_reexport: uint = 0x38;
-pub static tag_items_data_item_reexport_def_id: uint = 0x39;
-pub static tag_items_data_item_reexport_name: uint = 0x3a;
+pub static tag_items_data_item_reexport: Tag = 0x38;
+pub static tag_items_data_item_reexport_def_id: Tag = 0x39;
+pub static tag_items_data_item_reexport_name: Tag = 0x3a;
 
 // used to encode crate_ctxt side tables
 #[deriving(PartialEq)]
-#[repr(uint)]
+#[repr(u8)]
 pub enum astencode_tag { // Reserves 0x40 -- 0x5f
     tag_ast = 0x40,
 
@@ -141,10 +142,10 @@ pub enum astencode_tag { // Reserves 0x40 -- 0x5f
     tag_table_capture_map = 0x53,
     tag_table_unboxed_closure_type = 0x54,
 }
-static first_astencode_tag: uint = tag_ast as uint;
-static last_astencode_tag: uint = tag_table_unboxed_closure_type as uint;
+static first_astencode_tag: Tag = tag_ast as Tag;
+static last_astencode_tag: Tag = tag_table_unboxed_closure_type as Tag;
 impl astencode_tag {
-    pub fn from_uint(value : uint) -> Option<astencode_tag> {
+    pub fn from_tag(value : Tag) -> Option<astencode_tag> {
         let is_a_tag = first_astencode_tag <= value && value <= last_astencode_tag;
         if !is_a_tag { None } else {
             Some(unsafe { mem::transmute(value) })
@@ -152,13 +153,13 @@ impl astencode_tag {
     }
 }
 
-pub static tag_item_trait_method_sort: uint = 0x60;
+pub static tag_item_trait_method_sort: Tag = 0x60;
 
-pub static tag_item_impl_type_basename: uint = 0x61;
+pub static tag_item_impl_type_basename: Tag = 0x61;
 
-pub static tag_crate_triple: uint = 0x66;
+pub static tag_crate_triple: Tag = 0x66;
 
-pub static tag_dylib_dependency_formats: uint = 0x67;
+pub static tag_dylib_dependency_formats: Tag = 0x67;
 
 // Language items are a top-level directory (for speed). Hierarchy:
 //
@@ -167,50 +168,50 @@ pub static tag_dylib_dependency_formats: uint = 0x67;
 //   - tag_lang_items_item_id: u32
 //   - tag_lang_items_item_node_id: u32
 
-pub static tag_lang_items: uint = 0x70;
-pub static tag_lang_items_item: uint = 0x71;
-pub static tag_lang_items_item_id: uint = 0x72;
-pub static tag_lang_items_item_node_id: uint = 0x73;
-pub static tag_lang_items_missing: uint = 0x74;
+pub static tag_lang_items: Tag = 0x70;
+pub static tag_lang_items_item: Tag = 0x71;
+pub static tag_lang_items_item_id: Tag = 0x72;
+pub static tag_lang_items_item_node_id: Tag = 0x73;
+pub static tag_lang_items_missing: Tag = 0x74;
 
-pub static tag_item_unnamed_field: uint = 0x75;
-pub static tag_items_data_item_visibility: uint = 0x76;
-pub static tag_items_data_item_sized: uint = 0x77;
+pub static tag_item_unnamed_field: Tag = 0x75;
+pub static tag_items_data_item_visibility: Tag = 0x76;
+pub static tag_items_data_item_sized: Tag = 0x77;
 
-pub static tag_item_method_tps: uint = 0x79;
-pub static tag_item_method_fty: uint = 0x7a;
+pub static tag_item_method_tps: Tag = 0x79;
+pub static tag_item_method_fty: Tag = 0x7a;
 
-pub static tag_mod_child: uint = 0x7b;
-pub static tag_misc_info: uint = 0x7c;
-pub static tag_misc_info_crate_items: uint = 0x7d;
+pub static tag_mod_child: Tag = 0x7b;
+pub static tag_misc_info: Tag = 0x7c;
+pub static tag_misc_info_crate_items: Tag = 0x7d;
 
-pub static tag_item_method_provided_source: uint = 0x7e;
-pub static tag_item_impl_vtables: uint = 0x7f;
+pub static tag_item_method_provided_source: Tag = 0x7e;
+pub static tag_item_impl_vtables: Tag = 0x7f;
 
-pub static tag_impls: uint = 0x80;
-pub static tag_impls_impl: uint = 0x81;
+pub static tag_impls: Tag = 0x80;
+pub static tag_impls_impl: Tag = 0x81;
 
-pub static tag_items_data_item_inherent_impl: uint = 0x82;
-pub static tag_items_data_item_extension_impl: uint = 0x83;
+pub static tag_items_data_item_inherent_impl: Tag = 0x82;
+pub static tag_items_data_item_extension_impl: Tag = 0x83;
 
 // GAP 0x84, 0x85, 0x86
 
-pub static tag_native_libraries: uint = 0x87;
-pub static tag_native_libraries_lib: uint = 0x88;
-pub static tag_native_libraries_name: uint = 0x89;
-pub static tag_native_libraries_kind: uint = 0x8a;
+pub static tag_native_libraries: Tag = 0x87;
+pub static tag_native_libraries_lib: Tag = 0x88;
+pub static tag_native_libraries_name: Tag = 0x89;
+pub static tag_native_libraries_kind: Tag = 0x8a;
 
-pub static tag_plugin_registrar_fn: uint = 0x8b;
-pub static tag_exported_macros: uint = 0x8c;
-pub static tag_macro_def: uint = 0x8d;
+pub static tag_plugin_registrar_fn: Tag = 0x8b;
+pub static tag_exported_macros: Tag = 0x8c;
+pub static tag_macro_def: Tag = 0x8d;
 
-pub static tag_method_argument_names: uint = 0x8e;
-pub static tag_method_argument_name: uint = 0x8f;
+pub static tag_method_argument_names: Tag = 0x8e;
+pub static tag_method_argument_name: Tag = 0x8f;
 
-pub static tag_reachable_extern_fns: uint = 0x90;
-pub static tag_reachable_extern_fn_id: uint = 0x91;
+pub static tag_reachable_extern_fns: Tag = 0x90;
+pub static tag_reachable_extern_fn_id: Tag = 0x91;
 
-pub static tag_items_data_item_stability: uint = 0x92;
+pub static tag_items_data_item_stability: Tag = 0x92;
 
 #[deriving(Clone, Show)]
 pub struct LinkMeta {
@@ -218,18 +219,18 @@ pub struct LinkMeta {
     pub crate_hash: Svh,
 }
 
-pub static tag_region_param_def: uint = 0x90;
-pub static tag_region_param_def_ident: uint = 0x91;
-pub static tag_region_param_def_def_id: uint = 0x92;
-pub static tag_region_param_def_space: uint = 0x93;
-pub static tag_region_param_def_index: uint = 0x94;
+pub static tag_region_param_def: Tag = 0x90;
+pub static tag_region_param_def_ident: Tag = 0x91;
+pub static tag_region_param_def_def_id: Tag = 0x92;
+pub static tag_region_param_def_space: Tag = 0x93;
+pub static tag_region_param_def_index: Tag = 0x94;
 
-pub static tag_unboxed_closures: uint = 0x95;
-pub static tag_unboxed_closure: uint = 0x96;
-pub static tag_unboxed_closure_type: uint = 0x97;
+pub static tag_unboxed_closures: Tag = 0x95;
+pub static tag_unboxed_closure: Tag = 0x96;
+pub static tag_unboxed_closure_type: Tag = 0x97;
 
-pub static tag_struct_fields: uint = 0x98;
-pub static tag_struct_field: uint = 0x99;
-pub static tag_struct_field_id: uint = 0x9a;
+pub static tag_struct_fields: Tag = 0x98;
+pub static tag_struct_field: Tag = 0x99;
+pub static tag_struct_field_id: Tag = 0x9a;
 
-pub static tag_attribute_is_sugared_doc: uint = 0x9b;
+pub static tag_attribute_is_sugared_doc: Tag = 0x9b;

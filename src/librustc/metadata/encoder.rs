@@ -51,6 +51,7 @@ use syntax::parse::token;
 use syntax::visit::Visitor;
 use syntax::visit;
 use syntax;
+use rbml;
 use rbml::writer;
 use rbml::io::SeekableMemWriter;
 
@@ -113,7 +114,7 @@ struct entry<T> {
 fn encode_trait_ref(rbml_w: &mut Encoder,
                     ecx: &EncodeContext,
                     trait_ref: &ty::TraitRef,
-                    tag: uint) {
+                    tag: rbml::Tag) {
     let ty_str_ctxt = &tyencode::ctxt {
         diag: ecx.diag,
         ds: def_to_string,
@@ -148,7 +149,7 @@ pub fn def_to_string(did: DefId) -> String {
 fn encode_ty_type_param_defs(rbml_w: &mut Encoder,
                              ecx: &EncodeContext,
                              params: &VecPerParamSpace<ty::TypeParameterDef>,
-                             tag: uint) {
+                             tag: rbml::Tag) {
     let ty_str_ctxt = &tyencode::ctxt {
         diag: ecx.diag,
         ds: def_to_string,
