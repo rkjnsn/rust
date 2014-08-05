@@ -155,13 +155,7 @@ fn item_family(item: rbml::Doc) -> Family {
 fn item_visibility(item: rbml::Doc) -> ast::Visibility {
     match reader::maybe_get_doc(item, tag_items_data_item_visibility) {
         None => ast::Public,
-        Some(visibility_doc) => {
-            match reader::doc_as_u8(visibility_doc) as char {
-                'y' => ast::Public,
-                'i' => ast::Inherited,
-                _ => fail!("unknown visibility character")
-            }
-        }
+        Some(_) => ast::Inherited
     }
 }
 

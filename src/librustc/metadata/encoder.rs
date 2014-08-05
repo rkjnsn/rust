@@ -622,13 +622,12 @@ fn encode_struct_field_family(rbml_w: &mut Encoder,
 }
 
 fn encode_visibility(rbml_w: &mut Encoder, visibility: Visibility) {
-    rbml_w.start_tag(tag_items_data_item_visibility);
-    let ch = match visibility {
-        Public => 'y',
-        Inherited => 'i',
-    };
-    rbml_w.wr_str(ch.to_string().as_slice());
-    rbml_w.end_tag();
+    // Save space by not emitting the tag for public items.
+    // FIXME: Not sure whether Public or Inherited is more common.
+    if visibility == Inherited {
+        rbml_w.start_tag(tag_items_data_item_visibility);
+        rbml_w.end_tag();
+    }
 }
 
 fn encode_explicit_self(rbml_w: &mut Encoder,
