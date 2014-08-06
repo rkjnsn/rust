@@ -168,9 +168,7 @@ fn encode_region_param_defs(rbml_w: &mut Encoder,
     for param in params.iter() {
         rbml_w.start_tag(tag_region_param_def);
 
-        rbml_w.start_tag(tag_region_param_def_ident);
         encode_name(rbml_w, param.name);
-        rbml_w.end_tag();
 
         rbml_w.wr_tagged_str(tag_region_param_def_def_id,
                              def_to_string(param.def_id).as_slice());
