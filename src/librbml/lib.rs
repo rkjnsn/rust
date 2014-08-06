@@ -664,6 +664,8 @@ pub mod writer {
     use std::io;
     use std::mem;
 
+    use io::SeekableMemWriter;
+
     use super::{ EsVec, EsMap, EsEnum, EsVecLen, EsVecElt, EsMapLen, EsMapKey,
         EsEnumVid, EsU64, EsU32, EsU16, EsU8, EsInt, EsI64, EsI32, EsI16, EsI8,
         EsBool, EsF64, EsF32, EsChar, EsStr, EsMapVal, EsEnumBody, EsUint,
@@ -727,6 +729,20 @@ pub mod writer {
                 writer: mem::transmute_copy(&self.writer),
                 size_positions: self.size_positions.clone(),
             }
+        }
+
+        pub fn splat<'b>(&'b mut self, tag_id: Tag,
+                         f: |&mut Encoder<'b, SeekableMemWriter>| -> EncodeResult) -> EncodeResult {
+            let mut mw = SeekableMemWriter::new();
+            {
+                let mut encoder = Encoder::new(&mut mw);
+                try!(f(&mut encoder));
+            }
+            let buf = mw.unwrap();
+            try!(write_u8(self.writer, tag_id));
+            try!(write_vuint(self.writer, buf.len()));
+            try!(self.wr_bytes(buf.as_slice()));
+            Ok(())
         }
 
         pub fn start_tag(&mut self, tag_id: Tag) -> EncodeResult {
@@ -917,9 +933,7 @@ pub mod writer {
                      name: &str,
                      f: |&mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
             try!(self._emit_label(name));
-            try!(self.start_tag(EsEnum as Tag));
-            try!(f(self));
-            self.end_tag()
+            self.splat(EsEnum as Tag, |sub| f(sub))
         }
 
         fn emit_enum_variant(&mut self,
@@ -928,9 +942,7 @@ pub mod writer {
                              _: uint,
                              f: |&mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
             try!(self._emit_tagged_uint(EsEnumVid, v_id));
-            try!(self.start_tag(EsEnumBody as Tag));
-            try!(f(self));
-            self.end_tag()
+            self.splat(EsEnumBody as Tag, |sub| f(sub))
         }
 
         fn emit_enum_variant_arg(&mut self,
@@ -1010,46 +1022,40 @@ pub mod writer {
                     len: uint,
                     f: |&mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
 
-            try!(self.start_tag(EsVec as Tag));
-            try!(self._emit_tagged_uint(EsVecLen, len));
-            try!(f(self));
-            self.end_tag()
+            self.splat(EsVec as Tag, |sub| {
+                try!(sub._emit_tagged_uint(EsVecLen, len));
+                f(sub)
+            })
         }
 
         fn emit_seq_elt(&mut self,
                         _idx: uint,
                         f: |&mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
 
-            try!(self.start_tag(EsVecElt as Tag));
-            try!(f(self));
-            self.end_tag()
+            self.splat(EsVecElt as Tag, |sub| f(sub))
         }
 
         fn emit_map(&mut self,
                     len: uint,
                     f: |&mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
 
-            try!(self.start_tag(EsMap as Tag));
-            try!(self._emit_tagged_uint(EsMapLen, len));
-            try!(f(self));
-            self.end_tag()
+            self.splat(EsMap as Tag, |sub| {
+                try!(sub._emit_tagged_uint(EsMapLen, len));
+                f(sub)
+            })
         }
 
         fn emit_map_elt_key(&mut self,
                             _idx: uint,
                             f: |&mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
 
-            try!(self.start_tag(EsMapKey as Tag));
-            try!(f(self));
-            self.end_tag()
+            self.splat(EsMapKey as Tag, |sub| f(sub))
         }
 
         fn emit_map_elt_val(&mut self,
                             _idx: uint,
                             f: |&mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
-            try!(self.start_tag(EsMapVal as Tag));
-            try!(f(self));
-            self.end_tag()
+            self.splat(EsMapVal as Tag, |sub| f(sub))
         }
     }
 }
