@@ -680,6 +680,7 @@ pub mod writer {
     pub struct Encoder<'a, W> {
         pub writer: &'a mut W,
         size_positions: Vec<uint>,
+        splat_stack: Vec<SeekableMemWriter>,
     }
 
     fn write_u8<W: Writer>(w: &mut W, n: u8) -> EncodeResult {
@@ -720,6 +721,7 @@ pub mod writer {
             Encoder {
                 writer: w,
                 size_positions: vec!(),
+                splat_stack: vec!(),
             }
         }
 
@@ -728,45 +730,74 @@ pub mod writer {
             Encoder {
                 writer: mem::transmute_copy(&self.writer),
                 size_positions: self.size_positions.clone(),
+                splat_stack: self.splat_stack.clone()
             }
         }
 
         pub fn splat<'b>(&'b mut self, tag_id: Tag,
-                         f: |&mut Encoder<'b, SeekableMemWriter>| -> EncodeResult) -> EncodeResult {
-            let mut mw = SeekableMemWriter::new();
+                         f: |&'b mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
+            self.splat_stack.push(SeekableMemWriter::new());
             {
-                let mut encoder = Encoder::new(&mut mw);
-                try!(f(&mut encoder));
+                // FIXME: Borrowck won't let me reborrow self
+                let t: &mut Encoder<_> = unsafe { ::std::mem::transmute(&mut *self) };
+                let r = f(t);
+                try!(r);
             }
-            let buf = mw.unwrap();
-            try!(write_u8(self.writer, tag_id));
-            try!(write_vuint(self.writer, buf.len()));
-            try!(self.wr_bytes(buf.as_slice()));
+            let mem_writer = self.splat_stack.pop().unwrap();
+            let buf = mem_writer.unwrap();
+            if self.splat_stack.is_empty() {
+                try!(write_u8(self.writer, tag_id));
+                try!(write_vuint(self.writer, buf.len()));
+                try!(self.writer.write(buf.as_slice()));
+            } else {
+                let writer = self.splat_stack.mut_last().unwrap();
+                try!(write_u8(writer, tag_id));
+                try!(write_vuint(writer, buf.len()));
+                try!(writer.write(buf.as_slice()));
+            }
             Ok(())
         }
 
         pub fn start_tag(&mut self, tag_id: Tag) -> EncodeResult {
             debug!("Start tag {}", tag_id);
-
-            // Write the enum ID:
-            try!(write_u8(self.writer, tag_id));
-
-            // Write a placeholder four-byte size.
-            self.size_positions.push(try!(self.writer.tell()) as uint);
             let zeroes: &[u8] = &[0u8, 0u8, 0u8, 0u8];
-            self.writer.write(zeroes)
+
+            if self.splat_stack.is_empty() {
+                // Write the enum ID:
+                try!(write_u8(self.writer, tag_id));
+                // Write a placeholder four-byte size.
+                self.size_positions.push(try!(self.writer.tell()) as uint);
+                self.writer.write(zeroes)
+            } else {
+                let writer = self.splat_stack.mut_last().unwrap();
+                try!(write_u8(writer, tag_id));
+                self.size_positions.push(try!(writer.tell()) as uint);
+                self.writer.write(zeroes)
+            }
         }
 
         pub fn end_tag(&mut self) -> EncodeResult {
             let last_size_pos = self.size_positions.pop().unwrap();
-            let cur_pos = try!(self.writer.tell());
-            try!(self.writer.seek(last_size_pos as i64, io::SeekSet));
-            let size = cur_pos as uint - last_size_pos - 4;
-            try!(write_sized_vuint(self.writer, size, 4u));
-            let r = try!(self.writer.seek(cur_pos as i64, io::SeekSet));
+
+            let size = if self.splat_stack.is_empty() {
+                let cur_pos = try!(self.writer.tell());
+                try!(self.writer.seek(last_size_pos as i64, io::SeekSet));
+                let size = cur_pos as uint - last_size_pos - 4;
+                try!(write_sized_vuint(self.writer, size, 4u));
+                try!(self.writer.seek(cur_pos as i64, io::SeekSet));
+                size
+            } else {
+                let writer = self.splat_stack.mut_last().unwrap();
+                let cur_pos = try!(writer.tell());
+                try!(writer.seek(last_size_pos as i64, io::SeekSet));
+                let size = cur_pos as uint - last_size_pos - 4;
+                try!(write_sized_vuint(writer, size, 4u));
+                try!(writer.seek(cur_pos as i64, io::SeekSet));
+                size
+            };
 
             debug!("End tag (size = {})", size);
-            Ok(r)
+            Ok(())
         }
 
         pub fn wr_tag(&mut self, tag_id: Tag, blk: || -> EncodeResult) -> EncodeResult {
@@ -776,9 +807,16 @@ pub mod writer {
         }
 
         pub fn wr_tagged_bytes(&mut self, tag_id: Tag, b: &[u8]) -> EncodeResult {
-            try!(write_u8(self.writer, tag_id));
-            try!(write_vuint(self.writer, b.len()));
-            self.writer.write(b)
+            if self.splat_stack.is_empty() {
+                try!(write_u8(self.writer, tag_id));
+                try!(write_vuint(self.writer, b.len()));
+                self.writer.write(b)
+            } else {
+                let writer = self.splat_stack.mut_last().unwrap();
+                try!(write_u8(writer, tag_id));
+                try!(write_vuint(writer, b.len()));
+                writer.write(b)
+            }    
         }
 
         pub fn wr_tagged_u64(&mut self, tag_id: Tag, v: u64) -> EncodeResult {
@@ -831,12 +869,22 @@ pub mod writer {
 
         pub fn wr_bytes(&mut self, b: &[u8]) -> EncodeResult {
             debug!("Write {} bytes", b.len());
-            self.writer.write(b)
+            if self.splat_stack.is_empty() {
+                self.writer.write(b)
+            } else {
+                let writer = self.splat_stack.mut_last().unwrap();
+                writer.write(b)
+            }
         }
 
         pub fn wr_str(&mut self, s: &str) -> EncodeResult {
             debug!("Write str: {}", s);
-            self.writer.write(s.as_bytes())
+            if self.splat_stack.is_empty() {
+                self.writer.write(s.as_bytes())
+            } else {
+                let writer = self.splat_stack.mut_last().unwrap();
+                writer.write(s.as_bytes())
+            }
         }
     }
 
@@ -929,9 +977,9 @@ pub mod writer {
             self.wr_tagged_str(EsStr as Tag, v)
         }
 
-        fn emit_enum(&mut self,
+        fn emit_enum<'b>(&'b mut self,
                      name: &str,
-                     f: |&mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
+                     f: |&'b mut Encoder<'a, W>| -> EncodeResult) -> EncodeResult {
             try!(self._emit_label(name));
             self.splat(EsEnum as Tag, |sub| f(sub))
         }
