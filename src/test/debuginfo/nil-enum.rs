@@ -11,6 +11,7 @@
 // LLDB can't handle zero-sized values
 // ignore-lldb
 
+// ignore-windows
 // ignore-android: FIXME(#10381)
 
 // compile-flags:-g
