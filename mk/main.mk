@@ -310,6 +310,12 @@ export CFG_PREFIX
 export CFG_LIBDIR
 export CFG_LIBDIR_RELATIVE
 export CFG_DISABLE_INJECT_STD_VERSION
+ifdef CFG_ENABLE_HELLGATE
+# Turn hellgating on in the build
+export CFG_ENABLE_HELLGATE
+# But disable it for the entire build-test cycle so the test suite passes
+export RUSTC_OPEN_THE_HELLGATE := 1
+endif
 
 ######################################################################
 # Per-stage targets and runner

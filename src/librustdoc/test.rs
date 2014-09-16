@@ -71,7 +71,7 @@ pub fn run(input: &str,
     }));
     let krate = driver::phase_1_parse_input(&sess, cfg, &input);
     let krate = driver::phase_2_configure_and_expand(&sess, krate,
-                                                     "rustdoc-test", None)
+                                                     "rustdoc-test", None, false)
         .expect("phase_2_configure_and_expand aborted in rustdoc!");
 
     let ctx = core::DocContext {

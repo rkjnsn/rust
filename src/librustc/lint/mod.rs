@@ -245,6 +245,9 @@ pub enum LintSource {
 
     /// Lint level was set by a command-line flag.
     CommandLine,
+
+    /// Lint level was set by the hellgate.
+    Hellgate
 }
 
 pub type LevelSource = (Level, LintSource);

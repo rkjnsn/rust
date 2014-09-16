@@ -32,7 +32,7 @@ use middle::typeck::infer;
 use driver::session::Session;
 use driver::early_error;
 use lint::{Level, LevelSource, Lint, LintId, LintArray, LintPass, LintPassObject};
-use lint::{Default, CommandLine, Node, Allow, Warn, Deny, Forbid};
+use lint::{Default, CommandLine, Node, Allow, Warn, Deny, Forbid, Hellgate};
 use lint::builtin;
 
 use std::collections::HashMap;
@@ -190,6 +190,7 @@ impl LintStore {
                      UnusedMut,
                      UnnecessaryAllocation,
                      Stability,
+                     ExperimentalFeatures,
         )
 
         add_builtin_with_new!(sess,
@@ -228,6 +229,30 @@ impl LintStore {
                                                  level.as_str(), lint_name).as_slice()),
                     }
                 }
+            }
+        }
+    }
+
+    fn maybe_hellgate(&mut self, sess: &Session) {
+        use driver::config::OPEN_THE_HELLGATE;
+        use std::os;
+
+        let enable_hellgate = option_env!("CFG_ENABLE_HELLGATE").is_some();
+        let disable_hellgate_cmdline = sess.debugging_opt(OPEN_THE_HELLGATE);
+        let disable_hellgate_env = os::getenv("RUSTC_OPEN_THE_HELLGATE").is_some();
+        let disable_hellgate = disable_hellgate_cmdline || disable_hellgate_env;
+        if enable_hellgate && !disable_hellgate {
+            match self.by_name.find_equiv(&"feature_gate") {
+                Some(&lint_id) => self.set_level(lint_id, (Forbid, Hellgate)),
+                None => unreachable!()
+            }
+            match self.by_name.find_equiv(&"unstable") {
+                Some(&lint_id) => self.set_level(lint_id, (Forbid, Hellgate)),
+                None => unreachable!()
+            }
+            match self.by_name.find_equiv(&"experimental") {
+                Some(&lint_id) => self.set_level(lint_id, (Forbid, Hellgate)),
+                None => unreachable!()
             }
         }
     }
@@ -329,6 +354,9 @@ pub fn raw_emit_lint(sess: &Session, lint: &'static Lint,
         Node(src) => {
             note = Some(src);
             msg.to_string()
+        }
+        Hellgate => {
+            format!("{} (hellgated)", msg)
         }
     };
 
@@ -733,6 +761,10 @@ impl LintPass for GatherNodeLevels {
 /// Consumes the `lint_store` field of the `Session`.
 pub fn check_crate(tcx: &ty::ctxt,
                    exported_items: &ExportedItems) {
+
+    // If this is a hellgated build of rustc then flip several lints to 'forbid'
+    tcx.sess.lint_store.borrow_mut().maybe_hellgate(&tcx.sess);
+
     let krate = tcx.map.krate();
     let mut cx = Context::new(tcx, krate, exported_items);
 

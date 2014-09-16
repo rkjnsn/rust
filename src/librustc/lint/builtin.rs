@@ -1624,3 +1624,21 @@ impl LintPass for HardwiredLints {
         )
     }
 }
+
+/// Forbids using the `#[feature(...)]` attribute
+pub struct ExperimentalFeatures;
+
+declare_lint!(EXPERIMENTAL_FEATURES, Allow,
+              "enabling experimental features")
+
+impl LintPass for ExperimentalFeatures {
+    fn get_lints(&self) -> LintArray {
+        lint_array!(EXPERIMENTAL_FEATURES)
+    }
+    fn check_attribute(&mut self, ctx: &Context, attr: &ast::Attribute) {
+        use syntax::attr;
+        if attr::contains_name(&[attr.node.value.clone()], "feature") {
+            ctx.span_lint(EXPERIMENTAL_FEATURES, attr.span, "experimental feature");
+        }
+    }
+}

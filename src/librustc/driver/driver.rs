@@ -77,7 +77,7 @@ pub fn compile_input(sess: Session,
                                            input);
             let expanded_crate
                 = match phase_2_configure_and_expand(&sess, krate, id.as_slice(),
-                                                     addl_plugins) {
+                                                     addl_plugins, false) {
                     None => return,
                     Some(k) => k
                 };
@@ -184,7 +184,8 @@ pub fn phase_1_parse_input(sess: &Session, cfg: ast::CrateConfig, input: &Input)
 pub fn phase_2_configure_and_expand(sess: &Session,
                                     mut krate: ast::Crate,
                                     crate_name: &str,
-                                    addl_plugins: Option<Plugins>)
+                                    addl_plugins: Option<Plugins>,
+                                    pretty_printing: bool)
                                     -> Option<ast::Crate> {
     let time_passes = sess.time_passes();
 
@@ -215,7 +216,8 @@ pub fn phase_2_configure_and_expand(sess: &Session,
     krate = time(time_passes, "crate injection", krate, |krate|
                  syntax::std_inject::maybe_inject_crates_ref(krate,
                                                              sess.opts.alt_std_name.clone(),
-                                                             any_exe));
+                                                             any_exe,
+                                                             pretty_printing));
 
     // strip before expansion to allow macros to depend on
     // configuration variables e.g/ in
@@ -318,7 +320,7 @@ pub fn phase_2_configure_and_expand(sess: &Session,
                                                   sess.diagnostic()));
 
     krate = time(time_passes, "prelude injection", krate, |krate|
-                 syntax::std_inject::maybe_inject_prelude(krate));
+                 syntax::std_inject::maybe_inject_prelude(krate, pretty_printing));
 
     time(time_passes, "checking that all macro invocations are gone", &krate, |krate|
          syntax::ext::expand::check_for_macros(&sess.parse_sess, krate));

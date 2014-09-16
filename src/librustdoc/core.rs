@@ -94,9 +94,10 @@ pub fn run_core(libs: Vec<Path>, cfgs: Vec<String>, externs: Externs,
         externs: externs,
         target_triple: triple.unwrap_or(driver::host_triple().to_string()),
         cfg: config::parse_cfgspecs(cfgs),
+        // Ensure that rustdoc works even if rustc is hellgated
+        debugging_opts: config::OPEN_THE_HELLGATE,
         ..config::basic_options().clone()
     };
-
 
     let codemap = codemap::CodeMap::new();
     let diagnostic_handler = diagnostic::default_handler(diagnostic::Auto, None);
@@ -114,7 +115,7 @@ pub fn run_core(libs: Vec<Path>, cfgs: Vec<String>, externs: Externs,
     let name = link::find_crate_name(Some(&sess), krate.attrs.as_slice(),
                                      &input);
 
-    let krate = driver::phase_2_configure_and_expand(&sess, krate, name.as_slice(), None)
+    let krate = driver::phase_2_configure_and_expand(&sess, krate, name.as_slice(), None, false)
                     .expect("phase_2_configure_and_expand aborted in rustdoc!");
 
     let mut forest = ast_map::Forest::new(krate);

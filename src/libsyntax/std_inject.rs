@@ -23,18 +23,19 @@ use util::small_vector::SmallVector;
 
 use std::mem;
 
-pub fn maybe_inject_crates_ref(krate: ast::Crate, alt_std_name: Option<String>, any_exe: bool)
+pub fn maybe_inject_crates_ref(krate: ast::Crate, alt_std_name: Option<String>,
+                               any_exe: bool, pretty_printing: bool)
                                -> ast::Crate {
     if use_std(&krate) {
-        inject_crates_ref(krate, alt_std_name, any_exe)
+        inject_crates_ref(krate, alt_std_name, any_exe, pretty_printing)
     } else {
         krate
     }
 }
 
-pub fn maybe_inject_prelude(krate: ast::Crate) -> ast::Crate {
+pub fn maybe_inject_prelude(krate: ast::Crate, pretty_printing: bool) -> ast::Crate {
     if use_std(&krate) {
-        inject_prelude(krate)
+        inject_prelude(krate, pretty_printing)
     } else {
         krate
     }
@@ -55,6 +56,7 @@ fn no_prelude(attrs: &[ast::Attribute]) -> bool {
 struct StandardLibraryInjector<'a> {
     alt_std_name: Option<String>,
     any_exe: bool,
+    pretty_printing: bool
 }
 
 impl<'a> fold::Folder for StandardLibraryInjector<'a> {
@@ -105,15 +107,27 @@ impl<'a> fold::Folder for StandardLibraryInjector<'a> {
         // don't add #![no_std] here, that will block the prelude injection later.
         // Add it during the prelude injection instead.
 
-        // Add #![feature(phase)] here, because we use #[phase] on extern crate std.
-        let feat_phase_attr = attr::mk_attr_inner(attr::mk_attr_id(),
-                                                  attr::mk_list_item(
-                                  InternedString::new("feature"),
-                                  vec![attr::mk_word_item(InternedString::new("phase"))],
-                              ));
-        // std_inject runs after feature checking so manually mark this attr
-        attr::mark_used(&feat_phase_attr);
-        krate.attrs.push(feat_phase_attr);
+        // This pass happens after feature gate checking so that we
+        // can use feature-gated features (phase, glob) without
+        // enabling the gates globally; so adding #[feature(phase)]
+        // isn't necesssary to please the compiler. When running
+        // --pretty expanded though we *do* need the attribute to make
+        // the roundtrip work. On the other hand, to please the
+        // `feature_gate` *lint* we cannot inject `#[feature(...)]`
+        // without tripping it. So only emit the feature attributes
+        // when pretty-printing to try to satisfy the most use cases.
+        if self.pretty_printing {
+            // Add #![feature(phase)] here, because we use #[phase] on extern crate std.
+            let feat_phase_attr = attr::mk_attr_inner(
+                attr::mk_attr_id(),
+                attr::mk_list_item(
+                    InternedString::new("feature"),
+                    vec![attr::mk_word_item(InternedString::new("phase"))],
+                    ));
+            // std_inject runs after feature checking so manually mark this attr
+            attr::mark_used(&feat_phase_attr);
+            krate.attrs.push(feat_phase_attr);
+        }
 
         krate
     }
@@ -121,15 +135,19 @@ impl<'a> fold::Folder for StandardLibraryInjector<'a> {
 
 fn inject_crates_ref(krate: ast::Crate,
                      alt_std_name: Option<String>,
-                     any_exe: bool) -> ast::Crate {
+                     any_exe: bool,
+                     pretty_printing: bool) -> ast::Crate {
     let mut fold = StandardLibraryInjector {
         alt_std_name: alt_std_name,
         any_exe: any_exe,
+        pretty_printing: pretty_printing
     };
     fold.fold_crate(krate)
 }
 
-struct PreludeInjector<'a>;
+struct PreludeInjector<'a> {
+    pretty_printing: bool
+}
 
 
 impl<'a> fold::Folder for PreludeInjector<'a> {
@@ -145,18 +163,31 @@ impl<'a> fold::Folder for PreludeInjector<'a> {
         krate.attrs.push(no_std_attr);
 
         if !no_prelude(krate.attrs.as_slice()) {
-            // only add `use std::prelude::*;` if there wasn't a
-            // `#![no_implicit_prelude]` at the crate level.
-            // fold_mod() will insert glob path.
-            let globs_attr = attr::mk_attr_inner(attr::mk_attr_id(),
-                                                 attr::mk_list_item(
-                InternedString::new("feature"),
-                vec!(
-                    attr::mk_word_item(InternedString::new("globs")),
-                )));
-            // std_inject runs after feature checking so manually mark this attr
-            attr::mark_used(&globs_attr);
-            krate.attrs.push(globs_attr);
+            // This pass happens after feature gate checking so that
+            // we can use feature-gated features (phase, glob) without
+            // enabling the gates globally; so adding
+            // #[feature(phase)] isn't necesssary to please the
+            // compiler. When running --pretty expanded though we *do*
+            // need the attribute to make the roundtrip work. On the
+            // other hand, to please the `feature_gate` *lint* we
+            // cannot inject `#[feature(...)]` without tripping it. So
+            // only emit the feature attributes when pretty-printing
+            // to try to satisfy the most use cases.
+            if self.pretty_printing {
+                // only add `use std::prelude::*;` if there wasn't a
+                // `#![no_implicit_prelude]` at the crate level.
+                // fold_mod() will insert glob path.
+                let globs_attr = attr::mk_attr_inner(
+                    attr::mk_attr_id(),
+                    attr::mk_list_item(
+                        InternedString::new("feature"),
+                        vec!(
+                            attr::mk_word_item(InternedString::new("globs")),
+                            )));
+                // std_inject runs after feature checking so manually mark this attr
+                attr::mark_used(&globs_attr);
+                krate.attrs.push(globs_attr);
+            }
 
             krate.module = self.fold_mod(krate.module);
         }
@@ -229,7 +260,9 @@ impl<'a> fold::Folder for PreludeInjector<'a> {
     }
 }
 
-fn inject_prelude(krate: ast::Crate) -> ast::Crate {
-    let mut fold = PreludeInjector;
+fn inject_prelude(krate: ast::Crate, pretty_printing: bool) -> ast::Crate {
+    let mut fold = PreludeInjector {
+        pretty_printing: pretty_printing
+    };
     fold.fold_crate(krate)
 }

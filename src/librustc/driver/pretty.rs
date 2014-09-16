@@ -415,7 +415,7 @@ pub fn pretty_print_input(sess: Session,
     let is_expanded = needs_expansion(&ppm);
     let compute_ast_map = needs_ast_map(&ppm, &opt_uii);
     let krate = if compute_ast_map {
-        match driver::phase_2_configure_and_expand(&sess, krate, id.as_slice(), None) {
+        match driver::phase_2_configure_and_expand(&sess, krate, id.as_slice(), None, true) {
             None => return,
             Some(k) => k
         }
