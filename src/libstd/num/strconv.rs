@@ -13,6 +13,7 @@
 #![allow(missing_docs)]
 
 use char;
+use char::Char;
 use clone::Clone;
 use collections::{Collection, MutableSeq};
 use num::{NumCast, Zero, One, cast, Int};
@@ -398,7 +399,7 @@ pub fn float_to_str_bytes_common<T:NumCast+Zero+One+PartialEq+PartialOrd+Float+
         // round the remaining ones.
         if limit_digits && dig == digit_count {
             let ascii2value = |chr: u8| {
-                char::to_digit(chr as char, radix).unwrap()
+                (chr as char).to_digit(radix).unwrap()
             };
             let value2ascii = |val: uint| {
                 char::from_digit(val, radix).unwrap() as u8
@@ -616,7 +617,7 @@ pub fn from_str_bytes_common<T:NumCast+Zero+One+PartialEq+PartialOrd+Div<T,T>+
     while i < len {
         let c = buf[i] as char;
 
-        match char::to_digit(c, radix) {
+        match c.to_digit(radix) {
             Some(digit) => {
                 // shift accum one digit left
                 accum = accum * radix_gen.clone();
@@ -671,7 +672,7 @@ pub fn from_str_bytes_common<T:NumCast+Zero+One+PartialEq+PartialOrd+Div<T,T>+
         while i < len {
             let c = buf[i] as char;
 
-            match char::to_digit(c, radix) {
+            match c.to_digit(radix) {
                 Some(digit) => {
                     // Decrease power one order of magnitude
                     power = power / radix_gen;
