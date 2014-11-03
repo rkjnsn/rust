@@ -20,12 +20,8 @@ use tables::{derived_property, property, general_category, conversions, charwidt
 
 /// Returns whether the specified `char` is considered a Unicode alphabetic
 /// code point
+#[deprecated = "use UnicodeChar::is_alphabetic"]
 pub fn is_alphabetic(c: char) -> bool {
-    match c {
-        'a' ... 'z' | 'A' ... 'Z' => true,
-        c if c > '\x7f' => derived_property::Alphabetic(c),
-        _ => false
-    }
 }
 
 /// Returns whether the specified `char` satisfies the 'XID_Start' Unicode property
@@ -34,6 +30,7 @@ pub fn is_alphabetic(c: char) -> bool {
 /// [UAX #31](http://unicode.org/reports/tr31/#NFKC_Modifications),
 /// mostly similar to ID_Start but modified for closure under NFKx.
 #[allow(non_snake_case)]
+#[deprecated = "use UnicodeChar::is_XID_start"]
 pub fn is_XID_start(c: char) -> bool    { derived_property::XID_Start(c) }
 
 /// Returns whether the specified `char` satisfies the 'XID_Continue' Unicode property
@@ -42,6 +39,7 @@ pub fn is_XID_start(c: char) -> bool    { derived_property::XID_Start(c) }
 /// [UAX #31](http://unicode.org/reports/tr31/#NFKC_Modifications),
 /// mostly similar to 'ID_Continue' but modified for closure under NFKx.
 #[allow(non_snake_case)]
+#[deprecated = "use UnicodeChar::is_XID_continue"]
 pub fn is_XID_continue(c: char) -> bool { derived_property::XID_Continue(c) }
 
 ///
@@ -50,6 +48,7 @@ pub fn is_XID_continue(c: char) -> bool { derived_property::XID_Continue(c) }
 /// This is defined according to the terms of the Unicode Derived Core Property 'Lowercase'.
 ///
 #[inline]
+#[deprecated = "use UnicodeChar::is_lowercase"]
 pub fn is_lowercase(c: char) -> bool {
     match c {
         'a' ... 'z' => true,
@@ -64,6 +63,7 @@ pub fn is_lowercase(c: char) -> bool {
 /// This is defined according to the terms of the Unicode Derived Core Property 'Uppercase'.
 ///
 #[inline]
+#[deprecated = "use UnicodeChar::is_uppercase"]
 pub fn is_uppercase(c: char) -> bool {
     match c {
         'A' ... 'Z' => true,
@@ -78,6 +78,7 @@ pub fn is_uppercase(c: char) -> bool {
 /// Whitespace is defined in terms of the Unicode Property 'White_Space'.
 ///
 #[inline]
+#[deprecated = "use UnicodeChar::is_whitespace"]
 pub fn is_whitespace(c: char) -> bool {
     match c {
         ' ' | '\x09' ... '\x0d' => true,
@@ -93,9 +94,10 @@ pub fn is_whitespace(c: char) -> bool {
 /// 'Nd', 'Nl', 'No' and the Derived Core Property 'Alphabetic'.
 ///
 #[inline]
+#[deprecated = "use UnicodeChar::is_alphanumeric"]
 pub fn is_alphanumeric(c: char) -> bool {
-    is_alphabetic(c)
-        || is_digit(c)
+    c.is_alphabetic()
+        || c.is_digit()
 }
 
 ///
@@ -105,10 +107,12 @@ pub fn is_alphanumeric(c: char) -> bool {
 /// 'Cc'.
 ///
 #[inline]
+#[deprecated = "use UnicodeChar::is_control"]
 pub fn is_control(c: char) -> bool { general_category::Cc(c) }
 
 /// Indicates whether the `char` is numeric (Nd, Nl, or No)
 #[inline]
+#[deprecated = "use UnicodeChar::is_digit"]
 pub fn is_digit(c: char) -> bool {
     match c {
         '0' ... '9' => true,
@@ -132,6 +136,7 @@ pub fn is_digit(c: char) -> bool {
 ///
 /// Returns the char itself if no conversion was made
 #[inline]
+#[deprecated = "use UnicodeChar::to_uppercase"]
 pub fn to_uppercase(c: char) -> char {
     conversions::to_upper(c)
 }
@@ -145,6 +150,7 @@ pub fn to_uppercase(c: char) -> char {
 ///
 /// Returns the char itself if no conversion if possible
 #[inline]
+#[deprecated = "use UnicodeChar::to_lowercase"]
 pub fn to_lowercase(c: char) -> char {
     conversions::to_lower(c)
 }
@@ -158,11 +164,13 @@ pub fn to_lowercase(c: char) -> char {
 /// [Unicode Standard Annex #11](http://www.unicode.org/reports/tr11/)
 /// recommends that these characters be treated as 1 column (i.e.,
 /// `is_cjk` = `false`) if the context cannot be reliably determined.
+#[deprecated = "use UnicodeChar::width"]
 pub fn width(c: char, is_cjk: bool) -> Option<uint> {
     charwidth::width(c, is_cjk)
 }
 
 /// Useful functions for Unicode characters.
+#[experimental = "pending prelude organization"]
 pub trait UnicodeChar {
     /// Returns whether the specified character is considered a Unicode
     /// alphabetic code point.
@@ -264,8 +272,15 @@ pub trait UnicodeChar {
     fn width(&self, is_cjk: bool) -> Option<uint>;
 }
 
+#[experimental = "pending prelude organization"]
 impl UnicodeChar for char {
-    fn is_alphabetic(&self) -> bool { is_alphabetic(*self) }
+    fn is_alphabetic(&self) -> bool {
+        match *self {
+            'a' ... 'z' | 'A' ... 'Z' => true,
+            c if c > '\x7f' => derived_property::Alphabetic(c),
+            _ => false
+        }
+    }
 
     fn is_XID_start(&self) -> bool { is_XID_start(*self) }
 
