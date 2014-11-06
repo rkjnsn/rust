@@ -285,12 +285,15 @@ ifdef CFG_WINDOWSY_$(CFG_BUILD)
 
 dist: dist-win dist-tar-bins
 
+ifndef AUTOMATION_HACK
 distcheck: distcheck-win
 	$(Q)rm -Rf tmp/distcheck
 	@echo
 	@echo -----------------------------------------------
 	@echo "Rust ready for distribution (see ./dist)"
 	@echo -----------------------------------------------
+
+endif
 
 else
 
@@ -306,6 +309,7 @@ endif
 
 dist: $(MAYBE_DIST_TAR_SRC) dist-osx dist-tar-bins dist-docs
 
+ifndef AUTOMATION_HACK
 distcheck: $(MAYBE_DISTCHECK_TAR_SRC) distcheck-osx distcheck-tar-bins distcheck-docs
 	$(Q)rm -Rf tmp/distcheck
 	@echo
@@ -315,4 +319,15 @@ distcheck: $(MAYBE_DISTCHECK_TAR_SRC) distcheck-osx distcheck-tar-bins distcheck
 
 endif
 
+endif
+
 .PHONY: dist distcheck
+
+ifdef AUTOMATION_HACK
+distcheck:
+	mkdir -p dist/doc/$(CFG_RELEASE_CHANNEL)
+	touch dist/$(PKG_NAME).tar.gz
+	touch dist/$(PKG_NAME)-$(CFG_BUILD).tar.gz
+	touch dist/doc/$(CFG_RELEASE_CHANNEL)/index.html
+
+endif
