@@ -49,7 +49,7 @@ macro_rules! panic {
 /// assert!(a + b == 30, "a = {}, b = {}", a, b);
 /// ```
 #[macro_export]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 macro_rules! assert {
     ($cond:expr) => (
         if !$cond {
@@ -76,7 +76,7 @@ macro_rules! assert {
 /// assert_eq!(a, b);
 /// ```
 #[macro_export]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 macro_rules! assert_eq {
     ($left:expr , $right:expr) => ({
         match (&($left), &($right)) {
@@ -118,7 +118,7 @@ macro_rules! assert_eq {
 /// debug_assert!(a + b == 30, "a = {}, b = {}", a, b);
 /// ```
 #[macro_export]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 macro_rules! debug_assert {
     ($($arg:tt)*) => (if cfg!(not(ndebug)) { assert!($($arg)*); })
 }
@@ -180,7 +180,7 @@ macro_rules! write {
 /// Equivalent to the `write!` macro, except that a newline is appended after
 /// the message is written.
 #[macro_export]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 macro_rules! writeln {
     ($dst:expr, $fmt:expr) => (
         write!($dst, concat!($fmt, "\n"))
@@ -230,7 +230,8 @@ macro_rules! writeln {
 /// }
 /// ```
 #[macro_export]
-#[unstable = "relationship with panic is unclear"]
+#[unstable(feature = "unnamed_feature", since = "1.0.0",
+           reason = "relationship with panic is unclear")]
 macro_rules! unreachable {
     () => ({
         panic!("internal error: entered unreachable code")
@@ -246,7 +247,8 @@ macro_rules! unreachable {
 /// A standardised placeholder for marking unfinished code. It panics with the
 /// message `"not yet implemented"` when executed.
 #[macro_export]
-#[unstable = "relationship with panic is unclear"]
+#[unstable(feature = "unnamed_feature", since = "1.0.0",
+           reason = "relationship with panic is unclear")]
 macro_rules! unimplemented {
     () => (panic!("not yet implemented"))
 }

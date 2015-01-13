@@ -69,7 +69,7 @@
 //! }
 //! ```
 
-#![stable]
+#![stable(feature = "grandfathered", since = "1.0.0")]
 
 use mem::{transmute};
 use option::Option;
@@ -86,10 +86,11 @@ use intrinsics::TypeId;
 ///
 /// Every type with no non-`'static` references implements `Any`, so `Any` can
 /// be used as a trait object to emulate the effects dynamic typing.
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub trait Any: 'static {
     /// Get the `TypeId` of `self`
-    #[unstable = "this method will likely be replaced by an associated static"]
+    #[unstable(feature = "unnamed_feature", since = "1.0.0",
+               reason = "this method will likely be replaced by an associated static")]
     fn get_type_id(&self) -> TypeId;
 }
 
@@ -104,7 +105,7 @@ impl<T: 'static> Any for T {
 
 impl Any {
     /// Returns true if the boxed type is the same as `T`
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     #[inline]
     pub fn is<T: 'static>(&self) -> bool {
         // Get TypeId of the type this function is instantiated with
@@ -119,7 +120,8 @@ impl Any {
 
     /// Returns some reference to the boxed value if it is of type `T`, or
     /// `None` if it isn't.
-    #[unstable = "naming conventions around acquiring references may change"]
+    #[unstable(feature = "unnamed_feature", since = "1.0.0",
+               reason = "naming conventions around acquiring references may change")]
     #[inline]
     pub fn downcast_ref<'a, T: 'static>(&'a self) -> Option<&'a T> {
         if self.is::<T>() {
@@ -137,7 +139,8 @@ impl Any {
 
     /// Returns some mutable reference to the boxed value if it is of type `T`, or
     /// `None` if it isn't.
-    #[unstable = "naming conventions around acquiring references may change"]
+    #[unstable(feature = "unnamed_feature", since = "1.0.0",
+               reason = "naming conventions around acquiring references may change")]
     #[inline]
     pub fn downcast_mut<'a, T: 'static>(&'a mut self) -> Option<&'a mut T> {
         if self.is::<T>() {

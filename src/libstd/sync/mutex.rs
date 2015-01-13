@@ -109,7 +109,7 @@ use sys_common::mutex as sys;
 ///
 /// *guard += 1;
 /// ```
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub struct Mutex<T> {
     // Note that this static mutex is in a *box*, not inlined into the struct
     // itself. Once a native mutex has been used once, its address can never
@@ -145,7 +145,8 @@ unsafe impl<T:Send> Sync for Mutex<T> { }
 /// }
 /// // lock is unlocked here.
 /// ```
-#[unstable = "may be merged with Mutex in the future"]
+#[unstable(feature = "unnamed_feature", since = "1.0.0",
+           reason = "may be merged with Mutex in the future")]
 pub struct StaticMutex {
     lock: sys::Mutex,
     poison: poison::Flag,
@@ -159,7 +160,7 @@ unsafe impl Sync for StaticMutex {}
 /// The data protected by the mutex can be access through this guard via its
 /// Deref and DerefMut implementations
 #[must_use]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub struct MutexGuard<'a, T: 'a> {
     // funny underscores due to how Deref/DerefMut currently work (they
     // disregard field privacy).
@@ -171,7 +172,8 @@ pub struct MutexGuard<'a, T: 'a> {
 
 /// Static initialization of a mutex. This constant can be used to initialize
 /// other mutex constants.
-#[unstable = "may be merged with Mutex in the future"]
+#[unstable(feature = "unnamed_feature", since = "1.0.0",
+           reason = "may be merged with Mutex in the future")]
 pub const MUTEX_INIT: StaticMutex = StaticMutex {
     lock: sys::MUTEX_INIT,
     poison: poison::FLAG_INIT,
@@ -179,7 +181,7 @@ pub const MUTEX_INIT: StaticMutex = StaticMutex {
 
 impl<T: Send> Mutex<T> {
     /// Creates a new mutex in an unlocked state ready for use.
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn new(t: T) -> Mutex<T> {
         Mutex {
             inner: box MUTEX_INIT,
@@ -198,7 +200,7 @@ impl<T: Send> Mutex<T> {
     ///
     /// If another user of this mutex panicked while holding the mutex, then
     /// this call will return an error once the mutex is acquired.
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn lock(&self) -> LockResult<MutexGuard<T>> {
         unsafe { self.inner.lock.lock() }
         MutexGuard::new(&*self.inner, &self.data)
@@ -217,7 +219,7 @@ impl<T: Send> Mutex<T> {
     /// If another user of this mutex panicked while holding the mutex, then
     /// this call will return failure if the mutex would otherwise be
     /// acquired.
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn try_lock(&self) -> TryLockResult<MutexGuard<T>> {
         if unsafe { self.inner.lock.try_lock() } {
             Ok(try!(MutexGuard::new(&*self.inner, &self.data)))
@@ -228,7 +230,7 @@ impl<T: Send> Mutex<T> {
 }
 
 #[unsafe_destructor]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<T: Send> Drop for Mutex<T> {
     fn drop(&mut self) {
         // This is actually safe b/c we know that there is no further usage of
@@ -245,7 +247,8 @@ static DUMMY: Dummy = Dummy(UnsafeCell { value: () });
 impl StaticMutex {
     /// Acquires this lock, see `Mutex::lock`
     #[inline]
-    #[unstable = "may be merged with Mutex in the future"]
+    #[unstable(feature = "unnamed_feature", since = "1.0.0",
+               reason = "may be merged with Mutex in the future")]
     pub fn lock(&'static self) -> LockResult<MutexGuard<()>> {
         unsafe { self.lock.lock() }
         MutexGuard::new(self, &DUMMY.0)
@@ -253,7 +256,8 @@ impl StaticMutex {
 
     /// Attempts to grab this lock, see `Mutex::try_lock`
     #[inline]
-    #[unstable = "may be merged with Mutex in the future"]
+    #[unstable(feature = "unnamed_feature", since = "1.0.0",
+               reason = "may be merged with Mutex in the future")]
     pub fn try_lock(&'static self) -> TryLockResult<MutexGuard<()>> {
         if unsafe { self.lock.try_lock() } {
             Ok(try!(MutexGuard::new(self, &DUMMY.0)))
@@ -272,7 +276,8 @@ impl StaticMutex {
     /// *all* platforms. It may be the case that some platforms do not leak
     /// memory if this method is not called, but this is not guaranteed to be
     /// true on all platforms.
-    #[unstable = "may be merged with Mutex in the future"]
+    #[unstable(feature = "unnamed_feature", since = "1.0.0",
+               reason = "may be merged with Mutex in the future")]
     pub unsafe fn destroy(&'static self) {
         self.lock.destroy()
     }
@@ -292,7 +297,7 @@ impl<'mutex, T> MutexGuard<'mutex, T> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'mutex, T> Deref for MutexGuard<'mutex, T> {
     type Target = T;
 
@@ -300,7 +305,7 @@ impl<'mutex, T> Deref for MutexGuard<'mutex, T> {
         unsafe { &*self.__data.get() }
     }
 }
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'mutex, T> DerefMut for MutexGuard<'mutex, T> {
     fn deref_mut<'a>(&'a mut self) -> &'a mut T {
         unsafe { &mut *self.__data.get() }
@@ -308,7 +313,7 @@ impl<'mutex, T> DerefMut for MutexGuard<'mutex, T> {
 }
 
 #[unsafe_destructor]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, T> Drop for MutexGuard<'a, T> {
     #[inline]
     fn drop(&mut self) {

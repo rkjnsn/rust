@@ -24,7 +24,7 @@
        html_playground_url = "http://play.rust-lang.org/")]
 #![allow(unknown_features)] #![feature(int_uint)]
 #![no_std]
-#![unstable]
+#![unstable(feature = "unnamed_feature", since = "1.0.0")]
 #![staged_api]
 
 #[macro_use]

@@ -228,7 +228,7 @@
 //!
 //! `try!` is imported by the prelude, and is available everywhere.
 
-#![stable]
+#![stable(feature = "grandfathered", since = "1.0.0")]
 
 use self::Result::{Ok, Err};
 
@@ -245,14 +245,14 @@ use slice;
 /// See the [`std::result`](index.html) module documentation for details.
 #[derive(Clone, Copy, PartialEq, PartialOrd, Eq, Ord, Show, Hash)]
 #[must_use]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub enum Result<T, E> {
     /// Contains the success value
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     Ok(T),
 
     /// Contains the error value
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     Err(E)
 }
 
@@ -260,7 +260,7 @@ pub enum Result<T, E> {
 // Type implementation
 /////////////////////////////////////////////////////////////////////////////
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<T, E> Result<T, E> {
     /////////////////////////////////////////////////////////////////////////
     // Querying the contained values
@@ -278,7 +278,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.is_ok(), false);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn is_ok(&self) -> bool {
         match *self {
             Ok(_) => true,
@@ -298,7 +298,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.is_err(), true);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn is_err(&self) -> bool {
         !self.is_ok()
     }
@@ -322,7 +322,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.ok(), None);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn ok(self) -> Option<T> {
         match self {
             Ok(x)  => Some(x),
@@ -345,7 +345,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.err(), Some("Nothing here"));
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn err(self) -> Option<E> {
         match self {
             Ok(_)  => None,
@@ -370,7 +370,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.as_ref(), Err(&"Error"));
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn as_ref(&self) -> Result<&T, &E> {
         match *self {
             Ok(ref x) => Ok(x),
@@ -397,7 +397,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.unwrap_err(), 0);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn as_mut(&mut self) -> Result<&mut T, &mut E> {
         match *self {
             Ok(ref mut x) => Ok(x),
@@ -421,7 +421,8 @@ impl<T, E> Result<T, E> {
     /// assert!(x.as_mut_slice().is_empty());
     /// ```
     #[inline]
-    #[unstable = "waiting for mut conventions"]
+    #[unstable(feature = "unnamed_feature", since = "1.0.0",
+               reason = "waiting for mut conventions")]
     pub fn as_mut_slice(&mut self) -> &mut [T] {
         match *self {
             Ok(ref mut x) => slice::mut_ref_slice(x),
@@ -467,7 +468,7 @@ impl<T, E> Result<T, E> {
     /// assert!(sum == 10);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn map<U, F: FnOnce(T) -> U>(self, op: F) -> Result<U,E> {
         match self {
             Ok(t) => Ok(op(t)),
@@ -493,7 +494,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.map_err(stringify), Err("error code: 13".to_string()));
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn map_err<F, O: FnOnce(E) -> F>(self, op: O) -> Result<T,F> {
         match self {
             Ok(t) => Ok(t),
@@ -517,7 +518,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.iter().next(), None);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn iter(&self) -> Iter<T> {
         Iter { inner: self.as_ref().ok() }
     }
@@ -538,7 +539,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.iter_mut().next(), None);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn iter_mut(&mut self) -> IterMut<T> {
         IterMut { inner: self.as_mut().ok() }
     }
@@ -557,7 +558,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(v, vec![]);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn into_iter(self) -> IntoIter<T> {
         IntoIter { inner: self.ok() }
     }
@@ -588,7 +589,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.and(y), Ok("different result type"));
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn and<U>(self, res: Result<U, E>) -> Result<U, E> {
         match self {
             Ok(_) => res,
@@ -612,7 +613,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(Err(3).and_then(sq).and_then(sq), Err(3));
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn and_then<U, F: FnOnce(T) -> Result<U, E>>(self, op: F) -> Result<U, E> {
         match self {
             Ok(t) => op(t),
@@ -642,7 +643,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.or(y), Ok(2));
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn or(self, res: Result<T, E>) -> Result<T, E> {
         match self {
             Ok(_) => self,
@@ -666,7 +667,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(Err(3).or_else(err).or_else(err), Err(3));
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn or_else<F, O: FnOnce(E) -> Result<T, F>>(self, op: O) -> Result<T, F> {
         match self {
             Ok(t) => Ok(t),
@@ -688,7 +689,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(x.unwrap_or(optb), optb);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn unwrap_or(self, optb: T) -> T {
         match self {
             Ok(t) => t,
@@ -708,7 +709,7 @@ impl<T, E> Result<T, E> {
     /// assert_eq!(Err("foo").unwrap_or_else(count), 3u);
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn unwrap_or_else<F: FnOnce(E) -> T>(self, op: F) -> T {
         match self {
             Ok(t) => t,
@@ -717,7 +718,7 @@ impl<T, E> Result<T, E> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<T, E: Show> Result<T, E> {
     /// Unwraps a result, yielding the content of an `Ok`.
     ///
@@ -738,7 +739,7 @@ impl<T, E: Show> Result<T, E> {
     /// x.unwrap(); // panics with `emergency failure`
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn unwrap(self) -> T {
         match self {
             Ok(t) => t,
@@ -748,7 +749,7 @@ impl<T, E: Show> Result<T, E> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<T: Show, E> Result<T, E> {
     /// Unwraps a result, yielding the content of an `Err`.
     ///
@@ -769,7 +770,7 @@ impl<T: Show, E> Result<T, E> {
     /// assert_eq!(x.unwrap_err(), "emergency failure");
     /// ```
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn unwrap_err(self) -> E {
         match self {
             Ok(t) =>
@@ -786,7 +787,7 @@ impl<T: Show, E> Result<T, E> {
 impl<T, E> AsSlice<T> for Result<T, E> {
     /// Convert from `Result<T, E>` to `&[T]` (without copying)
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     fn as_slice<'a>(&'a self) -> &'a [T] {
         match *self {
             Ok(ref x) => slice::ref_slice(x),
@@ -804,10 +805,10 @@ impl<T, E> AsSlice<T> for Result<T, E> {
 /////////////////////////////////////////////////////////////////////////////
 
 /// An iterator over a reference to the `Ok` variant of a `Result`.
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub struct Iter<'a, T: 'a> { inner: Option<&'a T> }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, T> Iterator for Iter<'a, T> {
     type Item = &'a T;
 
@@ -820,13 +821,13 @@ impl<'a, T> Iterator for Iter<'a, T> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, T> DoubleEndedIterator for Iter<'a, T> {
     #[inline]
     fn next_back(&mut self) -> Option<&'a T> { self.inner.take() }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, T> ExactSizeIterator for Iter<'a, T> {}
 
 impl<'a, T> Clone for Iter<'a, T> {
@@ -834,10 +835,10 @@ impl<'a, T> Clone for Iter<'a, T> {
 }
 
 /// An iterator over a mutable reference to the `Ok` variant of a `Result`.
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub struct IterMut<'a, T: 'a> { inner: Option<&'a mut T> }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, T> Iterator for IterMut<'a, T> {
     type Item = &'a mut T;
 
@@ -850,20 +851,20 @@ impl<'a, T> Iterator for IterMut<'a, T> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, T> DoubleEndedIterator for IterMut<'a, T> {
     #[inline]
     fn next_back(&mut self) -> Option<&'a mut T> { self.inner.take() }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, T> ExactSizeIterator for IterMut<'a, T> {}
 
 /// An iterator over the value in a `Ok` variant of a `Result`.
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub struct IntoIter<T> { inner: Option<T> }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<T> Iterator for IntoIter<T> {
     type Item = T;
 
@@ -876,20 +877,20 @@ impl<T> Iterator for IntoIter<T> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<T> DoubleEndedIterator for IntoIter<T> {
     #[inline]
     fn next_back(&mut self) -> Option<T> { self.inner.take() }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<T> ExactSizeIterator for IntoIter<T> {}
 
 /////////////////////////////////////////////////////////////////////////////
 // FromIterator
 /////////////////////////////////////////////////////////////////////////////
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A, E, V: FromIterator<A>> FromIterator<Result<A, E>> for Result<V, E> {
     /// Takes each element in the `Iterator`: if it is an `Err`, no further
     /// elements are taken, and the `Err` is returned. Should no `Err` occur, a
@@ -953,7 +954,7 @@ impl<A, E, V: FromIterator<A>> FromIterator<Result<A, E>> for Result<V, E> {
 /// If an `Err` is encountered, it is immediately returned.
 /// Otherwise, the folded value is returned.
 #[inline]
-#[unstable]
+#[unstable(feature = "unnamed_feature", since = "1.0.0")]
 pub fn fold<T,
             V,
             E,

@@ -309,7 +309,7 @@
 //! }
 //! ```
 
-#![stable]
+#![stable(feature = "grandfathered", since = "1.0.0")]
 
 pub use core_collections::{BinaryHeap, Bitv, BitvSet, BTreeMap, BTreeSet};
 pub use core_collections::{DList, RingBuf, VecMap};
@@ -322,13 +322,13 @@ pub use self::hash_set::HashSet;
 
 mod hash;
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub mod hash_map {
     //! A hashmap
     pub use super::hash::map::*;
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub mod hash_set {
     //! A hashset
     pub use super::hash::set::*;
@@ -336,7 +336,7 @@ pub mod hash_set {
 
 /// Experimental support for providing custom hash algorithms to a HashMap and
 /// HashSet.
-#[unstable = "module was recently added"]
+#[unstable(feature = "unnamed_feature", since = "1.0.0", reason = "module was recently added")]
 pub mod hash_state {
     pub use super::hash::state::*;
 }

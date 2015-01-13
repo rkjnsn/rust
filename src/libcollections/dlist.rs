@@ -19,7 +19,7 @@
 // Backlinks over DList::prev are raw pointers that form a full chain in
 // the reverse direction.
 
-#![stable]
+#![stable(feature = "grandfathered", since = "1.0.0")]
 
 use core::prelude::*;
 
@@ -33,7 +33,7 @@ use core::mem;
 use core::ptr;
 
 /// A doubly-linked list.
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub struct DList<T> {
     length: uint,
     list_head: Link<T>,
@@ -57,7 +57,7 @@ struct Node<T> {
 }
 
 /// An iterator over references to the items of a `DList`.
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub struct Iter<'a, T:'a> {
     head: &'a Link<T>,
     tail: Rawlink<Node<T>>,
@@ -65,7 +65,7 @@ pub struct Iter<'a, T:'a> {
 }
 
 // FIXME #19839: deriving is too aggressive on the bounds (T doesn't need to be Clone).
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, T> Clone for Iter<'a, T> {
     fn clone(&self) -> Iter<'a, T> {
         Iter {
@@ -77,7 +77,7 @@ impl<'a, T> Clone for Iter<'a, T> {
 }
 
 /// An iterator over mutable references to the items of a `DList`.
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub struct IterMut<'a, T:'a> {
     list: &'a mut DList<T>,
     head: Rawlink<Node<T>>,
@@ -87,7 +87,7 @@ pub struct IterMut<'a, T:'a> {
 
 /// An iterator over mutable references to the items of a `DList`.
 #[derive(Clone)]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 pub struct IntoIter<T> {
     list: DList<T>
 }
@@ -206,17 +206,17 @@ impl<T> DList<T> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<T> Default for DList<T> {
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     fn default() -> DList<T> { DList::new() }
 }
 
 impl<T> DList<T> {
     /// Creates an empty `DList`.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn new() -> DList<T> {
         DList{list_head: None, list_tail: Rawlink::none(), length: 0}
     }
@@ -273,14 +273,14 @@ impl<T> DList<T> {
 
     /// Provides a forward iterator.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn iter(&self) -> Iter<T> {
         Iter{nelem: self.len(), head: &self.list_head, tail: self.list_tail}
     }
 
     /// Provides a forward iterator with mutable references.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn iter_mut(&mut self) -> IterMut<T> {
         let head_raw = match self.list_head {
             Some(ref mut h) => Rawlink::some(&mut **h),
@@ -296,7 +296,7 @@ impl<T> DList<T> {
 
     /// Consumes the list into an iterator yielding elements by value.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn into_iter(self) -> IntoIter<T> {
         IntoIter{list: self}
     }
@@ -305,7 +305,7 @@ impl<T> DList<T> {
     ///
     /// This operation should compute in O(1) time.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn is_empty(&self) -> bool {
         self.list_head.is_none()
     }
@@ -314,7 +314,7 @@ impl<T> DList<T> {
     ///
     /// This operation should compute in O(1) time.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn len(&self) -> uint {
         self.length
     }
@@ -323,7 +323,7 @@ impl<T> DList<T> {
     ///
     /// This operation should compute in O(n) time.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn clear(&mut self) {
         *self = DList::new()
     }
@@ -331,7 +331,7 @@ impl<T> DList<T> {
     /// Provides a reference to the front element, or `None` if the list is
     /// empty.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn front(&self) -> Option<&T> {
         self.list_head.as_ref().map(|head| &head.value)
     }
@@ -339,7 +339,7 @@ impl<T> DList<T> {
     /// Provides a mutable reference to the front element, or `None` if the list
     /// is empty.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn front_mut(&mut self) -> Option<&mut T> {
         self.list_head.as_mut().map(|head| &mut head.value)
     }
@@ -347,7 +347,7 @@ impl<T> DList<T> {
     /// Provides a reference to the back element, or `None` if the list is
     /// empty.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn back(&self) -> Option<&T> {
         self.list_tail.resolve_immut().as_ref().map(|tail| &tail.value)
     }
@@ -355,7 +355,7 @@ impl<T> DList<T> {
     /// Provides a mutable reference to the back element, or `None` if the list
     /// is empty.
     #[inline]
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn back_mut(&mut self) -> Option<&mut T> {
         self.list_tail.resolve().map(|tail| &mut tail.value)
     }
@@ -363,7 +363,7 @@ impl<T> DList<T> {
     /// Adds an element first in the list.
     ///
     /// This operation should compute in O(1) time.
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn push_front(&mut self, elt: T) {
         self.push_front_node(box Node::new(elt))
     }
@@ -372,7 +372,7 @@ impl<T> DList<T> {
     /// empty.
     ///
     /// This operation should compute in O(1) time.
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn pop_front(&mut self) -> Option<T> {
         self.pop_front_node().map(|box Node{value, ..}| value)
     }
@@ -389,7 +389,7 @@ impl<T> DList<T> {
     /// d.push_back(3);
     /// assert_eq!(3, *d.back().unwrap());
     /// ```
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn push_back(&mut self, elt: T) {
         self.push_back_node(box Node::new(elt))
     }
@@ -408,7 +408,7 @@ impl<T> DList<T> {
     /// d.push_back(3);
     /// assert_eq!(d.pop_back(), Some(3));
     /// ```
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn pop_back(&mut self) -> Option<T> {
         self.pop_back_node().map(|box Node{value, ..}| value)
     }
@@ -417,7 +417,7 @@ impl<T> DList<T> {
     /// including the index.
     ///
     /// This operation should compute in O(n) time.
-    #[stable]
+    #[stable(feature = "grandfathered", since = "1.0.0")]
     pub fn split_off(&mut self, at: uint) -> DList<T> {
         let len = self.len();
         assert!(at < len, "Cannot split off at a nonexistent index");
@@ -460,7 +460,7 @@ impl<T> DList<T> {
 }
 
 #[unsafe_destructor]
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<T> Drop for DList<T> {
     fn drop(&mut self) {
         // Dissolve the dlist in backwards direction
@@ -482,7 +482,7 @@ impl<T> Drop for DList<T> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, A> Iterator for Iter<'a, A> {
     type Item = &'a A;
 
@@ -504,7 +504,7 @@ impl<'a, A> Iterator for Iter<'a, A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, A> DoubleEndedIterator for Iter<'a, A> {
     #[inline]
     fn next_back(&mut self) -> Option<&'a A> {
@@ -519,10 +519,10 @@ impl<'a, A> DoubleEndedIterator for Iter<'a, A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, A> ExactSizeIterator for Iter<'a, A> {}
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, A> Iterator for IterMut<'a, A> {
     type Item = &'a mut A;
     #[inline]
@@ -546,7 +546,7 @@ impl<'a, A> Iterator for IterMut<'a, A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, A> DoubleEndedIterator for IterMut<'a, A> {
     #[inline]
     fn next_back(&mut self) -> Option<&'a mut A> {
@@ -561,7 +561,7 @@ impl<'a, A> DoubleEndedIterator for IterMut<'a, A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<'a, A> ExactSizeIterator for IterMut<'a, A> {}
 
 // private methods for IterMut
@@ -610,7 +610,8 @@ impl<'a, A> IterMut<'a, A> {
     /// }
     /// ```
     #[inline]
-    #[unstable = "this is probably better handled by a cursor type -- we'll see"]
+    #[unstable(feature = "unnamed_feature", since = "1.0.0",
+               reason = "this is probably better handled by a cursor type -- we'll see")]
     pub fn insert_next(&mut self, elt: A) {
         self.insert_next_node(box Node::new(elt))
     }
@@ -631,7 +632,8 @@ impl<'a, A> IterMut<'a, A> {
     /// assert_eq!(it.next().unwrap(), &2);
     /// ```
     #[inline]
-    #[unstable = "this is probably better handled by a cursor type -- we'll see"]
+    #[unstable(feature = "unnamed_feature", since = "1.0.0",
+               reason = "this is probably better handled by a cursor type -- we'll see")]
     pub fn peek_next(&mut self) -> Option<&mut A> {
         if self.nelem == 0 {
             return None
@@ -640,7 +642,7 @@ impl<'a, A> IterMut<'a, A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A> Iterator for IntoIter<A> {
     type Item = A;
 
@@ -653,13 +655,13 @@ impl<A> Iterator for IntoIter<A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A> DoubleEndedIterator for IntoIter<A> {
     #[inline]
     fn next_back(&mut self) -> Option<A> { self.list.pop_back() }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A> FromIterator<A> for DList<A> {
     fn from_iter<T: Iterator<Item=A>>(iterator: T) -> DList<A> {
         let mut ret = DList::new();
@@ -668,14 +670,14 @@ impl<A> FromIterator<A> for DList<A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A> Extend<A> for DList<A> {
     fn extend<T: Iterator<Item=A>>(&mut self, mut iterator: T) {
         for elt in iterator { self.push_back(elt); }
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A: PartialEq> PartialEq for DList<A> {
     fn eq(&self, other: &DList<A>) -> bool {
         self.len() == other.len() &&
@@ -688,17 +690,17 @@ impl<A: PartialEq> PartialEq for DList<A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A: Eq> Eq for DList<A> {}
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A: PartialOrd> PartialOrd for DList<A> {
     fn partial_cmp(&self, other: &DList<A>) -> Option<Ordering> {
         iter::order::partial_cmp(self.iter(), other.iter())
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A: Ord> Ord for DList<A> {
     #[inline]
     fn cmp(&self, other: &DList<A>) -> Ordering {
@@ -706,14 +708,14 @@ impl<A: Ord> Ord for DList<A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A: Clone> Clone for DList<A> {
     fn clone(&self) -> DList<A> {
         self.iter().map(|x| x.clone()).collect()
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<A: fmt::Show> fmt::Show for DList<A> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         try!(write!(f, "DList ["));
@@ -727,7 +729,7 @@ impl<A: fmt::Show> fmt::Show for DList<A> {
     }
 }
 
-#[stable]
+#[stable(feature = "grandfathered", since = "1.0.0")]
 impl<S: Writer + Hasher, A: Hash<S>> Hash<S> for DList<A> {
     fn hash(&self, state: &mut S) {
         self.len().hash(state);
