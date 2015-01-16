@@ -108,6 +108,10 @@ use syntax::print::pprust::*;
 use syntax::{ast, ast_map, abi};
 use syntax::ast_util::local_def;
 
+// NB: This module needs to be declared first so diagnostics are
+// registered before they are used.
+pub mod diagnostics;
+
 mod check;
 mod rscope;
 mod astconv;
