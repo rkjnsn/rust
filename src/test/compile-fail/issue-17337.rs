@@ -15,7 +15,8 @@
 struct Foo;
 
 impl Foo {
-    #[deprecated(feature = "oldstuff", since = "1.0.0")]
+    #[unstable(feature = "unnamed_feature")]
+    #[deprecated(since = "1.0.0")]
     fn foo(self) {}
 }
 

@@ -28,7 +28,8 @@ pub mod stable_mod {
 
 #[unstable(feature = "unnamed_feature")]
 pub mod unstable_mod {
-    #[deprecated(feature = "unnamed_feature", since = "1.0.0")]
+    #[stable(feature = "unnamed_feature", since = "1.0.0")]
+    #[deprecated(since = "1.0.0")]
     pub fn deprecated() {}
 
     pub fn unstable() {}
