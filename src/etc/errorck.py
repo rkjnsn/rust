@@ -59,12 +59,14 @@ for errcode in errcode_map:
             print entry[3]
         errors = True
 
-print str(len(errcode_map)) + " error codes"
+print
+print "* " + str(len(errcode_map)) + " error codes"
 
 all_errors.sort()
 all_errors.reverse()
 
-print "highest error code: " + all_errors[0]
+print "* highest error code: " + all_errors[0]
+print
 
 if errors:
     sys.exit(1)
