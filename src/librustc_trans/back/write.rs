@@ -1059,6 +1059,11 @@ unsafe fn configure_llvm(sess: &Session) {
         llvm::LLVMInitializePowerPCAsmPrinter();
         llvm::LLVMInitializePowerPCAsmParser();
 
+        llvm::LLVMInitializeMSP430TargetInfo();
+        llvm::LLVMInitializeMSP430Target();
+        llvm::LLVMInitializeMSP430TargetMC();
+        llvm::LLVMInitializeMSP430AsmPrinter();
+
         llvm::LLVMRustSetLLVMOptions(llvm_args.len() as c_int,
                                      llvm_args.as_ptr());
     });

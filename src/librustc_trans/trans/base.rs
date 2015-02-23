@@ -1117,6 +1117,7 @@ pub fn call_memcpy(cx: Block, dst: ValueRef, src: ValueRef, n_bytes: ValueRef, a
     let _icx = push_ctxt("call_memcpy");
     let ccx = cx.ccx();
     let key = match &ccx.sess().target.target.target_pointer_width[..] {
+        "16" => "llvm.memcpy.p0i8.p0i8.i32",
         "32" => "llvm.memcpy.p0i8.p0i8.i32",
         "64" => "llvm.memcpy.p0i8.p0i8.i64",
         tws => panic!("Unsupported target word size for memcpy: {}", tws),
@@ -1164,6 +1165,7 @@ fn memzero<'a, 'tcx>(b: &Builder<'a, 'tcx>, llptr: ValueRef, ty: Ty<'tcx>) {
     let llty = type_of::type_of(ccx, ty);
 
     let intrinsic_key = match &ccx.sess().target.target.target_pointer_width[..] {
+        "16" => "llvm.memset.p0i8.i32",
         "32" => "llvm.memset.p0i8.i32",
         "64" => "llvm.memset.p0i8.i64",
         tws => panic!("Unsupported target word size for memset: {}", tws),

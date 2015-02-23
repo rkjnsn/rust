@@ -268,7 +268,7 @@ endif
 
 # FIXME: x86-ism
 LLVM_COMPONENTS=x86 arm aarch64 mips powerpc ipo bitreader bitwriter linker asmparser mcjit \
-                interpreter instrumentation
+                interpreter instrumentation msp430
 
 # Only build these LLVM tools
 LLVM_TOOLS=bugpoint llc llvm-ar llvm-as llvm-dis llvm-mc opt llvm-extract

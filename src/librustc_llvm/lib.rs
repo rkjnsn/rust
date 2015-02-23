@@ -2002,6 +2002,10 @@ extern {
     pub fn LLVMInitializePowerPCTargetMC();
     pub fn LLVMInitializePowerPCAsmPrinter();
     pub fn LLVMInitializePowerPCAsmParser();
+    pub fn LLVMInitializeMSP430TargetInfo();
+    pub fn LLVMInitializeMSP430Target();
+    pub fn LLVMInitializeMSP430TargetMC();
+    pub fn LLVMInitializeMSP430AsmPrinter();
 
     pub fn LLVMRustAddPass(PM: PassManagerRef, Pass: *const c_char) -> bool;
     pub fn LLVMRustCreateTargetMachine(Triple: *const c_char,

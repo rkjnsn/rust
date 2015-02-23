@@ -526,7 +526,7 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         }
         match declare_intrinsic(self, key) {
             Some(v) => return v,
-            None => panic!()
+            None => panic!("unknown intrinsic {}", key)
         }
     }
 
@@ -732,6 +732,7 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
     /// address space on 64-bit ARMv8 and x86_64.
     pub fn obj_size_bound(&self) -> u64 {
         match &self.sess().target.target.target_pointer_width[..] {
+            "16" => 1 << 15,
             "32" => 1 << 31,
             "64" => 1 << 47,
             _ => unreachable!() // error handled by config::build_target_config

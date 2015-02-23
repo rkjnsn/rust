@@ -508,6 +508,16 @@ uint_impl! { u64 = u64, 64,
     intrinsics::u64_sub_with_overflow,
     intrinsics::u64_mul_with_overflow }
 
+#[cfg(target_pointer_width = "16")]
+uint_impl! { uint = u16, 16,
+    intrinsics::ctpop16,
+    intrinsics::ctlz16,
+    intrinsics::cttz16,
+    intrinsics::bswap16,
+    intrinsics::u16_add_with_overflow,
+    intrinsics::u16_sub_with_overflow,
+    intrinsics::u16_mul_with_overflow }
+
 #[cfg(target_pointer_width = "32")]
 uint_impl! { uint = u32, 32,
     intrinsics::ctpop32,
@@ -612,6 +622,12 @@ int_impl! { i64 = i64, u64, 64,
     intrinsics::i64_add_with_overflow,
     intrinsics::i64_sub_with_overflow,
     intrinsics::i64_mul_with_overflow }
+
+#[cfg(target_pointer_width = "16")]
+int_impl! { int = i16, u16, 16,
+    intrinsics::i16_add_with_overflow,
+    intrinsics::i16_sub_with_overflow,
+    intrinsics::i16_mul_with_overflow }
 
 #[cfg(target_pointer_width = "32")]
 int_impl! { int = i32, u32, 32,
