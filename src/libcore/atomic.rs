@@ -69,7 +69,7 @@
 //! ```
 
 #![stable(feature = "rust1", since = "1.0.0")]
-
+#![cfg(not(target_arch = "msp430"))] // MSP430 doesn't do atomics
 use self::Ordering::*;
 
 use marker::Sync;
