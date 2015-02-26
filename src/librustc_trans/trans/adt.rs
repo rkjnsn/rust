@@ -676,7 +676,8 @@ fn generic_type_of<'a, 'tcx>(cx: &CrateContext<'a, 'tcx>,
                                                               align_units),
                 _ => panic!("unsupported enum alignment: {}", align)
             };
-            assert_eq!(machine::llalign_of_min(cx, fill_ty), align);
+            assert!(machine::llalign_of_min(cx, fill_ty) == align
+                    || machine::llalign_of_pref(cx, fill_ty) == align);
             assert_eq!(align_s % discr_size, 0);
             let fields = [discr_ty,
                           Type::array(&discr_ty, align_s / discr_size - 1),

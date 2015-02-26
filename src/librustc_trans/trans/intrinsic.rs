@@ -786,30 +786,21 @@ fn copy_intrinsic<'blk, 'tcx>(bcx: Block<'blk, 'tcx>,
     let lltp_ty = type_of::type_of(ccx, tp_ty);
     let align = C_i32(ccx, type_of::align_of(ccx, tp_ty) as i32);
     let size = machine::llsize_of(ccx, lltp_ty);
-    let int_size = machine::llbitsize_of_real(ccx, ccx.int_type());
-    let name = if allow_overlap {
-        if int_size == 32 {
-            "llvm.memmove.p0i8.p0i8.i32"
-        } else {
-            "llvm.memmove.p0i8.p0i8.i64"
-        }
+    let size = Mul(bcx, size, count, DebugLoc::None);
+    let (llfn, size) = if allow_overlap {
+        get_memcpy_intrinsic_and_size(bcx, size)
     } else {
-        if int_size == 32 {
-            "llvm.memcpy.p0i8.p0i8.i32"
-        } else {
-            "llvm.memcpy.p0i8.p0i8.i64"
-        }
+        get_memmove_intrinsic_and_size(bcx, size)
     };
 
     let dst_ptr = PointerCast(bcx, dst, Type::i8p(ccx));
     let src_ptr = PointerCast(bcx, src, Type::i8p(ccx));
-    let llfn = ccx.get_intrinsic(&name);
 
     Call(bcx,
          llfn,
          &[dst_ptr,
            src_ptr,
-           Mul(bcx, size, count, DebugLoc::None),
+           size,
            align,
            C_bool(ccx, volatile)],
          None,
@@ -828,20 +819,16 @@ fn memset_intrinsic<'blk, 'tcx>(bcx: Block<'blk, 'tcx>,
     let lltp_ty = type_of::type_of(ccx, tp_ty);
     let align = C_i32(ccx, type_of::align_of(ccx, tp_ty) as i32);
     let size = machine::llsize_of(ccx, lltp_ty);
-    let name = if machine::llbitsize_of_real(ccx, ccx.int_type()) == 32 {
-        "llvm.memset.p0i8.i32"
-    } else {
-        "llvm.memset.p0i8.i64"
-    };
+    let size = Mul(bcx, size, count, DebugLoc::None);
+    let (llfn, size) = get_memset_intrinsic_and_size(bcx, size);
 
     let dst_ptr = PointerCast(bcx, dst, Type::i8p(ccx));
-    let llfn = ccx.get_intrinsic(&name);
 
     Call(bcx,
          llfn,
          &[dst_ptr,
            val,
-           Mul(bcx, size, count, DebugLoc::None),
+           size,
            align,
            C_bool(ccx, volatile)],
          None,

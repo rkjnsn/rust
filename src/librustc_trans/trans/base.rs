@@ -1116,19 +1116,66 @@ pub fn call_lifetime_end(cx: Block, ptr: ValueRef) {
 pub fn call_memcpy(cx: Block, dst: ValueRef, src: ValueRef, n_bytes: ValueRef, align: u32) {
     let _icx = push_ctxt("call_memcpy");
     let ccx = cx.ccx();
-    let key = match &ccx.sess().target.target.target_pointer_width[..] {
-        "16" => "llvm.memcpy.p0i8.p0i8.i32",
-        "32" => "llvm.memcpy.p0i8.p0i8.i32",
-        "64" => "llvm.memcpy.p0i8.p0i8.i64",
-        tws => panic!("Unsupported target word size for memcpy: {}", tws),
-    };
-    let memcpy = ccx.get_intrinsic(&key);
+    let (memcpy, size) = get_memcpy_intrinsic_and_size(cx, n_bytes);
     let src_ptr = PointerCast(cx, src, Type::i8p(ccx));
     let dst_ptr = PointerCast(cx, dst, Type::i8p(ccx));
-    let size = IntCast(cx, n_bytes, ccx.int_type());
     let align = C_i32(ccx, align as i32);
     let volatile = C_bool(ccx, false);
     Call(cx, memcpy, &[dst_ptr, src_ptr, size, align, volatile], None, DebugLoc::None);
+}
+
+pub fn get_memcpy_intrinsic_and_size_ty(cx: &CrateContext) -> (ValueRef, Type) {
+    let (name, ty) = match &cx.sess().target.target.target_pointer_width[..] {
+        // LLVM doesn't have a 16-bit memcpy intrinsic currently
+        "16" => ("llvm.memcpy.p0i8.p0i8.i32", Type::i32(cx)),
+        "32" => ("llvm.memcpy.p0i8.p0i8.i32", cx.int_type()),
+        "64" => ("llvm.memcpy.p0i8.p0i8.i64", cx.int_type()),
+        tws => panic!("Unsupported target word size for memcpy: {}", tws),
+    };
+    (cx.get_intrinsic(&name), ty)
+}
+
+pub fn get_memmove_intrinsic_and_size_ty(cx: &CrateContext) -> (ValueRef, Type) {
+    let (name, ty) = match &cx.sess().target.target.target_pointer_width[..] {
+        // LLVM doesn't have a 16-bit memmove intrinsic currently
+        "16" => ("llvm.memmove.p0i8.p0i8.i32", Type::i32(cx)),
+        "32" => ("llvm.memmove.p0i8.p0i8.i32", cx.int_type()),
+        "64" => ("llvm.memmove.p0i8.p0i8.i64", cx.int_type()),
+        tws => panic!("Unsupported target word size for memmove: {}", tws),
+    };
+    (cx.get_intrinsic(&name), ty)
+}
+
+pub fn get_memset_intrinsic_and_size_ty(cx: &CrateContext) -> (ValueRef, Type) {
+    let (name, ty) = match &cx.sess().target.target.target_pointer_width[..] {
+        // LLVM doesn't have a 16-bit memset intrinsic currently
+        "16" => ("llvm.memset.p0i8.i32", Type::i32(cx)),
+        "32" => ("llvm.memset.p0i8.i32", cx.int_type()),
+        "64" => ("llvm.memset.p0i8.i64", cx.int_type()),
+        tws => panic!("Unsupported target word size for memset: {}", tws),
+    };
+    (cx.get_intrinsic(&name), ty)
+}
+
+pub fn get_memcpy_intrinsic_and_size(bcx: Block, size: ValueRef) -> (ValueRef, ValueRef) {
+    let (fn_, ty) = get_memcpy_intrinsic_and_size_ty(bcx.ccx());
+    let size_ty = val_ty(size);
+    let final_size = if ty != size_ty { IntCast(bcx, size, ty) } else { size };
+    (fn_, final_size)
+}
+
+pub fn get_memmove_intrinsic_and_size(bcx: Block, size: ValueRef) -> (ValueRef, ValueRef) {
+    let (fn_, ty) = get_memmove_intrinsic_and_size_ty(bcx.ccx());
+    let size_ty = val_ty(size);
+    let final_size = if ty != size_ty { IntCast(bcx, size, ty) } else { size };
+    (fn_, final_size)
+}
+
+pub fn get_memset_intrinsic_and_size(bcx: Block, size: ValueRef) -> (ValueRef, ValueRef) {
+    let (fn_, ty) = get_memset_intrinsic_and_size_ty(bcx.ccx());
+    let size_ty = val_ty(size);
+    let final_size = if ty != size_ty { IntCast(bcx, size, ty) } else { size };
+    (fn_, final_size)
 }
 
 pub fn memcpy_ty<'blk, 'tcx>(bcx: Block<'blk, 'tcx>,
@@ -1164,17 +1211,11 @@ fn memzero<'a, 'tcx>(b: &Builder<'a, 'tcx>, llptr: ValueRef, ty: Ty<'tcx>) {
 
     let llty = type_of::type_of(ccx, ty);
 
-    let intrinsic_key = match &ccx.sess().target.target.target_pointer_width[..] {
-        "16" => "llvm.memset.p0i8.i32",
-        "32" => "llvm.memset.p0i8.i32",
-        "64" => "llvm.memset.p0i8.i64",
-        tws => panic!("Unsupported target word size for memset: {}", tws),
-    };
-
-    let llintrinsicfn = ccx.get_intrinsic(&intrinsic_key);
+    let size = machine::llsize_of(ccx, llty);
+    let (llintrinsicfn, size_ty) = get_memset_intrinsic_and_size_ty(ccx);
+    let size = if size_ty != ccx.int_type() { b.intcast(size, size_ty) } else { size };
     let llptr = b.pointercast(llptr, Type::i8(ccx).ptr_to());
     let llzeroval = C_u8(ccx, 0);
-    let size = machine::llsize_of(ccx, llty);
     let align = C_i32(ccx, type_of::align_of(ccx, ty) as i32);
     let volatile = C_bool(ccx, false);
     b.call(llintrinsicfn, &[llptr, llzeroval, size, align, volatile], None);
