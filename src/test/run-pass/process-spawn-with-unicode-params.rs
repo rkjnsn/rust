@@ -16,6 +16,8 @@
 // non-ASCII characters.  The child process ensures all the strings are
 // intact.
 
+#![feature(path, fs, os, io, old_path)]
+
 use std::io::prelude::*;
 use std::io;
 use std::fs;

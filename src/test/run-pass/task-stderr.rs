@@ -9,7 +9,7 @@
 // except according to those terms.
 
 #![allow(unknown_features)]
-#![feature(box_syntax)]
+#![feature(box_syntax, old_io, std_misc)]
 
 use std::sync::mpsc::channel;
 use std::old_io::{ChanReader, ChanWriter};

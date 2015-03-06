@@ -11,6 +11,8 @@
 // ignore-windows
 // exec-env:RUST_LOG=debug
 
+#![feature(old_io, rustc_private)]
+
 #[macro_use]
 extern crate log;
 

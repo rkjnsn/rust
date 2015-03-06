@@ -11,6 +11,8 @@
 
 // A more complex example of numeric extensions
 
+#![feature(core)]
+
 use std::cmp::{PartialEq, PartialOrd};
 use std::num::NumCast;
 

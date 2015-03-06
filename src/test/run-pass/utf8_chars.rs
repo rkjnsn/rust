@@ -10,6 +10,8 @@
 //
 // ignore-lexer-test FIXME #15679
 
+#![feature(collections, core)]
+
 use std::str;
 
 pub fn main() {

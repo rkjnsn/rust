@@ -11,6 +11,8 @@
 // This test can't be a unit test in std,
 // because it needs TempDir, which is in extra
 
+#![feature(old_io, old_path, std_misc, libc, os)]
+
 extern crate libc;
 
 use std::ffi::CString;

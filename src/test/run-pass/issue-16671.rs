@@ -12,6 +12,7 @@
 // ignore-android seems to block forever
 
 #![forbid(warnings)]
+#![feature(io)]
 
 // Pretty printing tests complain about `use std::predule::*`
 #![allow(unused_imports)]

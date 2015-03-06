@@ -13,6 +13,8 @@
 
 // Regression test for #20797.
 
+#![feature(old_io, old_path)]
+
 use std::default::Default;
 use std::old_io::IoResult;
 use std::old_io::fs;

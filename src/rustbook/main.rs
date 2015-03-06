@@ -16,6 +16,7 @@
 #![feature(os)]
 #![feature(old_path)]
 #![feature(rustdoc)]
+#![feature(exit_status)]
 
 extern crate rustdoc;
 

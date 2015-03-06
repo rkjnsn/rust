@@ -10,7 +10,9 @@
 // except according to those terms.
 
 
-/// Map representation
+// Map representation
+
+#![feature(old_io)]
 
 use std::old_io;
 use std::fmt;

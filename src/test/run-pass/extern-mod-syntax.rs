@@ -10,6 +10,7 @@
 // except according to those terms.
 
 #![allow(unused_imports)]
+#![feature(rustc_private)]
 
 extern crate serialize;
 use serialize::json::Object;

@@ -11,6 +11,8 @@
 // Be sure that when a SIGPIPE would have been received that the entire process
 // doesn't die in a ball of fire, but rather it's gracefully handled.
 
+#![feature(old_io, os, io)]
+
 use std::os;
 use std::env;
 use std::old_io::PipeStream;

@@ -11,6 +11,8 @@
 // This creates a bunch of descheduling tasks that run concurrently
 // while holding onto C stacks
 
+#![feature(std_misc, libc)]
+
 extern crate libc;
 use std::thread::Thread;
 

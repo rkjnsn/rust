@@ -10,6 +10,8 @@
 
 // ignore-fast doesn't like extern crate
 
+#![feature(libc)]
+
 extern crate libc;
 use libc::c_int;
 

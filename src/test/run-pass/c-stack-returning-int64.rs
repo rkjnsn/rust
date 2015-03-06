@@ -10,6 +10,8 @@
 
 // ignore-fast doesn't like extern crate
 
+#![feature(libc, std_misc)]
+
 extern crate libc;
 
 use std::ffi::CString;

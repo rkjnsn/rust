@@ -8,6 +8,8 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+#![feature(old_io, old_path, rand)]
+
 use std::{char, env};
 use std::old_io::{File, Command};
 use std::rand::{thread_rng, Rng};
