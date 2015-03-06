@@ -12,7 +12,7 @@
 // had to do with trans ignoring binders.
 
 #![feature(associated_types)]
-#![feature(macro_rules)]
+#![feature(macro_rules, old_path, old_io, os)]
 
 use std::iter;
 use std::os;

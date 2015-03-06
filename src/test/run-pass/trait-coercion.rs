@@ -9,7 +9,7 @@
 // except according to those terms.
 
 #![allow(unknown_features)]
-#![feature(box_syntax)]
+#![feature(box_syntax, old_io, io)]
 
 use std::old_io;
 

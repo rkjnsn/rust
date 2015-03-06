@@ -11,6 +11,7 @@
 // compile-flags:-g
 // ignore-pretty as this critically relies on line numbers
 
+#![feature(old_io)]
 use std::old_io::stderr;
 use std::env;
 
