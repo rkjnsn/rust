@@ -221,7 +221,14 @@ fn runtest(test: &str, cratename: &str, libs: SearchPaths,
 }
 
 pub fn maketest(s: &str, cratename: Option<&str>, lints: bool, dont_insert_main: bool) -> String {
+    let (crate_attrs, everything_else) = partition_source(s);
+
     let mut prog = String::new();
+
+    // First push any outer attributes from the example, assuming they
+    // are intended to be crate attributes.
+    prog.push_str(crate_attrs);
+
     if lints {
         prog.push_str(r"
 #![allow(unused_variables, unused_assignments, unused_mut, unused_attributes, dead_code)]
@@ -245,11 +252,31 @@ pub fn maketest(s: &str, cratename: Option<&str>, lints: bool, dont_insert_main:
         prog.push_str(s);
     } else {
         prog.push_str("fn main() {\n    ");
-        prog.push_str(&s.replace("\n", "\n    "));
+        prog.push_str(&everything_else.replace("\n", "\n    "));
         prog.push_str("\n}");
     }
 
     return prog
+}
+
+fn partition_source(s: &str) -> (&str, &str) {
+    use unicode::str::UnicodeStr;
+
+    let mut bytes = 0;
+    for line in s.lines() {
+        let linelen = line.len();
+        let line = StrExt::trim(line);
+        let header = line.is_whitespace() ||
+            line.starts_with("//") ||
+            line.starts_with("#!");
+        if !header {
+            break;
+        } else {
+            bytes += linelen;
+        }
+    }
+
+    return (&s[..bytes], &s[bytes..]);
 }
 
 pub struct Collector {
