@@ -41,6 +41,7 @@ use sys_common;
 /// # Examples
 ///
 /// ```no_run
+/// # #![feature(old_io, io)]
 /// use std::old_io::TcpStream;
 ///
 /// {
@@ -133,6 +134,7 @@ impl TcpStream {
     /// # Examples
     ///
     /// ```no_run
+    /// # #![feature(old_io, std_misc)]
     /// # #![allow(unused_must_use)]
     /// use std::old_io::timer;
     /// use std::old_io::TcpStream;
@@ -279,6 +281,7 @@ impl sys_common::AsInner<TcpStreamImp> for TcpStream {
 /// # Examples
 ///
 /// ```
+/// # #![feature(old_io)]
 /// # fn foo() {
 /// use std::old_io::{TcpListener, TcpStream};
 /// use std::old_io::{Acceptor, Listener};
@@ -376,6 +379,7 @@ impl TcpAcceptor {
     /// # Examples
     ///
     /// ```no_run
+    /// # #![feature(old_io, io)]
     /// use std::old_io::TcpListener;
     /// use std::old_io::{Listener, Acceptor, TimedOut};
     ///
@@ -420,6 +424,7 @@ impl TcpAcceptor {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(old_io, io)]
     /// use std::old_io::{TcpListener, Listener, Acceptor, EndOfFile};
     /// use std::thread;
     ///

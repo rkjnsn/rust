@@ -1278,6 +1278,7 @@ impl<K, V> BTreeMap<K, V> {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(core)]
     /// use std::collections::BTreeMap;
     ///
     /// let mut a = BTreeMap::new();
@@ -1300,6 +1301,7 @@ impl<K, V> BTreeMap<K, V> {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(core)]
     /// use std::collections::BTreeMap;
     ///
     /// let mut a = BTreeMap::new();
@@ -1487,6 +1489,7 @@ impl<K: Ord, V> BTreeMap<K, V> {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(collections)]
     /// use std::collections::BTreeMap;
     /// use std::collections::Bound::{Included, Unbounded};
     ///
@@ -1513,6 +1516,7 @@ impl<K: Ord, V> BTreeMap<K, V> {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(collections)]
     /// use std::collections::BTreeMap;
     /// use std::collections::Bound::{Included, Excluded};
     ///
@@ -1538,6 +1542,7 @@ impl<K: Ord, V> BTreeMap<K, V> {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(collections)]
     /// use std::collections::BTreeMap;
     /// use std::collections::btree_map::Entry;
     ///

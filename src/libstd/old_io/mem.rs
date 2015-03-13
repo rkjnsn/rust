@@ -54,6 +54,7 @@ impl Writer for Vec<u8> {
 /// # Examples
 ///
 /// ```
+/// # #![feature(old_io, io)]
 /// # #![allow(unused_must_use)]
 /// use std::old_io::MemWriter;
 ///
@@ -114,6 +115,7 @@ impl Writer for MemWriter {
 /// # Examples
 ///
 /// ```
+/// # #![feature(old_io)]
 /// # #![allow(unused_must_use)]
 /// use std::old_io::MemReader;
 ///
@@ -244,6 +246,7 @@ impl<'a> Buffer for &'a [u8] {
 /// # Examples
 ///
 /// ```
+/// # #![feature(old_io, io)]
 /// # #![allow(unused_must_use)]
 /// use std::old_io::BufWriter;
 ///
@@ -316,6 +319,7 @@ impl<'a> Seek for BufWriter<'a> {
 /// # Examples
 ///
 /// ```
+/// # #![feature(old_io)]
 /// # #![allow(unused_must_use)]
 /// use std::old_io::BufReader;
 ///

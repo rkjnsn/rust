@@ -53,6 +53,7 @@ impl UnixStream {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(old_io, old_path, io)]
     /// # #![allow(unused_must_use)]
     /// use std::old_io::net::pipe::UnixStream;
     ///
@@ -178,6 +179,7 @@ impl UnixListener {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(old_io, io, old_path)]
     /// # fn foo() {
     /// use std::old_io::net::pipe::UnixListener;
     /// use std::old_io::{Listener, Acceptor};

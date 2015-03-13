@@ -33,6 +33,7 @@ use vec::Vec;
 /// # Examples
 ///
 /// ```
+/// # #![feature(old_io, old_path)]
 /// use std::old_io::{BufferedReader, File};
 ///
 /// let file = File::open(&Path::new("message.txt"));
@@ -136,6 +137,7 @@ impl<R: Reader> Reader for BufferedReader<R> {
 /// # Examples
 ///
 /// ```
+/// # #![feature(old_io, old_path)]
 /// use std::old_io::{BufferedWriter, File};
 ///
 /// let file = File::create(&Path::new("message.txt")).unwrap();
@@ -322,6 +324,7 @@ impl<W: Reader> Reader for InternalBufferedWriter<W> {
 /// # Examples
 ///
 /// ```
+/// # #![feature(old_io, old_path)]
 /// # #![allow(unused_must_use)]
 /// use std::old_io::{BufferedStream, File};
 ///

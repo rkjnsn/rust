@@ -60,6 +60,7 @@ use thread;
 /// # Examples
 ///
 /// ```should_fail
+/// # #![feature(old_io)]
 /// use std::old_io::Command;
 ///
 /// let mut child = match Command::new("/bin/cat").arg("file.txt").spawn() {
@@ -163,6 +164,7 @@ pub type EnvMap = HashMap<EnvKey, CString>;
 /// to be changed (for example, by adding arguments) prior to spawning:
 ///
 /// ```
+/// # #![feature(old_io)]
 /// use std::old_io::Command;
 ///
 /// let mut process = match Command::new("sh").arg("-c").arg("echo hello").spawn() {
@@ -364,6 +366,7 @@ impl Command {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(old_io, core)]
     /// use std::old_io::Command;
     ///
     /// let output = match Command::new("cat").arg("foot.txt").output() {
@@ -385,6 +388,7 @@ impl Command {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(old_io)]
     /// use std::old_io::Command;
     ///
     /// let status = match Command::new("ls").status() {
@@ -659,6 +663,7 @@ impl Process {
     /// # Examples
     ///
     /// ```no_run
+    /// # #![feature(old_io, io)]
     /// use std::old_io::{Command, IoResult};
     /// use std::old_io::process::ProcessExit;
     ///

@@ -605,6 +605,7 @@ impl Path {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(old_path)]
     /// println!("{}", Path::new(r"C:\some\path").display());
     /// ```
     #[inline]
@@ -619,6 +620,7 @@ impl Path {
     /// # Examples
     ///
     /// ```
+    /// # #![feature(old_path)]
     /// let path = Path::new_opt(r"C:\some\path");
     ///
     /// match path {

@@ -95,6 +95,7 @@
 //! by the [`Writer`](../io/trait.Writer.html) trait:
 //!
 //! ```
+//! # #![feature(old_io)]
 //! use std::old_io::IoError;
 //!
 //! trait Writer {
@@ -110,6 +111,7 @@
 //! something like this:
 //!
 //! ```{.ignore}
+//! # #![feature(old_io)]
 //! use std::old_io::{File, Open, Write};
 //!
 //! let mut file = File::open_mode(&Path::new("valuable_data.txt"), Open, Write);
@@ -128,6 +130,7 @@
 //! a marginally useful message indicating why:
 //!
 //! ```{.no_run}
+//! # #![feature(old_io, old_path)]
 //! use std::old_io::{File, Open, Write};
 //!
 //! let mut file = File::open_mode(&Path::new("valuable_data.txt"), Open, Write);
@@ -138,6 +141,7 @@
 //! You might also simply assert success:
 //!
 //! ```{.no_run}
+//! # #![feature(old_io, old_path)]
 //! # use std::old_io::{File, Open, Write};
 //!
 //! # let mut file = File::open_mode(&Path::new("valuable_data.txt"), Open, Write);
@@ -148,6 +152,7 @@
 //! Or propagate the error up the call stack with `try!`:
 //!
 //! ```
+//! # #![feature(old_io, old_path)]
 //! # use std::old_io::{File, Open, Write, IoError};
 //! fn write_message() -> Result<(), IoError> {
 //!     let mut file = File::open_mode(&Path::new("valuable_data.txt"), Open, Write);
@@ -167,6 +172,7 @@
 //! It replaces this:
 //!
 //! ```
+//! # #![feature(old_io, old_path)]
 //! use std::old_io::{File, Open, Write, IoError};
 //!
 //! struct Info {
@@ -191,6 +197,7 @@
 //! With this:
 //!
 //! ```
+//! # #![feature(old_io, old_path)]
 //! use std::old_io::{File, Open, Write, IoError};
 //!
 //! struct Info {
@@ -405,6 +412,7 @@ impl<T, E> Result<T, E> {
     /// Convert from `Result<T, E>` to `&mut [T]` (without copying)
     ///
     /// ```
+    /// # #![feature(core)]
     /// let mut x: Result<&str, u32> = Ok("Gold");
     /// {
     ///     let v = x.as_mut_slice();
@@ -446,6 +454,7 @@ impl<T, E> Result<T, E> {
     /// ignoring I/O and parse errors:
     ///
     /// ```
+    /// # #![feature(old_io)]
     /// use std::old_io::IoResult;
     ///
     /// let mut buffer: &[u8] = b"1\n2\n3\n4\n";
