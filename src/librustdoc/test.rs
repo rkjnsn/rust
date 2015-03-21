@@ -310,7 +310,7 @@ fn partition_source(s: &str) -> (String, String) {
             after.push_str("\n");
         } else {
             before.push_str(line);
-            after.push_str("\n");
+            before.push_str("\n");
         }
     }
 
