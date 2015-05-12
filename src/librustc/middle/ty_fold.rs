@@ -378,6 +378,9 @@ impl<'tcx> TypeFoldable<'tcx> for ty::ObjectLifetimeDefault {
             ty::ObjectLifetimeDefault::Ambiguous =>
                 ty::ObjectLifetimeDefault::Ambiguous,
 
+            ty::ObjectLifetimeDefault::BaseDefault =>
+                ty::ObjectLifetimeDefault::BaseDefault,
+
             ty::ObjectLifetimeDefault::Specific(r) =>
                 ty::ObjectLifetimeDefault::Specific(r.fold_with(folder)),
         }
