@@ -30,7 +30,7 @@ use middle::lang_items;
 use middle::subst;
 use middle::ty::{ImplContainer, TraitContainer};
 use middle::ty::{self, Ty};
-use util::nodemap::FnvHashMap;
+use util::nodemap::{FnvHashMap, FnvHashSet};
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -1543,4 +1543,11 @@ pub fn get_imported_filemaps(metadata: &[u8]) -> Vec<codemap::FileMap> {
         let mut decoder = reader::Decoder::new(filemap_doc);
         Decodable::decode(&mut decoder).unwrap()
     }).collect()
+}
+
+pub fn get_monomorphizations(cdata: Cmd) -> FnvHashSet<u64> {
+    let crate_doc = rbml::Doc::new(cdata.data());
+    let mono_doc = reader::get_doc(crate_doc, tag_monomorphizations);
+    let mut decoder = reader::Decoder::new(mono_doc);
+    return Decodable::decode(&mut decoder).unwrap();
 }

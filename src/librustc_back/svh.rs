@@ -51,7 +51,7 @@ use std::hash::{Hash, SipHasher, Hasher};
 use syntax::ast;
 use syntax::visit;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Svh {
     hash: String,
 }

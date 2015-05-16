@@ -320,6 +320,7 @@ pub fn get_res_dtor<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
                               substs: &Substs<'tcx>)
                               -> ValueRef {
     let _icx = push_ctxt("trans_res_dtor");
+    let original_did = did;
     let did = inline::maybe_instantiate_inline(ccx, did);
 
     if !substs.types.is_empty() {
@@ -328,7 +329,7 @@ pub fn get_res_dtor<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         // Since we're in trans we don't care for any region parameters
         let substs = ccx.tcx().mk_substs(Substs::erased(substs.types.clone()));
 
-        let (val, _, _) = monomorphize::monomorphic_fn(ccx, did, substs, None);
+        let (val, _, _) = monomorphize::monomorphic_fn(ccx, did, original_did, substs, None);
 
         val
     } else if did.krate == ast::LOCAL_CRATE {

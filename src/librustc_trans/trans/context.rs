@@ -73,7 +73,8 @@ pub struct SharedCrateContext<'tcx> {
     check_overflow: bool,
     check_drop_flag_for_sanity: bool,
 
-    available_monomorphizations: RefCell<FnvHashSet<String>>,
+    upstream_monomorphizations: FnvHashSet<u64>,
+    available_monomorphizations: RefCell<FnvHashSet<u64>>,
     available_drop_glues: RefCell<FnvHashMap<DropGlueKind<'tcx>, String>>,
     use_dll_storage_attrs: bool,
 }
@@ -98,7 +99,7 @@ pub struct LocalCrateContext<'tcx> {
     /// came from)
     external_srcs: RefCell<NodeMap<ast::DefId>>,
     /// Cache instances of monomorphized functions
-    monomorphized: RefCell<FnvHashMap<MonoId<'tcx>, ValueRef>>,
+    monomorphized: RefCell<FnvHashMap<MonoId, ValueRef>>,
     monomorphizing: RefCell<DefIdMap<usize>>,
     /// Cache generated vtables
     vtables: RefCell<FnvHashMap<ty::PolyTraitRef<'tcx>, ValueRef>>,
@@ -141,7 +142,7 @@ pub struct LocalCrateContext<'tcx> {
     builder: BuilderRef_res,
 
     /// Holds the LLVM values for closure IDs.
-    closure_vals: RefCell<FnvHashMap<MonoId<'tcx>, ValueRef>>,
+    closure_vals: RefCell<FnvHashMap<MonoId, ValueRef>>,
 
     dbg_cx: Option<debuginfo::CrateDebugContext<'tcx>>,
 
@@ -296,6 +297,7 @@ impl<'tcx> SharedCrateContext<'tcx> {
         // require adding a few attributes to Rust itself (feature gated at the
         // start) and then strongly recommending static linkage on MSVC!
         let use_dll_storage_attrs = tcx.sess.target.target.options.is_like_msvc;
+        let upstream_monomorphizations = tcx.sess.cstore.load_monomorphizations();
 
         let mut shared_ccx = SharedCrateContext {
             local_ccxs: Vec::with_capacity(local_count),
@@ -321,6 +323,7 @@ impl<'tcx> SharedCrateContext<'tcx> {
             },
             check_overflow: check_overflow,
             check_drop_flag_for_sanity: check_drop_flag_for_sanity,
+            upstream_monomorphizations: upstream_monomorphizations,
             available_monomorphizations: RefCell::new(FnvHashSet()),
             available_drop_glues: RefCell::new(FnvHashMap()),
             use_dll_storage_attrs: use_dll_storage_attrs,
@@ -415,6 +418,10 @@ impl<'tcx> SharedCrateContext<'tcx> {
 
     pub fn use_dll_storage_attrs(&self) -> bool {
         self.use_dll_storage_attrs
+    }
+
+    pub fn available_monomorphizations<'a>(&'a self) -> &'a RefCell<FnvHashSet<u64>> {
+        &self.available_monomorphizations
     }
 }
 
@@ -638,7 +645,7 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         &self.local.external_srcs
     }
 
-    pub fn monomorphized<'a>(&'a self) -> &'a RefCell<FnvHashMap<MonoId<'tcx>, ValueRef>> {
+    pub fn monomorphized<'a>(&'a self) -> &'a RefCell<FnvHashMap<MonoId, ValueRef>> {
         &self.local.monomorphized
     }
 
@@ -708,7 +715,15 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         &self.shared.stats
     }
 
-    pub fn available_monomorphizations<'a>(&'a self) -> &'a RefCell<FnvHashSet<String>> {
+    pub fn have_monomorphization(&self, hash: u64) -> bool {
+        if self.shared.upstream_monomorphizations.contains(&hash) {
+            true
+        } else {
+            self.shared.available_monomorphizations.borrow().contains(&hash)
+        }
+    }
+
+    pub fn available_monomorphizations<'a>(&'a self) -> &'a RefCell<FnvHashSet<u64>> {
         &self.shared.available_monomorphizations
     }
 
@@ -724,7 +739,7 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         self.local.opaque_vec_type
     }
 
-    pub fn closure_vals<'a>(&'a self) -> &'a RefCell<FnvHashMap<MonoId<'tcx>, ValueRef>> {
+    pub fn closure_vals<'a>(&'a self) -> &'a RefCell<FnvHashMap<MonoId, ValueRef>> {
         &self.local.closure_vals
     }
 

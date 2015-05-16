@@ -25,7 +25,7 @@ use middle::def;
 use middle::ty::lookup_item_type;
 use middle::ty::{self, Ty};
 use middle::stability;
-use util::nodemap::{FnvHashMap, NodeMap, NodeSet};
+use util::nodemap::{FnvHashMap, FnvHashSet, NodeMap, NodeSet};
 
 use serialize::Encodable;
 use std::cell::RefCell;
@@ -69,6 +69,7 @@ pub struct EncodeParams<'a, 'tcx: 'a> {
     pub cstore: &'a cstore::CStore,
     pub encode_inlined_item: EncodeInlinedItem<'a>,
     pub reachable: &'a NodeSet,
+    pub monomorphizations: &'a RefCell<FnvHashSet<u64>>
 }
 
 pub struct EncodeContext<'a, 'tcx: 'a> {
@@ -2035,6 +2036,13 @@ fn encode_dylib_dependency_formats(rbml_w: &mut Encoder, ecx: &EncodeContext) {
     }
 }
 
+fn encode_monomorphizations(rbml_w: &mut Encoder,
+                            monomorphizations: &FnvHashSet<u64>) {
+    rbml_w.start_tag(tag_monomorphizations);
+    monomorphizations.encode(rbml_w);
+    rbml_w.end_tag();
+}
+
 // NB: Increment this as you change the metadata encoding version.
 #[allow(non_upper_case_globals)]
 pub const metadata_encoding_version : &'static [u8] = &[b'r', b'u', b's', b't', 0, 0, 0, 2 ];
@@ -2088,6 +2096,7 @@ fn encode_metadata_inner(wr: &mut Cursor<Vec<u8>>,
         codemap_bytes: u64,
         macro_defs_bytes: u64,
         impl_bytes: u64,
+        monomorphizations_bytes: u64,
         misc_bytes: u64,
         item_bytes: u64,
         index_bytes: u64,
@@ -2103,6 +2112,7 @@ fn encode_metadata_inner(wr: &mut Cursor<Vec<u8>>,
         codemap_bytes: 0,
         macro_defs_bytes: 0,
         impl_bytes: 0,
+        monomorphizations_bytes: 0,
         misc_bytes: 0,
         item_bytes: 0,
         index_bytes: 0,
@@ -2118,6 +2128,7 @@ fn encode_metadata_inner(wr: &mut Cursor<Vec<u8>>,
         encode_inlined_item,
         link_meta,
         reachable,
+        monomorphizations,
         ..
     } = parms;
     let ecx = EncodeContext {
@@ -2181,6 +2192,11 @@ fn encode_metadata_inner(wr: &mut Cursor<Vec<u8>>,
     encode_impls(&ecx, krate, &mut rbml_w);
     stats.impl_bytes = rbml_w.writer.seek(SeekFrom::Current(0)).unwrap() - i;
 
+    // Encode monomorphizations
+    i = rbml_w.writer.seek(SeekFrom::Current(0)).unwrap();
+    encode_monomorphizations(&mut rbml_w, &monomorphizations.borrow());
+    stats.monomorphizations_bytes = rbml_w.writer.seek(SeekFrom::Current(0)).unwrap() - i;
+    
     // Encode miscellaneous info.
     i = rbml_w.writer.seek(SeekFrom::Current(0)).unwrap();
     encode_misc_info(&ecx, krate, &mut rbml_w);
@@ -2218,6 +2234,7 @@ fn encode_metadata_inner(wr: &mut Cursor<Vec<u8>>,
         println!("         codemap bytes: {}", stats.codemap_bytes);
         println!("       macro def bytes: {}", stats.macro_defs_bytes);
         println!("            impl bytes: {}", stats.impl_bytes);
+        println!("       monomorph bytes: {}", stats.monomorphizations_bytes);
         println!("            misc bytes: {}", stats.misc_bytes);
         println!("            item bytes: {}", stats.item_bytes);
         println!("           index bytes: {}", stats.index_bytes);

@@ -8,6 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use back::svh::Svh;
 use back::link::exported_name;
 use session;
 use llvm::ValueRef;
@@ -34,9 +35,11 @@ use syntax::ast_util::local_def;
 use syntax::attr;
 use syntax::codemap::DUMMY_SP;
 use std::hash::{Hasher, Hash, SipHasher};
+use std::cell::Cell;
 
 pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
                                 fn_id: ast::DefId,
+                                original_fn_id: ast::DefId,
                                 psubsts: &'tcx subst::Substs<'tcx>,
                                 ref_id: Option<ast::NodeId>)
     -> (ValueRef, Ty<'tcx>, bool) {
@@ -54,10 +57,7 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
 
     let _icx = push_ctxt("monomorphic_fn");
 
-    let hash_id = MonoId {
-        def: fn_id,
-        params: &psubsts.types
-    };
+    let hash_id = MonoId::new(ccx, original_fn_id, &psubsts.types);
 
     let item_ty = ty::lookup_item_type(ccx.tcx(), fn_id).ty;
     let mono_ty = item_ty.subst(ccx.tcx(), psubsts);
@@ -70,6 +70,10 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         }
         None => ()
     }
+
+        info!("monomorphizing: {} ({})",
+              ty::item_path_str(ccx.tcx(), fn_id),
+              psubsts.repr(ccx.tcx()));
 
     debug!("monomorphic_fn(\
             fn_id={}, \
@@ -124,29 +128,34 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         monomorphizing.insert(fn_id, depth + 1);
     }
 
+    let hash_u64;
     let hash;
-    let s = {
-        let mut state = SipHasher::new();
-        hash_id.hash(&mut state);
-        mono_ty.hash(&mut state);
-
-        hash = format!("h{}", state.finish());
+    let symbol = {
+        let ref mut hasher = SipHasher::new();
+        hash_id.hash(hasher);
+        hash_u64 = hasher.finish();
+        hash = format!("h{}", hash_u64);
         ccx.tcx().map.with_path(fn_id.node, |path| {
             exported_name(path, &hash[..])
         })
     };
 
-    debug!("monomorphize_fn mangled to {}", s);
+    debug!("monomorphize_fn mangled to {}", symbol);
 
+    info!("monomorphic hash_id: {:?}, symbol: {}", hash_id, symbol);
+    
     // This shouldn't need to option dance.
     let mut hash_id = Some(hash_id);
+    let is_first = !ccx.have_monomorphization(hash_u64);
+    let secondary_translation = Cell::new(false);
+    let do_linkonce_opts = Cell::new(false);
     let mut mk_lldecl = |abi: abi::Abi| {
         let lldecl = if abi != abi::Rust {
-            foreign::decl_rust_fn_with_foreign_abi(ccx, mono_ty, &s[..])
+            foreign::decl_rust_fn_with_foreign_abi(ccx, mono_ty, &symbol[..])
         } else {
             // FIXME(nagisa): perhaps needs a more fine grained selection? See setup_lldecl below.
-            declare::define_internal_rust_fn(ccx, &s[..], mono_ty).unwrap_or_else(||{
-                ccx.sess().bug(&format!("symbol `{}` already defined", s));
+            declare::define_internal_rust_fn(ccx, &symbol[..], mono_ty).unwrap_or_else(||{
+                ccx.sess().bug(&format!("symbol `{}` already defined", symbol));
             })
         };
 
@@ -157,15 +166,14 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         base::update_linkage(ccx, lldecl, None, base::OriginalTranslation);
         attributes::from_fn_attrs(ccx, attrs, lldecl);
 
-        let is_first = !ccx.available_monomorphizations().borrow().contains(&s);
-        if is_first {
-            ccx.available_monomorphizations().borrow_mut().insert(s.clone());
-        }
-
         let trans_everywhere = attr::requests_inline(attrs);
-        if trans_everywhere && !is_first {
-            llvm::SetLinkage(lldecl, llvm::AvailableExternallyLinkage);
-        }
+
+        secondary_translation.set(trans_everywhere && !is_first);
+        do_linkonce_opts.set(true);
+
+        // FIXME: If this is from the local crate and unreachable
+        // then we shouldn't make it public. No downstream users.
+        llvm::SetLinkage(lldecl, llvm::ExternalLinkage);
 
         // If `true`, then `lldecl` should be given a function body.
         // Otherwise, it should be left as a declaration of an external
@@ -287,14 +295,78 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
 
     ccx.monomorphizing().borrow_mut().insert(fn_id, depth);
 
+    if do_linkonce_opts.get() {
+        if is_first {
+            // The first time a crate dag instantiates a function with
+            // a given set of substitutions it is declared
+            // linkonce_odr. By being linkonce, it can be exported
+            // publicly by multiple crates in a diamond, and the
+            // linker will throw one out. ODR allows *this*
+            // translation unit to assume that any downstream
+            // implementations of this function that may override it
+            // have *the same implementation* as this one - which lets
+            // LLVM inline this one.
+            //
+            // Subsequent monomorphizations in downstream crates will
+            // have available_externally linkage. This is a
+            // compile-time optimization that lets the downstream
+            // compilation units reuse the upstream translations.
+            llvm::SetLinkage(lldecl, llvm::WeakODRLinkage);
+            ccx.available_monomorphizations().borrow_mut().insert(hash_u64);
+            info!("first mono: {}", symbol);
+        } else if secondary_translation.get() {
+            llvm::SetLinkage(lldecl, llvm::AvailableExternallyLinkage);
+            info!("second mono: {}", symbol);
+        } else {
+            info!("unmonomorphized: {}", symbol);
+            llvm::SetLinkage(lldecl, llvm::ExternalLinkage);
+        }
+    }
+
     debug!("leaving monomorphic fn {}", ty::item_path_str(ccx.tcx(), fn_id));
     (lldecl, mono_ty, true)
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
-pub struct MonoId<'tcx> {
-    pub def: ast::DefId,
-    pub params: &'tcx subst::VecPerParamSpace<Ty<'tcx>>
+#[derive(PartialEq, Eq, Debug)]
+pub struct MonoId {
+    svh: Svh,
+    node_id: ast::NodeId,
+    crate_independent_substs_hash: u64,
+}
+
+impl MonoId {
+    pub fn new<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>, def_id: ast::DefId,
+                         params: &'tcx subst::VecPerParamSpace<Ty<'tcx>>) -> MonoId {
+        // FIXME: expensive
+        let svh = if def_id.krate == ast::LOCAL_CRATE {
+            ccx.link_meta().crate_hash.clone()
+        } else {
+            ccx.tcx().sess.cstore.get_crate_hash(def_id.krate)
+        };
+
+        let ref mut state = SipHasher::new();
+
+        for ty in params {
+            // FIXME: This clones the svh at least once more
+            let hash = ty::hash_crate_independent(ccx.tcx(), *ty, &svh);
+            hash.hash(state);
+        }
+        let subst_hash = state.finish();
+
+        MonoId {
+            svh: svh,
+            node_id: def_id.node,
+            crate_independent_substs_hash: subst_hash
+        }
+    }
+}
+
+impl Hash for MonoId {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.svh.hash(state);
+        self.node_id.hash(state);
+        self.crate_independent_substs_hash.hash(state);
+    }
 }
 
 /// Monomorphizes a type from the AST by first applying the in-scope

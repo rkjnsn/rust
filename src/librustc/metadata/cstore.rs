@@ -20,7 +20,7 @@ pub use self::NativeLibraryKind::*;
 use back::svh::Svh;
 use metadata::{creader, decoder, loader};
 use session::search_paths::PathKind;
-use util::nodemap::{FnvHashMap, NodeMap};
+use util::nodemap::{FnvHashMap, FnvHashSet, NodeMap};
 
 use std::cell::{RefCell, Ref};
 use std::rc::Rc;
@@ -232,6 +232,20 @@ impl CStore {
     pub fn find_extern_mod_stmt_cnum(&self, emod_id: ast::NodeId)
                                      -> Option<ast::CrateNum> {
         self.extern_mod_crate_map.borrow().get(&emod_id).cloned()
+    }
+
+    pub fn load_monomorphizations(&self) -> FnvHashSet<u64> {
+        let mut all_monos = FnvHashSet();
+        self.iter_crate_data(|_num, data| {
+            let some_monos = decoder::get_monomorphizations(data);
+            info!("got {} new monos!", some_monos.len());
+            all_monos.reserve(some_monos.len());
+            for mono in some_monos {
+                all_monos.insert(mono);
+            }
+        });
+        info!("got {} TOTAL monos!", all_monos.len());
+        return all_monos;
     }
 }
 

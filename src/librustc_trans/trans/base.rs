@@ -2510,6 +2510,7 @@ pub fn crate_ctxt_to_encode_parms<'a, 'tcx>(cx: &'a SharedCrateContext<'tcx>,
         cstore: &cx.sess().cstore,
         encode_inlined_item: ie,
         reachable: cx.reachable(),
+        monomorphizations: cx.available_monomorphizations()
     }
 }
 
