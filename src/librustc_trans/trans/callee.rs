@@ -482,6 +482,7 @@ pub fn trans_fn_ref_with_substs<'a, 'tcx>(
 
     // Check whether this fn has an inlined copy and, if so, redirect
     // def_id to the local id of the inlined copy.
+    let original_def_id = def_id;
     let def_id = inline::maybe_instantiate_inline(ccx, def_id);
 
     // We must monomorphise if the fn has type parameters, is a default method,
@@ -517,7 +518,7 @@ pub fn trans_fn_ref_with_substs<'a, 'tcx>(
         };
 
         let (val, fn_ty, must_cast) =
-            monomorphize::monomorphic_fn(ccx, def_id, substs, opt_ref_id);
+            monomorphize::monomorphic_fn(ccx, def_id, original_def_id, substs, opt_ref_id);
         if must_cast && node != ExprId(0) {
             // Monotype of the REFERENCE to the function (type params
             // are subst'd)

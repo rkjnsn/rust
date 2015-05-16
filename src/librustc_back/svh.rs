@@ -51,21 +51,18 @@ use std::hash::{Hash, SipHasher, Hasher};
 use syntax::ast;
 use syntax::visit;
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug, Hash)]
 pub struct Svh {
-    hash: String,
+    hash: u64,
 }
 
 impl Svh {
-    pub fn new(hash: &str) -> Svh {
-        assert!(hash.len() == 16);
-        Svh { hash: hash.to_string() }
+    pub fn new(hash: u64) -> Svh {
+        Svh { hash: hash }
     }
 
-    pub fn as_str<'a>(&'a self) -> &'a str {
-        &self.hash
-    }
-
+    pub fn to_u64(&self) -> u64 { self.hash }
+    
     pub fn calculate(metadata: &Vec<String>, krate: &ast::Crate) -> Svh {
         // FIXME (#14132): This is better than it used to be, but it still not
         // ideal. We now attempt to hash only the relevant portions of the
@@ -100,11 +97,15 @@ impl Svh {
             attr.node.value.hash(&mut state);
         }
 
-        let hash = state.finish();
         return Svh {
-            hash: (0..64).step_by(4).map(|i| hex(hash >> i)).collect()
+            hash: state.finish()
         };
 
+    }
+}
+
+impl fmt::Display for Svh {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         fn hex(b: u64) -> char {
             let b = (b & 0xf) as u8;
             let b = match b {
@@ -113,12 +114,9 @@ impl Svh {
             };
             b as char
         }
-    }
-}
 
-impl fmt::Display for Svh {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.pad(self.as_str())
+        let s: String = (0..64).step_by(4).map(|i| hex(self.hash >> i)).collect();
+        f.pad(&s)
     }
 }
 

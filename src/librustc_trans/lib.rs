@@ -53,6 +53,7 @@ extern crate rustc;
 extern crate rustc_back;
 extern crate serialize;
 extern crate rustc_llvm as llvm;
+extern crate rustc_data_structures;
 
 #[macro_use] extern crate log;
 #[macro_use] extern crate syntax;

@@ -137,8 +137,8 @@ pub fn get_or_create_declaration_if_closure<'a, 'tcx>(ccx: &CrateContext<'a, 'tc
     }
 
     let function_type = ty::node_id_to_type(ccx.tcx(), closure_id.node);
-    let function_type = monomorphize::apply_param_substs(ccx.tcx(), substs, &function_type);
-
+    let function_type = monomorphize::apply_param_substs(ccx.tcx(), substs, &function_type)
+;
     // Normalize type so differences in regions and typedefs don't cause
     // duplicate declarations
     let function_type = erase_regions(ccx.tcx(), &function_type);

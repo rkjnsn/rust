@@ -30,7 +30,7 @@ use middle::lang_items;
 use middle::subst;
 use middle::ty::{ImplContainer, TraitContainer};
 use middle::ty::{self, Ty};
-use util::nodemap::FnvHashMap;
+use util::nodemap::{FnvHashMap, FnvHashSet};
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -52,6 +52,7 @@ use syntax::print::pprust;
 use syntax::ast;
 use syntax::codemap;
 use syntax::ptr::P;
+use rustc_data_structures::mono::UniversalMonoId;
 
 pub type Cmd<'a> = &'a crate_metadata;
 
@@ -1187,7 +1188,8 @@ pub fn get_crate_deps(data: &[u8]) -> Vec<CrateDep> {
 
     reader::tagged_docs(depsdoc, tag_crate_dep).enumerate().map(|(crate_num, depdoc)| {
         let name = docstr(depdoc, tag_crate_dep_crate_name);
-        let hash = Svh::new(&docstr(depdoc, tag_crate_dep_hash));
+        let hash = reader::doc_as_u64(reader::get_doc(depdoc, tag_crate_dep_hash));
+        let hash = Svh::new(hash);
         CrateDep {
             cnum: crate_num as u32 + 1,
             name: name,
@@ -1208,14 +1210,14 @@ fn list_crate_deps(data: &[u8], out: &mut io::Write) -> io::Result<()> {
 pub fn maybe_get_crate_hash(data: &[u8]) -> Option<Svh> {
     let cratedoc = rbml::Doc::new(data);
     reader::maybe_get_doc(cratedoc, tag_crate_hash).map(|doc| {
-        Svh::new(doc.as_str_slice())
+        Svh::new(reader::doc_as_u64(doc))
     })
 }
 
 pub fn get_crate_hash(data: &[u8]) -> Svh {
     let cratedoc = rbml::Doc::new(data);
     let hashdoc = reader::get_doc(cratedoc, tag_crate_hash);
-    Svh::new(hashdoc.as_str_slice())
+    Svh::new(reader::doc_as_u64(hashdoc))
 }
 
 pub fn maybe_get_crate_name(data: &[u8]) -> Option<String> {
@@ -1543,4 +1545,11 @@ pub fn get_imported_filemaps(metadata: &[u8]) -> Vec<codemap::FileMap> {
         let mut decoder = reader::Decoder::new(filemap_doc);
         Decodable::decode(&mut decoder).unwrap()
     }).collect()
+}
+
+pub fn get_monomorphizations(cdata: Cmd) -> FnvHashSet<UniversalMonoId> {
+    let crate_doc = rbml::Doc::new(cdata.data());
+    let mono_doc = reader::get_doc(crate_doc, tag_monomorphizations);
+    let mut decoder = reader::Decoder::new(mono_doc);
+    return Decodable::decode(&mut decoder).unwrap();
 }

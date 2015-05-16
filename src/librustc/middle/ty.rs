@@ -6466,11 +6466,11 @@ pub fn hash_crate_independent<'tcx>(tcx: &ctxt<'tcx>, ty: Ty<'tcx>, svh: &Svh) -
         };
         let did = |state: &mut SipHasher, did: DefId| {
             let h = if ast_util::is_local(did) {
-                svh.clone()
+                *svh
             } else {
                 tcx.sess.cstore.get_crate_hash(did.krate)
             };
-            h.as_str().hash(state);
+            h.hash(state);
             did.node.hash(state);
         };
         let mt = |state: &mut SipHasher, mt: mt| {

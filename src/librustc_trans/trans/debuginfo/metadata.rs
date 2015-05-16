@@ -334,12 +334,12 @@ impl<'tcx> TypeMap<'tcx> {
 
             // Get the crate hash as first part of the identifier.
             let crate_hash = if source_def_id.krate == ast::LOCAL_CRATE {
-                cx.link_meta().crate_hash.clone()
+                cx.link_meta().crate_hash
             } else {
                 cx.sess().cstore.get_crate_hash(source_def_id.krate)
             };
 
-            output.push_str(crate_hash.as_str());
+            output.push_str(&format!("{}", crate_hash));
             output.push_str("/");
             output.push_str(&format!("{:x}", def_id.node));
 

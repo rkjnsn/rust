@@ -22,7 +22,6 @@ use trans::common::{ExternMap,BuilderRef_res};
 use trans::debuginfo;
 use trans::declare;
 use trans::glue::DropGlueKind;
-use trans::monomorphize::MonoId;
 use trans::type_::{Type, TypeNames};
 use middle::subst::Substs;
 use middle::ty::{self, Ty};
@@ -31,6 +30,8 @@ use session::Session;
 use util::ppaux::Repr;
 use util::sha2::Sha256;
 use util::nodemap::{NodeMap, NodeSet, DefIdMap, FnvHashMap, FnvHashSet};
+use rustc_data_structures::mono::UniversalMonoId;
+use trans::monomorphize::MonoId;
 
 use std::ffi::CString;
 use std::cell::{Cell, RefCell};
@@ -73,7 +74,8 @@ pub struct SharedCrateContext<'tcx> {
     check_overflow: bool,
     check_drop_flag_for_sanity: bool,
 
-    available_monomorphizations: RefCell<FnvHashSet<String>>,
+    upstream_monomorphizations: FnvHashSet<UniversalMonoId>,
+    available_monomorphizations: RefCell<FnvHashSet<UniversalMonoId>>,
     available_drop_glues: RefCell<FnvHashMap<DropGlueKind<'tcx>, String>>,
     use_dll_storage_attrs: bool,
 }
@@ -100,6 +102,7 @@ pub struct LocalCrateContext<'tcx> {
     /// Cache instances of monomorphized functions
     monomorphized: RefCell<FnvHashMap<MonoId<'tcx>, ValueRef>>,
     monomorphizing: RefCell<DefIdMap<usize>>,
+    strong_monomorphized: RefCell<FnvHashMap<UniversalMonoId, ValueRef>>,
     /// Cache generated vtables
     vtables: RefCell<FnvHashMap<ty::PolyTraitRef<'tcx>, ValueRef>>,
     /// Cache of constant strings,
@@ -296,6 +299,7 @@ impl<'tcx> SharedCrateContext<'tcx> {
         // require adding a few attributes to Rust itself (feature gated at the
         // start) and then strongly recommending static linkage on MSVC!
         let use_dll_storage_attrs = tcx.sess.target.target.options.is_like_msvc;
+        let upstream_monomorphizations = tcx.sess.cstore.load_monomorphizations();
 
         let mut shared_ccx = SharedCrateContext {
             local_ccxs: Vec::with_capacity(local_count),
@@ -321,6 +325,7 @@ impl<'tcx> SharedCrateContext<'tcx> {
             },
             check_overflow: check_overflow,
             check_drop_flag_for_sanity: check_drop_flag_for_sanity,
+            upstream_monomorphizations: upstream_monomorphizations,
             available_monomorphizations: RefCell::new(FnvHashSet()),
             available_drop_glues: RefCell::new(FnvHashMap()),
             use_dll_storage_attrs: use_dll_storage_attrs,
@@ -416,6 +421,10 @@ impl<'tcx> SharedCrateContext<'tcx> {
     pub fn use_dll_storage_attrs(&self) -> bool {
         self.use_dll_storage_attrs
     }
+
+    pub fn available_monomorphizations<'a>(&'a self) -> &'a RefCell<FnvHashSet<UniversalMonoId>> {
+        &self.available_monomorphizations
+    }
 }
 
 impl<'tcx> LocalCrateContext<'tcx> {
@@ -452,6 +461,7 @@ impl<'tcx> LocalCrateContext<'tcx> {
                 external_srcs: RefCell::new(NodeMap()),
                 monomorphized: RefCell::new(FnvHashMap()),
                 monomorphizing: RefCell::new(DefIdMap()),
+                strong_monomorphized: RefCell::new(FnvHashMap()),
                 vtables: RefCell::new(FnvHashMap()),
                 const_cstr_cache: RefCell::new(FnvHashMap()),
                 const_unsized: RefCell::new(FnvHashMap()),
@@ -646,6 +656,10 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         &self.local.monomorphizing
     }
 
+    pub fn strong_monomorphized<'a>(&'a self) -> &'a RefCell<FnvHashMap<UniversalMonoId, ValueRef>> {
+        &self.local.strong_monomorphized
+    }
+
     pub fn vtables<'a>(&'a self) -> &'a RefCell<FnvHashMap<ty::PolyTraitRef<'tcx>, ValueRef>> {
         &self.local.vtables
     }
@@ -708,7 +722,15 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         &self.shared.stats
     }
 
-    pub fn available_monomorphizations<'a>(&'a self) -> &'a RefCell<FnvHashSet<String>> {
+    pub fn have_monomorphization(&self, mono_id: UniversalMonoId) -> bool {
+        if self.shared.upstream_monomorphizations.contains(&mono_id) {
+            true
+        } else {
+            self.shared.available_monomorphizations.borrow().contains(&mono_id)
+        }
+    }
+
+    pub fn available_monomorphizations<'a>(&'a self) -> &'a RefCell<FnvHashSet<UniversalMonoId>> {
         &self.shared.available_monomorphizations
     }
 
