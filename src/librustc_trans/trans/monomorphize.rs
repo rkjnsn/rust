@@ -71,6 +71,10 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         None => ()
     }
 
+        info!("monomorphizing: {} ({})",
+              ty::item_path_str(ccx.tcx(), fn_id),
+              psubsts.repr(ccx.tcx()));
+
     debug!("monomorphic_fn(\
             fn_id={}, \
             psubsts={}, \
