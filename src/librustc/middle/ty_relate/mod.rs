@@ -226,8 +226,12 @@ impl<'a,'tcx:'a> Relate<'a,'tcx> for ty::BareFnTy<'tcx> {
         let unsafety = try!(relation.relate(&a.unsafety, &b.unsafety));
         let abi = try!(relation.relate(&a.abi, &b.abi));
         let sig = try!(relation.relate(&a.sig, &b.sig));
+        let region_bound = try!(relation.relate_with_variance(ty::Contravariant,
+                                                              &a.region_bound,
+                                                              &b.region_bound));
         Ok(ty::BareFnTy {unsafety: unsafety,
                          abi: abi,
+                         region_bound: region_bound,
                          sig: sig})
     }
 }

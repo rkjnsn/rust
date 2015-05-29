@@ -303,6 +303,7 @@ pub fn trans_fn_pointer_shim<'a, 'tcx>(
             ty::ty_bare_fn(opt_def_id,
                            &ty::BareFnTy { unsafety: ast::Unsafety::Normal,
                                            abi: synabi::Rust,
+                                           region_bound: ty::ReStatic,
                                            ref sig }) => {
                 (opt_def_id, sig)
             }
@@ -319,6 +320,7 @@ pub fn trans_fn_pointer_shim<'a, 'tcx>(
                                      tcx.mk_bare_fn(ty::BareFnTy {
                                          unsafety: ast::Unsafety::Normal,
                                          abi: synabi::RustCall,
+                                         region_bound: ty::ReStatic,
                                          sig: ty::Binder(ty::FnSig {
                                              inputs: vec![bare_fn_ty_maybe_ref,
                                                           tuple_input_ty],

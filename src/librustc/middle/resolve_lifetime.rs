@@ -151,6 +151,29 @@ impl<'a, 'v> Visitor<'v> for LifetimeContext<'a> {
         replace(&mut self.labels_in_fn, saved);
     }
 
+    fn visit_foreign_item(&mut self, i: &'v ast::ForeignItem) {
+        // see above. foreign items use an independent set of labels from all enclosing
+        // context.
+        let saved = replace(&mut self.labels_in_fn, vec![]);
+
+        // Items always introduce a new root scope
+        self.with(RootScope, |_, this| {
+            match i.node {
+                ast::ForeignItemFn(_, ref generics) => {
+                    this.visit_early_late(subst::FnSpace, generics, |this| {
+                        visit::walk_foreign_item(this, i);
+                    });
+                }
+                ast::ForeignItemStatic(..) => {
+                    visit::walk_foreign_item(this, i);
+                }
+            }
+        });
+
+        replace(&mut self.labels_in_fn, saved);
+    }
+
+
     fn visit_fn(&mut self, fk: visit::FnKind<'v>, fd: &'v ast::FnDecl,
                 b: &'v ast::Block, s: Span, _: ast::NodeId) {
         match fk {
@@ -173,12 +196,19 @@ impl<'a, 'v> Visitor<'v> for LifetimeContext<'a> {
     fn visit_ty(&mut self, ty: &ast::Ty) {
         match ty.node {
             ast::TyBareFn(ref c) => {
+                self.visit_opt_lifetime_ref(ty.span, &c.region_bound);
+
                 visit::walk_lifetime_decls_helper(self, &c.lifetimes);
                 self.with(LateScope(&c.lifetimes, self.scope), |old_scope, this| {
-                    // a bare fn has no bounds, so everything
-                    // contained within is scoped within its binder.
                     this.check_lifetime_defs(old_scope, &c.lifetimes);
-                    visit::walk_ty(this, ty);
+
+                    for argument in &c.decl.inputs {
+                        this.visit_ty(&argument.ty);
+                    }
+
+                    visit::walk_fn_ret_ty(this, &c.decl.output);
+
+                    visit::walk_lifetime_decls_helper(this, &c.lifetimes);
                 });
             }
             ast::TyPath(None, ref path) => {

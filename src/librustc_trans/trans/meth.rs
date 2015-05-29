@@ -858,6 +858,7 @@ pub fn opaque_method_ty<'tcx>(tcx: &ty::ctxt<'tcx>, method_ty: &ty::BareFnTy<'tc
     tcx.mk_bare_fn(ty::BareFnTy {
         unsafety: method_ty.unsafety,
         abi: method_ty.abi,
+        region_bound: ty::ReStatic,
         sig: ty::Binder(ty::FnSig {
             inputs: inputs,
             output: method_ty.sig.0.output,

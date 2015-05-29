@@ -18,7 +18,7 @@ use middle::traits;
 use middle::ty::{self, Ty};
 use middle::ty::{MethodCall, MethodCallee, MethodObject, MethodOrigin,
                  MethodParam, MethodStatic, MethodTraitObject, MethodTypeParam};
-use middle::ty_fold::TypeFoldable;
+use middle::ty_fold::{TypeFoldable};
 use middle::infer;
 use middle::infer::InferCtxt;
 use syntax::ast;
@@ -113,6 +113,7 @@ impl<'a,'tcx> ConfirmContext<'a,'tcx> {
             sig: ty::Binder(method_sig),
             unsafety: method_ty.fty.unsafety,
             abi: method_ty.fty.abi.clone(),
+            region_bound: ty::ReStatic,
         }));
         let callee = MethodCallee {
             origin: method_origin,

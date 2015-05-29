@@ -1380,7 +1380,8 @@ pub struct BareFnTy {
     pub unsafety: Unsafety,
     pub abi: Abi,
     pub lifetimes: Vec<LifetimeDef>,
-    pub decl: P<FnDecl>
+    pub decl: P<FnDecl>,
+    pub region_bound: Option<Lifetime>
 }
 
 #[derive(Clone, PartialEq, Eq, RustcEncodable, RustcDecodable, Hash, Debug)]

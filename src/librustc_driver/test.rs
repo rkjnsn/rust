@@ -268,7 +268,8 @@ impl<'a, 'tcx> Env<'a, 'tcx> {
                                inputs: input_args,
                                output: ty::FnConverging(output_ty),
                                variadic: false
-                           })
+                           }),
+                           region_bound: ty::ReStatic,
                        }))
     }
 

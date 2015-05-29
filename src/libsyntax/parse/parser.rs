@@ -1074,10 +1074,11 @@ impl<'a> Parser<'a> {
     pub fn parse_ty_bare_fn(&mut self, lifetime_defs: Vec<ast::LifetimeDef>) -> PResult<Ty_> {
         /*
 
-        [unsafe] [extern "ABI"] fn <'lt> (S) -> T
-         ^~~~^           ^~~~^     ^~~~^ ^~^    ^
-           |               |         |    |     |
-           |               |         |    |   Return type
+        [unsafe] [extern "ABI"] fn <'lt> (S) -> T [+'lt]
+         ^~~~^           ^~~~^     ^~~~^ ^~^    ^    ^
+           |               |         |    |     |    |
+           |               |         |    |     |  Bound
+           |               |         |    |  Return type
            |               |         |  Argument types
            |               |     Lifetimes
            |              ABI
@@ -1094,6 +1095,7 @@ impl<'a> Parser<'a> {
         try!(self.expect_keyword(keywords::Fn));
         let (inputs, variadic) = try!(self.parse_fn_args(false, true));
         let ret_ty = try!(self.parse_ret_ty());
+        let bound = try!(self.parse_fn_bound());
         let decl = P(FnDecl {
             inputs: inputs,
             output: ret_ty,
@@ -1103,7 +1105,8 @@ impl<'a> Parser<'a> {
             abi: abi,
             unsafety: unsafety,
             lifetimes: lifetime_defs,
-            decl: decl
+            decl: decl,
+            region_bound: bound,
         })))
     }
 
@@ -1236,6 +1239,15 @@ impl<'a> Parser<'a> {
         let mutbl = try!(self.parse_mutability());
         let t = try!(self.parse_ty_nopanic());
         Ok(MutTy { ty: t, mutbl: mutbl })
+    }
+
+    /// Parse optional return type [ -> TY ] in function decl
+    pub fn parse_fn_bound(&mut self) -> PResult<Option<ast::Lifetime>> {
+        if try!(self.eat(&token::BinOp(token::Plus)) ){
+            Ok(Some(try!(self.parse_lifetime())))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Parse optional return type [ -> TY ] in function decl

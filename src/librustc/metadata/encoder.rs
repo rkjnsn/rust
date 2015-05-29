@@ -746,6 +746,9 @@ fn encode_generics<'a, 'tcx>(rbml_w: &mut Encoder,
         rbml_w.wr_tagged_u64(tag_region_param_def_index,
                              param.index as u64);
 
+        rbml_w.wr_tagged_u8(tag_region_param_def_implicit,
+                            param.implicit as u8);
+
         for &bound_region in &param.bounds {
             encode_region(ecx, rbml_w, bound_region);
         }

@@ -65,8 +65,13 @@ impl FreeRegionMap {
                             // Record that `'a:'b`. Or, put another way, `'b <= 'a`.
                             self.relate_free_regions(fr_b, fr_a);
                         }
+                        (ty::ReFree(_), ty::ReScope(_)) => {
+                            // There are implicit requirements `'a:'callee`.
+                        }
                         _ => {
-                            // All named regions are instantiated with free regions.
+                            // All regions appearing in predicates
+                            // should fall under one of the two cases
+                            // above.
                             tcx.sess.bug(
                                 &format!("record_region_bounds: non free region: {} / {}",
                                          r_a.repr(tcx),

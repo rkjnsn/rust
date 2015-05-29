@@ -1551,7 +1551,13 @@ pub fn ast_ty_to_ty<'tcx>(this: &AstConv<'tcx>,
                 span_err!(tcx.sess, ast_ty.span, E0222,
                           "variadic function must have C calling convention");
             }
-            let bare_fn = ty_of_bare_fn(this, bf.unsafety, bf.abi, &*bf.decl);
+
+            let region = match bf.region_bound {
+                Some(ref r) => ast_region_to_region(this.tcx(), r),
+                None => object_lifetime_default(this, rscope, ast_ty.span, "fn type"),
+            };
+
+            let bare_fn = ty_of_bare_fn(this, bf.unsafety, bf.abi, &*bf.decl, region);
             ty::mk_bare_fn(tcx, None, tcx.mk_bare_fn(bare_fn))
         }
         ast::TyPolyTraitRef(ref bounds) => {
@@ -1663,7 +1669,8 @@ struct SelfInfo<'a, 'tcx> {
 
 pub fn ty_of_method<'tcx>(this: &AstConv<'tcx>,
                           sig: &ast::MethodSig,
-                          untransformed_self_ty: Ty<'tcx>)
+                          untransformed_self_ty: Ty<'tcx>,
+                          region_bound: ty::Region)
                           -> (ty::BareFnTy<'tcx>, ty::ExplicitSelfCategory) {
     let self_info = Some(SelfInfo {
         untransformed_self_ty: untransformed_self_ty,
@@ -1674,13 +1681,14 @@ pub fn ty_of_method<'tcx>(this: &AstConv<'tcx>,
                                 sig.unsafety,
                                 sig.abi,
                                 self_info,
-                                &sig.decl);
+                                &sig.decl,
+                                region_bound);
     (bare_fn_ty, optional_explicit_self_category.unwrap())
 }
 
 pub fn ty_of_bare_fn<'tcx>(this: &AstConv<'tcx>, unsafety: ast::Unsafety, abi: abi::Abi,
-                                              decl: &ast::FnDecl) -> ty::BareFnTy<'tcx> {
-    let (bare_fn_ty, _) = ty_of_method_or_bare_fn(this, unsafety, abi, None, decl);
+                           decl: &ast::FnDecl, region_bound: ty::Region) -> ty::BareFnTy<'tcx> {
+    let (bare_fn_ty, _) = ty_of_method_or_bare_fn(this, unsafety, abi, None, decl, region_bound);
     bare_fn_ty
 }
 
@@ -1688,7 +1696,8 @@ fn ty_of_method_or_bare_fn<'a, 'tcx>(this: &AstConv<'tcx>,
                                      unsafety: ast::Unsafety,
                                      abi: abi::Abi,
                                      opt_self_info: Option<SelfInfo<'a, 'tcx>>,
-                                     decl: &ast::FnDecl)
+                                     decl: &ast::FnDecl,
+                                     region_bound: ty::Region)
                                      -> (ty::BareFnTy<'tcx>, Option<ty::ExplicitSelfCategory>)
 {
     debug!("ty_of_method_or_bare_fn");
@@ -1789,6 +1798,7 @@ fn ty_of_method_or_bare_fn<'a, 'tcx>(this: &AstConv<'tcx>,
             output: output_ty,
             variadic: decl.variadic
         }),
+        region_bound: region_bound
     }, explicit_self_category_result)
 }
 
@@ -2065,15 +2075,7 @@ fn compute_object_lifetime_bound<'tcx>(
     // If there are no derived region bounds, then report back that we
     // can find no region bound.
     if derived_region_bounds.is_empty() {
-        match rscope.object_lifetime_default(span) {
-            Some(r) => { return r; }
-            None => {
-                span_err!(this.tcx().sess, span, E0228,
-                          "the lifetime bound for this object type cannot be deduced \
-                           from context; please supply an explicit bound");
-                return ty::ReStatic;
-            }
-        }
+        return object_lifetime_default(this, rscope, span, "object type");
     }
 
     // If any of the derived region bounds are 'static, that is always
@@ -2091,6 +2093,25 @@ fn compute_object_lifetime_bound<'tcx>(
                   "ambiguous lifetime bound, explicit lifetime bound required");
     }
     return r;
+}
+
+fn object_lifetime_default<'tcx>(
+    this: &AstConv<'tcx>,
+    rscope: &RegionScope,
+    span: Span,
+    kind: &str)
+    -> ty::Region
+{
+    match rscope.object_lifetime_default(span) {
+        Some(r) => { return r; }
+        None => {
+            span_err!(this.tcx().sess, span, E0228,
+                      "the lifetime bound for this {} cannot be deduced \
+                       from context; please supply an explicit bound",
+                      kind);
+            return ty::ReStatic;
+        }
+    }
 }
 
 pub struct PartitionedBounds<'a> {

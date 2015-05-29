@@ -181,14 +181,18 @@ pub fn lookup_in_trait_adjusted<'a, 'tcx>(fcx: &FnCtxt<'a, 'tcx>,
         return None; // Cannot be matched, no such method resolution is possible.
     }
 
-    // Trait must have a method named `m_name` and it should not have
-    // type parameters or early-bound regions.
+    // Trait must have a method named `m_name` and it should only have
+    // one parameter on the fn, which is the special early-bound
+    // region 'fn.
     let tcx = fcx.tcx();
     let (method_num, method_ty) = trait_item(tcx, trait_def_id, m_name)
             .and_then(|(idx, item)| item.as_opt_method().map(|m| (idx, m)))
             .unwrap();
     assert_eq!(method_ty.generics.types.len(subst::FnSpace), 0);
-    assert_eq!(method_ty.generics.regions.len(subst::FnSpace), 0);
+    assert_eq!(method_ty.generics.regions.len(subst::FnSpace), 1);
+    let mut method_substs = trait_ref.substs.clone();
+    let region = fcx.infcx().next_region_var(infer::MiscVariable(span));
+    method_substs.mut_regions().push(subst::FnSpace, region);
 
     debug!("lookup_in_trait_adjusted: method_num={} method_ty={}",
            method_num, method_ty.repr(fcx.tcx()));
@@ -202,12 +206,13 @@ pub fn lookup_in_trait_adjusted<'a, 'tcx>(fcx: &FnCtxt<'a, 'tcx>,
     let fn_sig = fcx.infcx().replace_late_bound_regions_with_fresh_var(span,
                                                                        infer::FnCall,
                                                                        &method_ty.fty.sig).0;
-    let fn_sig = fcx.instantiate_type_scheme(span, trait_ref.substs, &fn_sig);
+    let fn_sig = fcx.instantiate_type_scheme(span, &method_substs, &fn_sig);
     let transformed_self_ty = fn_sig.inputs[0];
     let fty = ty::mk_bare_fn(tcx, None, tcx.mk_bare_fn(ty::BareFnTy {
         sig: ty::Binder(fn_sig),
         unsafety: method_ty.fty.unsafety,
         abi: method_ty.fty.abi.clone(),
+        region_bound: ty::ReStatic, // TODO we need to constrain something or other
     }));
 
     debug!("lookup_in_trait_adjusted: matched method fty={} obligation={}",
@@ -222,7 +227,7 @@ pub fn lookup_in_trait_adjusted<'a, 'tcx>(fcx: &FnCtxt<'a, 'tcx>,
     //
     // Note that as the method comes from a trait, it should not have
     // any late-bound regions appearing in its bounds.
-    let method_bounds = fcx.instantiate_bounds(span, trait_ref.substs, &method_ty.predicates);
+    let method_bounds = fcx.instantiate_bounds(span, &method_substs, &method_ty.predicates);
     assert!(!method_bounds.has_escaping_regions());
     fcx.add_obligations_for_parameters(
         traits::ObligationCause::misc(span, fcx.body_id),
@@ -293,7 +298,7 @@ pub fn lookup_in_trait_adjusted<'a, 'tcx>(fcx: &FnCtxt<'a, 'tcx>,
                                                     method_num: method_num,
                                                     impl_def_id: None}),
         ty: fty,
-        substs: trait_ref.substs.clone()
+        substs: method_substs,
     };
 
     debug!("callee = {}", callee.repr(fcx.tcx()));

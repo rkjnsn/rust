@@ -1472,6 +1472,10 @@ impl<'a, 'tcx> ErrorReportingHelpers<'tcx> for InferCtxt<'a, 'tcx> {
                 format!(" for capture of `{}` by closure",
                         ty::local_var_name_str(self.tcx, upvar_id.var_id).to_string())
             }
+            infer::FnBoundRegion(_, def_id) => {
+                format!(" so bound on fn item `{}`",
+                        ty::item_path_str(self.tcx, def_id))
+            }
         };
 
         self.tcx.sess.span_err(

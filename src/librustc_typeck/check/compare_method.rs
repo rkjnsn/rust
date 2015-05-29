@@ -302,9 +302,12 @@ pub fn compare_impl_method<'tcx>(tcx: &ty::ctxt<'tcx>,
         let impl_fty =
             ty::mk_bare_fn(tcx,
                            None,
-                           tcx.mk_bare_fn(ty::BareFnTy { unsafety: impl_m.fty.unsafety,
-                                                         abi: impl_m.fty.abi,
-                                                         sig: ty::Binder(impl_sig) }));
+                           tcx.mk_bare_fn(ty::BareFnTy {
+                               unsafety: impl_m.fty.unsafety,
+                               abi: impl_m.fty.abi,
+                               sig: ty::Binder(impl_sig),
+                               region_bound: ty::ReStatic, // TODO ?
+                           }));
         debug!("compare_impl_method: impl_fty={}",
                impl_fty.repr(tcx));
 
@@ -322,9 +325,12 @@ pub fn compare_impl_method<'tcx>(tcx: &ty::ctxt<'tcx>,
         let trait_fty =
             ty::mk_bare_fn(tcx,
                            None,
-                           tcx.mk_bare_fn(ty::BareFnTy { unsafety: trait_m.fty.unsafety,
-                                                         abi: trait_m.fty.abi,
-                                                         sig: ty::Binder(trait_sig) }));
+                           tcx.mk_bare_fn(ty::BareFnTy {
+                               unsafety: trait_m.fty.unsafety,
+                               abi: trait_m.fty.abi,
+                               sig: ty::Binder(trait_sig),
+                               region_bound: ty::ReStatic,
+                           }));
 
         debug!("compare_impl_method: trait_fty={}",
                trait_fty.repr(tcx));

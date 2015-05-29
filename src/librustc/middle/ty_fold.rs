@@ -391,7 +391,8 @@ impl<'tcx> TypeFoldable<'tcx> for ty::RegionParameterDef {
             def_id: self.def_id,
             space: self.space,
             index: self.index,
-            bounds: self.bounds.fold_with(folder)
+            bounds: self.bounds.fold_with(folder),
+            implicit: self.implicit,
         }
     }
 }
@@ -680,6 +681,7 @@ pub fn super_fold_bare_fn_ty<'tcx, T: TypeFolder<'tcx>>(this: &mut T,
 {
     ty::BareFnTy { sig: fty.sig.fold_with(this),
                    abi: fty.abi,
+                   region_bound: fty.region_bound.fold_with(this),
                    unsafety: fty.unsafety }
 }
 

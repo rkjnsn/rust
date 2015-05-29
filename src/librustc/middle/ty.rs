@@ -55,7 +55,7 @@ use middle::infer;
 use middle::pat_util;
 use middle::region::RegionMaps;
 use middle::stability;
-use middle::subst::{self, ParamSpace, Subst, Substs, VecPerParamSpace};
+use middle::subst::{self, FnSpace, ParamSpace, Subst, Substs, VecPerParamSpace};
 use middle::traits;
 use middle::ty;
 use middle::ty_fold::{self, TypeFoldable, TypeFolder};
@@ -1018,6 +1018,7 @@ pub struct BareFnTy<'tcx> {
     pub unsafety: ast::Unsafety,
     pub abi: abi::Abi,
     pub sig: PolyFnSig<'tcx>,
+    pub region_bound: Region,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -1768,6 +1769,12 @@ pub struct TypeParameterDef<'tcx> {
     pub object_lifetime_default: Option<ObjectLifetimeDefault>,
 }
 
+impl<'tcx> TypeParameterDef<'tcx> {
+    pub fn to_param_ty(&self) -> ParamTy {
+        ParamTy { space: self.space, idx: self.index, name: self.name }
+    }
+}
+
 #[derive(RustcEncodable, RustcDecodable, Clone, Debug)]
 pub struct RegionParameterDef {
     pub name: ast::Name,
@@ -1775,16 +1782,23 @@ pub struct RegionParameterDef {
     pub space: subst::ParamSpace,
     pub index: u32,
     pub bounds: Vec<ty::Region>,
+
+    /// is this a region parameter we implicitly created (e.g. 'fn on
+    /// functions) or one the user declared? affects rustdoc.
+    pub implicit: bool,
 }
 
 impl RegionParameterDef {
-    pub fn to_early_bound_region(&self) -> ty::Region {
-        ty::ReEarlyBound(ty::EarlyBoundRegion {
+    pub fn to_early_bound_region_data(&self) -> ty::EarlyBoundRegion {
+        ty::EarlyBoundRegion {
             param_id: self.def_id.node,
             space: self.space,
             index: self.index,
             name: self.name,
-        })
+        }
+    }
+    pub fn to_early_bound_region(&self) -> ty::Region {
+        ty::ReEarlyBound(self.to_early_bound_region_data())
     }
     pub fn to_bound_region(&self) -> ty::BoundRegion {
         ty::BoundRegion::BrNamed(self.def_id, self.name)
@@ -1817,6 +1831,16 @@ impl<'tcx> Generics<'tcx> {
 
     pub fn has_region_params(&self, space: subst::ParamSpace) -> bool {
         !self.regions.is_empty_in(space)
+    }
+
+    // The `'fn` region is a special region parameter we add to
+    // fns/methods representing the fn bound. It is used internally
+    // within the type system and is not "user-exposed" currently.
+    pub fn fn_region(&self) -> ty::Region {
+        self.regions.get_slice(FnSpace)
+                    .last()
+                    .unwrap()
+                    .to_early_bound_region()
     }
 }
 
@@ -2796,6 +2820,7 @@ impl<'tcx> ctxt<'tcx> {
         assert_eq!(bare_fn.unsafety, ast::Unsafety::Normal);
         let unsafe_fn_ty_a = self.mk_bare_fn(ty::BareFnTy {
             unsafety: ast::Unsafety::Unsafe,
+            region_bound: bare_fn.region_bound,
             abi: bare_fn.abi,
             sig: bare_fn.sig.clone()
         });
@@ -3003,6 +3028,7 @@ impl FlagComputation {
 
             &ty_bare_fn(_, ref f) => {
                 self.add_fn_sig(&f.sig);
+                self.add_region(f.region_bound);
             }
         }
     }
@@ -3179,6 +3205,7 @@ pub fn mk_ctor_fn<'tcx>(cx: &ctxt<'tcx>,
                cx.mk_bare_fn(BareFnTy {
                    unsafety: ast::Unsafety::Normal,
                    abi: abi::Rust,
+                   region_bound: ty::ReStatic,
                    sig: ty::Binder(FnSig {
                     inputs: input_args,
                     output: ty::FnConverging(output),

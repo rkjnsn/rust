@@ -99,7 +99,7 @@ pub use rustc::util;
 
 use middle::def;
 use middle::infer;
-use middle::subst;
+use middle::subst::{self, FnSpace, Subst, Substs};
 use middle::ty::{self, Ty};
 use session::config;
 use util::common::time;
@@ -108,7 +108,7 @@ use util::ppaux;
 
 use syntax::codemap::Span;
 use syntax::print::pprust::*;
-use syntax::{ast, ast_map, abi};
+use syntax::{ast, abi};
 use syntax::ast_util::local_def;
 
 use std::cell::RefCell;
@@ -209,98 +209,68 @@ fn check_main_fn_ty(ccx: &CrateCtxt,
                     main_id: ast::NodeId,
                     main_span: Span) {
     let tcx = ccx.tcx;
-    let main_t = ty::node_id_to_type(tcx, main_id);
-    match main_t.sty {
-        ty::ty_bare_fn(..) => {
-            match tcx.map.find(main_id) {
-                Some(ast_map::NodeItem(it)) => {
-                    match it.node {
-                        ast::ItemFn(_, _, _, _, ref ps, _)
-                        if ps.is_parameterized() => {
-                            span_err!(ccx.tcx.sess, main_span, E0131,
-                                      "main function is not allowed to have type parameters");
-                            return;
-                        }
-                        _ => ()
-                    }
-                }
-                _ => ()
-            }
-            let se_ty = ty::mk_bare_fn(tcx, Some(local_def(main_id)), tcx.mk_bare_fn(ty::BareFnTy {
-                unsafety: ast::Unsafety::Normal,
-                abi: abi::Rust,
-                sig: ty::Binder(ty::FnSig {
-                    inputs: Vec::new(),
-                    output: ty::FnConverging(ty::mk_nil(tcx)),
-                    variadic: false
-                })
-            }));
-
-            require_same_types(tcx, None, false, main_span, main_t, se_ty,
-                || {
-                    format!("main function expects type: `{}`",
-                            ppaux::ty_to_string(ccx.tcx, se_ty))
-                });
-        }
-        _ => {
-            tcx.sess.span_bug(main_span,
-                              &format!("main has a non-function type: found \
-                                       `{}`",
-                                      ppaux::ty_to_string(tcx,
-                                                       main_t)));
-        }
-    }
+    let main_scheme = ty::lookup_item_type(tcx, local_def(main_id));
+    let se_ty = ty::mk_bare_fn(tcx, Some(local_def(main_id)), tcx.mk_bare_fn(ty::BareFnTy {
+        unsafety: ast::Unsafety::Normal,
+        abi: abi::Rust,
+        sig: ty::Binder(ty::FnSig {
+            inputs: Vec::new(),
+            output: ty::FnConverging(ty::mk_nil(tcx)),
+            variadic: false
+        }),
+        region_bound: ty::ReStatic,
+    }));
+    check_entry_fn_ty(tcx, "main", main_span, main_scheme, se_ty);
 }
 
 fn check_start_fn_ty(ccx: &CrateCtxt,
                      start_id: ast::NodeId,
                      start_span: Span) {
     let tcx = ccx.tcx;
-    let start_t = ty::node_id_to_type(tcx, start_id);
-    match start_t.sty {
-        ty::ty_bare_fn(..) => {
-            match tcx.map.find(start_id) {
-                Some(ast_map::NodeItem(it)) => {
-                    match it.node {
-                        ast::ItemFn(_,_,_,_,ref ps,_)
-                        if ps.is_parameterized() => {
-                            span_err!(tcx.sess, start_span, E0132,
-                                      "start function is not allowed to have type parameters");
-                            return;
-                        }
-                        _ => ()
-                    }
-                }
-                _ => ()
-            }
-
-            let se_ty = ty::mk_bare_fn(tcx, Some(local_def(start_id)), tcx.mk_bare_fn(ty::BareFnTy {
-                unsafety: ast::Unsafety::Normal,
-                abi: abi::Rust,
-                sig: ty::Binder(ty::FnSig {
-                    inputs: vec!(
-                        tcx.types.isize,
-                        ty::mk_imm_ptr(tcx, ty::mk_imm_ptr(tcx, tcx.types.u8))
+    let start_scheme = ty::lookup_item_type(tcx, local_def(start_id));
+    let se_ty = ty::mk_bare_fn(tcx, Some(local_def(start_id)), tcx.mk_bare_fn(ty::BareFnTy {
+        unsafety: ast::Unsafety::Normal,
+        abi: abi::Rust,
+        sig: ty::Binder(ty::FnSig {
+            inputs: vec!(
+                tcx.types.isize,
+                ty::mk_imm_ptr(tcx, ty::mk_imm_ptr(tcx, tcx.types.u8))
                     ),
-                    output: ty::FnConverging(tcx.types.isize),
-                    variadic: false,
-                }),
-            }));
+            output: ty::FnConverging(tcx.types.isize),
+            variadic: false,
+        }),
+        region_bound: ty::ReStatic,
+    }));
+    check_entry_fn_ty(tcx, "start", start_span, start_scheme, se_ty);
+}
 
-            require_same_types(tcx, None, false, start_span, start_t, se_ty,
-                || {
-                    format!("start function expects type: `{}`",
-                            ppaux::ty_to_string(ccx.tcx, se_ty))
-                });
+fn check_entry_fn_ty<'tcx>(tcx: &ty::ctxt<'tcx>,
+                           tag: &str,
+                           entry_span: Span,
+                           entry_scheme: ty::TypeScheme<'tcx>,
+                           expected_ty: ty::Ty<'tcx>) {
+    let is_parameterized =
+        !entry_scheme.generics.types.is_empty() ||
+        // all fns have one implicit region parameter (the bound), but that's it
+        entry_scheme.generics.regions.as_slice().len() != 1;
 
-        }
-        _ => {
-            tcx.sess.span_bug(start_span,
-                              &format!("start has a non-function type: found \
-                                       `{}`",
-                                      ppaux::ty_to_string(tcx, start_t)));
-        }
+    if is_parameterized {
+        span_err!(tcx.sess, entry_span, E0131,
+                  "{} function is not allowed to have type/lifetime parameters", tag);
+        return;
     }
+
+    // substitute the bound for 'static
+    assert_eq!(entry_scheme.generics.regions.get_slice(FnSpace).len(), 1);
+    let mut substs = Substs::empty();
+    substs.mut_regions().push(FnSpace, ty::ReStatic);
+    let entry_ty = entry_scheme.ty.subst(tcx, &substs);
+
+    require_same_types(tcx, None, false, entry_span, entry_ty, expected_ty,
+                       || {
+                           format!("{} function expects type: `{}`",
+                                   tag, ppaux::ty_to_string(tcx, expected_ty))
+                       });
 }
 
 fn check_for_entry_fn(ccx: &CrateCtxt) {

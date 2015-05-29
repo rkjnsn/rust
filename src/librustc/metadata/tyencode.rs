@@ -268,7 +268,8 @@ pub fn enc_region(w: &mut Encoder, cx: &ctxt, r: ty::Region) {
         }
         ty::ReInfer(_) => {
             // these should not crop up after typeck
-            cx.diag.handler().bug("cannot encode region variables");
+            cx.diag.handler().bug(
+                &format!("cannot encode region variable: `{:?}`", r));
         }
     }
 }
@@ -332,6 +333,7 @@ pub fn enc_bare_fn_ty<'a, 'tcx>(w: &mut Encoder, cx: &ctxt<'a, 'tcx>,
     enc_unsafety(w, ft.unsafety);
     enc_abi(w, ft.abi);
     enc_fn_sig(w, cx, &ft.sig);
+    enc_region(w, cx, ft.region_bound);
 }
 
 pub fn enc_closure_ty<'a, 'tcx>(w: &mut Encoder, cx: &ctxt<'a, 'tcx>,

@@ -970,8 +970,11 @@ impl<'a, 'tcx> ConstraintContext<'a, 'tcx> {
                 }
             }
 
-            ty::ty_bare_fn(_, &ty::BareFnTy { ref sig, .. }) => {
+            ty::ty_bare_fn(_, &ty::BareFnTy { ref sig, region_bound, .. }) => {
                 self.add_constraints_from_sig(generics, sig, variance);
+
+                let contra = self.contravariant(variance);
+                self.add_constraints_from_region(generics, region_bound, contra);
             }
 
             ty::ty_err => {

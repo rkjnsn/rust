@@ -1896,9 +1896,9 @@ impl<'a, 'tcx> RegionScope for FnCtxt<'a, 'tcx> {
 
     fn anon_regions(&self, span: Span, count: usize)
                     -> Result<Vec<ty::Region>, Option<Vec<(String, usize)>>> {
-        Ok((0..count).map(|_| {
-            self.infcx().next_region_var(infer::MiscVariable(span))
-        }).collect())
+        Ok((0..count)
+           .map(|_| self.infcx().next_region_var(infer::MiscVariable(span)))
+           .collect())
     }
 }
 
@@ -4344,16 +4344,19 @@ pub fn check_enum_variants<'a,'tcx>(ccx: &CrateCtxt<'a,'tcx>,
 
 // Returns the type parameter count and the type for the given definition.
 fn type_scheme_and_predicates_for_def<'a, 'tcx>(fcx: &FnCtxt<'a, 'tcx>,
-                                                sp: Span,
+                                                expr_span: Span,
                                                 defn: def::Def)
                                                 -> (TypeScheme<'tcx>, GenericPredicates<'tcx>) {
     match defn {
         def::DefLocal(nid) | def::DefUpvar(nid, _) => {
-            let typ = fcx.local_ty(sp, nid);
+            let typ = fcx.local_ty(expr_span, nid);
             (ty::TypeScheme { generics: ty::Generics::empty(), ty: typ },
              ty::GenericPredicates::empty())
         }
-        def::DefFn(id, _) | def::DefMethod(id, _) |
+        def::DefFn(id, _) | def::DefMethod(id, _) => {
+            let scheme = ty::lookup_item_type(fcx.tcx(), id);
+            (scheme, ty::lookup_predicates(fcx.tcx(), id))
+        }
         def::DefStatic(id, _) | def::DefVariant(_, id, _) |
         def::DefStruct(id) | def::DefConst(id) | def::DefAssociatedConst(id, _) => {
             (ty::lookup_item_type(fcx.tcx(), id), ty::lookup_predicates(fcx.tcx(), id))
@@ -4369,7 +4372,7 @@ fn type_scheme_and_predicates_for_def<'a, 'tcx>(fcx: &FnCtxt<'a, 'tcx>,
         def::DefRegion(..) |
         def::DefLabel(..) |
         def::DefSelfTy(..) => {
-            fcx.ccx.tcx.sess.span_bug(sp, &format!("expected value, found {:?}", defn));
+            fcx.ccx.tcx.sess.span_bug(expr_span, &format!("expected value, found {:?}", defn));
         }
     }
 }
@@ -4848,6 +4851,13 @@ pub fn instantiate_path<'a, 'tcx>(fcx: &FnCtxt<'a, 'tcx>,
         let provided_len = substs.mut_regions().len(space);
         let desired = defs.get_slice(space);
 
+        debug!("adjust_type_parameters(space={:?}, \
+               provided_len={}, \
+               desired_len={})",
+               space,
+               provided_len,
+               desired.len());
+
         // Enforced by `push_explicit_parameters_from_segment_to_substs()`.
         assert!(provided_len <= desired.len());
 
@@ -5251,6 +5261,7 @@ pub fn check_intrinsic_type(ccx: &CrateCtxt, it: &ast::ForeignItem) {
             output: output,
             variadic: false,
         }),
+        region_bound: ty::ReStatic,
     }));
     let i_ty = ty::lookup_item_type(ccx.tcx, local_def(it.id));
     let i_n_tps = i_ty.generics.types.len(subst::FnSpace);

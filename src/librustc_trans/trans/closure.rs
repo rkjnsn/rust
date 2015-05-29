@@ -369,8 +369,9 @@ fn trans_fn_once_adapter_shim<'a, 'tcx>(
     let ty::ClosureTy { unsafety, abi, mut sig } = typer.closure_type(closure_def_id, substs);
     sig.0.inputs.insert(0, ref_closure_ty); // sig has no self type as of yet
     let llref_bare_fn_ty = tcx.mk_bare_fn(ty::BareFnTy { unsafety: unsafety,
-                                                               abi: abi,
-                                                               sig: sig.clone() });
+                                                         region_bound: ty::ReStatic,
+                                                         abi: abi,
+                                                         sig: sig.clone() });
     let llref_fn_ty = ty::mk_bare_fn(tcx, None, llref_bare_fn_ty);
     debug!("trans_fn_once_adapter_shim: llref_fn_ty={}",
            llref_fn_ty.repr(tcx));
@@ -380,8 +381,9 @@ fn trans_fn_once_adapter_shim<'a, 'tcx>(
     assert_eq!(abi, RustCall);
     sig.0.inputs[0] = closure_ty;
     let llonce_bare_fn_ty = tcx.mk_bare_fn(ty::BareFnTy { unsafety: unsafety,
-                                                                abi: abi,
-                                                                sig: sig });
+                                                          region_bound: ty::ReStatic,
+                                                          abi: abi,
+                                                          sig: sig });
     let llonce_fn_ty = ty::mk_bare_fn(tcx, None, llonce_bare_fn_ty);
 
     // Create the by-value helper.

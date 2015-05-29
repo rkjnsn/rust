@@ -112,7 +112,7 @@ pub fn push_debuginfo_type_name<'a, 'tcx>(cx: &CrateContext<'a, 'tcx>,
             push_item_name(cx, principal.def_id, false, output);
             push_type_params(cx, principal.substs, output);
         },
-        ty::ty_bare_fn(_, &ty::BareFnTy{ unsafety, abi, ref sig } ) => {
+        ty::ty_bare_fn(_, &ty::BareFnTy{ unsafety, abi, ref sig, region_bound: _ } ) => {
             if unsafety == ast::Unsafety::Unsafe {
                 output.push_str("unsafe ");
             }

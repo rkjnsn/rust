@@ -280,6 +280,9 @@ pub enum RegionVariableOrigin {
     Coercion(Span),
 
     // Region variables created as the values for early-bound regions
+    FnBoundRegion(Span, /* item */ ast::DefId),
+
+    // Region variables created as the values for early-bound regions
     EarlyBoundRegion(Span, ast::Name),
 
     // Region variables created for bound regions
@@ -1268,7 +1271,8 @@ impl RegionVariableOrigin {
             EarlyBoundRegion(a, _) => a,
             LateBoundRegion(a, _, _) => a,
             BoundRegionInCoherence(_) => codemap::DUMMY_SP,
-            UpvarRegion(_, a) => a
+            UpvarRegion(_, a) => a,
+            FnBoundRegion(a, _) => a,
         }
     }
 }
@@ -1298,6 +1302,9 @@ impl<'tcx> Repr<'tcx> for RegionVariableOrigin {
             }
             UpvarRegion(a, b) => {
                 format!("UpvarRegion({}, {})", a.repr(tcx), b.repr(tcx))
+            }
+            FnBoundRegion(a, b) => {
+                format!("FnBoundRegion({}, {})", a.repr(tcx), b.repr(tcx))
             }
         }
     }

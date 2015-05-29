@@ -169,7 +169,8 @@ pub fn explain_region_and_span(cx: &ctxt, region: ty::Region)
 
       // I believe these cases should not occur (except when debugging,
       // perhaps)
-      ty::ReInfer(_) | ty::ReLateBound(..) => {
+      ty::ReInfer(_) |
+      ty::ReLateBound(..) => {
         (format!("lifetime {:?}", region), None)
       }
     };
@@ -263,8 +264,10 @@ pub fn ty_to_string<'tcx>(cx: &ctxt<'tcx>, typ: &ty::TyS<'tcx>) -> String {
                                unsafety: ast::Unsafety,
                                abi: abi::Abi,
                                ident: Option<ast::Ident>,
-                               sig: &ty::PolyFnSig<'tcx>)
-                               -> String {
+                               sig: &ty::PolyFnSig<'tcx>,
+                               region_bound: ty::Region)
+                               -> String
+    {
         let mut s = String::new();
 
         match unsafety {
@@ -290,6 +293,18 @@ pub fn ty_to_string<'tcx>(cx: &ctxt<'tcx>, typ: &ty::TyS<'tcx>) -> String {
         }
 
         push_sig_to_string(cx, &mut s, '(', ')', sig);
+
+        match region_bound {
+            ty::ReStatic |
+            ty::ReInfer(ReVar(_)) if !cx.sess.verbose() => {
+                // these are (usually) defaults, or not helpful to
+                // user, so don't print anything
+            }
+            _ => {
+                s.push_str("+");
+                s.push_str(&region_bound.user_string(cx));
+            }
+        }
 
         match opt_def_id {
             Some(def_id) => {
@@ -384,7 +399,7 @@ pub fn ty_to_string<'tcx>(cx: &ctxt<'tcx>, typ: &ty::TyS<'tcx>) -> String {
             }
         }
         ty_bare_fn(opt_def_id, ref f) => {
-            bare_fn_to_string(cx, opt_def_id, f.unsafety, f.abi, None, &f.sig)
+            bare_fn_to_string(cx, opt_def_id, f.unsafety, f.abi, None, &f.sig, f.region_bound)
         }
         ty_infer(infer_ty) => infer_ty_to_string(cx, infer_ty),
         ty_err => "[type error]".to_string(),

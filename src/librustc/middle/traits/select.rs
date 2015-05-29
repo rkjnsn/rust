@@ -1187,6 +1187,7 @@ impl<'cx, 'tcx> SelectionContext<'cx, 'tcx> {
             ty::ty_bare_fn(_, &ty::BareFnTy {
                 unsafety: ast::Unsafety::Normal,
                 abi: abi::Rust,
+                region_bound: _,
                 sig: ty::Binder(ty::FnSig {
                     inputs: _,
                     output: ty::FnConverging(_),

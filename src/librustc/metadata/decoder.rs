@@ -1508,11 +1508,15 @@ fn doc_generics<'tcx>(base_doc: rbml::Doc,
                               |_, did| translate_def_id(cdata, did))
         }).collect();
 
+        let doc = reader::get_doc(rp_doc, tag_region_param_def_implicit);
+        let implicit = reader::doc_as_u8(doc) != 0;
+
         regions.push(space, ty::RegionParameterDef { name: name,
                                                      def_id: def_id,
                                                      space: space,
                                                      index: index,
-                                                     bounds: bounds });
+                                                     bounds: bounds,
+                                                     implicit: implicit });
     }
 
     ty::Generics { types: types, regions: regions }

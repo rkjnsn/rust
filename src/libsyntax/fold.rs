@@ -398,11 +398,12 @@ pub fn noop_fold_ty<T: Folder>(t: P<Ty>, fld: &mut T) -> P<Ty> {
                 TyRptr(fld.fold_opt_lifetime(region), fld.fold_mt(mt))
             }
             TyBareFn(f) => {
-                TyBareFn(f.map(|BareFnTy {lifetimes, unsafety, abi, decl}| BareFnTy {
+                TyBareFn(f.map(|BareFnTy {lifetimes, unsafety, abi, decl, region_bound}| BareFnTy {
                     lifetimes: fld.fold_lifetime_defs(lifetimes),
                     unsafety: unsafety,
                     abi: abi,
-                    decl: fld.fold_fn_decl(decl)
+                    decl: fld.fold_fn_decl(decl),
+                    region_bound: fld.fold_opt_lifetime(region_bound),
                 }))
             }
             TyTup(tys) => TyTup(tys.move_map(|ty| fld.fold_ty(ty))),

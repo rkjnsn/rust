@@ -372,12 +372,13 @@ pub fn walk_ty<'v, V: Visitor<'v>>(visitor: &mut V, typ: &'v Ty) {
                 visitor.visit_ty(&**tuple_element_type)
             }
         }
-        TyBareFn(ref function_declaration) => {
-            for argument in &function_declaration.decl.inputs {
+        TyBareFn(ref data) => {
+            for argument in &data.decl.inputs {
                 visitor.visit_ty(&*argument.ty)
             }
-            walk_fn_ret_ty(visitor, &function_declaration.decl.output);
-            walk_lifetime_decls_helper(visitor, &function_declaration.lifetimes);
+            walk_fn_ret_ty(visitor, &data.decl.output);
+            walk_lifetime_decls_helper(visitor, &data.lifetimes);
+            visitor.visit_opt_lifetime_ref(typ.span, &data.region_bound);
         }
         TyPath(ref maybe_qself, ref path) => {
             if let Some(ref qself) = *maybe_qself {

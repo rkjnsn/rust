@@ -685,15 +685,17 @@ fn parse_bare_fn_ty<'a, 'tcx, F>(st: &mut PState<'a, 'tcx>,
 }
 
 fn parse_bare_fn_ty_<'a, 'tcx, F>(st: &mut PState<'a, 'tcx>,
-                                 conv: &mut F) -> ty::BareFnTy<'tcx> where
+                                  conv: &mut F) -> ty::BareFnTy<'tcx> where
     F: FnMut(DefIdSource, ast::DefId) -> ast::DefId,
 {
     let unsafety = parse_unsafety(next(st));
     let abi = parse_abi_set(st);
     let sig = parse_sig_(st, conv);
+    let region_bound = parse_region_(st, conv);
     ty::BareFnTy {
         unsafety: unsafety,
         abi: abi,
+        region_bound: region_bound,
         sig: sig
     }
 }

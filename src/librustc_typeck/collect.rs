@@ -92,7 +92,7 @@ use syntax::ast;
 use syntax::ast_map;
 use syntax::ast_util::local_def;
 use syntax::codemap::Span;
-use syntax::parse::token::special_idents;
+use syntax::parse::token::{special_idents};
 use syntax::parse::token;
 use syntax::ptr::P;
 use syntax::visit;
@@ -613,14 +613,15 @@ fn convert_method<'a, 'tcx>(ccx: &CrateCtxt<'a, 'tcx>,
                             untransformed_rcvr_ty: Ty<'tcx>,
                             rcvr_ty_generics: &ty::Generics<'tcx>,
                             rcvr_ty_predicates: &ty::GenericPredicates<'tcx>) {
-    let ty_generics = ty_generics_for_fn(ccx, &sig.generics, rcvr_ty_generics);
+    let ty_generics = ty_generics_for_fn(ccx, id, &sig.generics, rcvr_ty_generics);
 
     let ty_generic_predicates =
         ty_generic_predicates_for_fn(ccx, &sig.generics, rcvr_ty_predicates);
 
     let (fty, explicit_self_category) =
         astconv::ty_of_method(&ccx.icx(&(rcvr_ty_predicates, &sig.generics)),
-                              sig, untransformed_rcvr_ty);
+                              sig, untransformed_rcvr_ty,
+                              ty_generics.fn_region());
 
     let def_id = local_def(id);
     let ty_method = ty::Method::new(ident.name,
@@ -1441,8 +1442,9 @@ fn compute_type_scheme_of_item<'a,'tcx>(ccx: &CrateCtxt<'a,'tcx>,
             ty::TypeScheme { ty: ty, generics: ty::Generics::empty() }
         }
         ast::ItemFn(ref decl, unsafety, _, abi, ref generics, _) => {
-            let ty_generics = ty_generics_for_fn(ccx, generics, &ty::Generics::empty());
-            let tofd = astconv::ty_of_bare_fn(&ccx.icx(generics), unsafety, abi, &**decl);
+            let ty_generics = ty_generics_for_fn(ccx, it.id, generics, &ty::Generics::empty());
+            let tofd = astconv::ty_of_bare_fn(&ccx.icx(generics), unsafety, abi, &**decl,
+                                              ty_generics.fn_region());
             let ty = ty::mk_bare_fn(tcx, Some(local_def(it.id)), tcx.mk_bare_fn(tofd));
             ty::TypeScheme { ty: ty, generics: ty_generics }
         }
@@ -1493,7 +1495,37 @@ fn convert_typed_item<'a, 'tcx>(ccx: &CrateCtxt<'a, 'tcx>,
             ty::GenericPredicates::empty()
         }
         ast::ItemFn(_, _, _, _, ref ast_generics, _) => {
-            ty_generic_predicates_for_fn(ccx, ast_generics, &ty::GenericPredicates::empty())
+            // Get the 'self region for this fn, representing the fn
+            // bound.
+            let fn_region = scheme.generics.fn_region();
+
+            // For each type parameter `T` that does not appear in the
+            // fn signature, introduce `T:'callee`. Same for each
+            // early-bound lifetime parameter `'x`.
+            let params = ctp::parameters_for_type(scheme.ty);
+            let type_predicates =
+                scheme.generics.types
+                               .iter()
+                               .filter(|def| !params.contains(&ctp::Parameter::Type(def.to_param_ty())))
+                               .map(|def| ty::mk_param_from_def(tcx, def))
+                               .map(|ty| ty::Binder(ty::OutlivesPredicate(ty, fn_region)))
+                               .map(|p| p.as_predicate());
+            let region_predicates =
+                scheme.generics.regions
+                               .iter()
+                               .map(|def| def.to_early_bound_region_data())
+                               .filter(|&ebr| !params.contains(&ctp::Parameter::Region(ebr)))
+                               .map(|ebr| ty::ReEarlyBound(ebr))
+                               .map(|r| ty::Binder(ty::OutlivesPredicate(r, fn_region)))
+                               .map(|p| p.as_predicate());
+            let all_predicates: Vec<_> =
+                type_predicates.chain(region_predicates).collect();
+            let base_predicates =
+                ty::GenericPredicates {
+                    predicates: VecPerParamSpace::new(vec![], vec![], all_predicates)
+                };
+
+            ty_generic_predicates_for_fn(ccx, ast_generics, &base_predicates)
         }
         ast::ItemTy(_, ref generics) => {
             ty_generic_predicates_for_type_or_impl(ccx, generics)
@@ -1583,6 +1615,11 @@ fn convert_foreign_item<'a, 'tcx>(ccx: &CrateCtxt<'a, 'tcx>,
     let abi = tcx.map.get_foreign_abi(it.id);
 
     let scheme = type_scheme_of_foreign_item(ccx, it, abi);
+
+    debug!("convert_foreign_item: it.id={} scheme={}",
+           it.id,
+           scheme.repr(ccx.tcx));
+
     write_ty_to_tcx(ccx.tcx, it.id, scheme.ty);
 
     let predicates = match it.node {
@@ -1645,11 +1682,21 @@ fn ty_generics_for_trait<'a, 'tcx>(ccx: &CrateCtxt<'a, 'tcx>,
 }
 
 fn ty_generics_for_fn<'a,'tcx>(ccx: &CrateCtxt<'a,'tcx>,
+                               fn_id: ast::NodeId,
                                generics: &ast::Generics,
                                base_generics: &ty::Generics<'tcx>)
                                -> ty::Generics<'tcx>
 {
-    ty_generics(ccx, FnSpace, generics, base_generics)
+    let mut generics = ty_generics(ccx, FnSpace, generics, base_generics);
+    let index = generics.regions.get_slice(FnSpace).len();
+    let fn_def = ty::RegionParameterDef { name: special_idents::self_.name,
+                                          def_id: local_def(fn_id),
+                                          space: FnSpace,
+                                          index: index as u32,
+                                          bounds: vec![],
+                                          implicit: true, };
+    generics.regions.push(FnSpace, fn_def);
+    generics
 }
 
 fn ty_generic_predicates_for_fn<'a,'tcx>(ccx: &CrateCtxt<'a,'tcx>,
@@ -1840,7 +1887,8 @@ fn ty_generics<'a,'tcx>(ccx: &CrateCtxt<'a,'tcx>,
                                            space: space,
                                            index: i as u32,
                                            def_id: local_def(l.lifetime.id),
-                                           bounds: bounds };
+                                           bounds: bounds,
+                                           implicit: false, };
         result.regions.push(space, def);
     }
 
@@ -2092,6 +2140,10 @@ fn compute_type_scheme_of_foreign_fn_decl<'a, 'tcx>(
     abi: abi::Abi)
     -> ty::TypeScheme<'tcx>
 {
+    debug!("compute_type_scheme_of_foreign_fn_decl(decl={:?}, ast_generics={:?})",
+           decl,
+           ast_generics);
+
     for i in decl.inputs.iter() {
         match (*i).pat.node {
             ast::PatIdent(_, _, _) => (),
@@ -2103,7 +2155,10 @@ fn compute_type_scheme_of_foreign_fn_decl<'a, 'tcx>(
         }
     }
 
-    let ty_generics = ty_generics_for_fn(ccx, ast_generics, &ty::Generics::empty());
+    let ty_generics = ty_generics(ccx, FnSpace, ast_generics, &ty::Generics::empty());
+
+    debug!("compute_type_scheme_of_foreign_fn_decl: ty_generics={}",
+           ty_generics.repr(ccx.tcx));
 
     let rb = BindingRscope::new();
     let input_tys = decl.inputs
@@ -2129,6 +2184,7 @@ fn compute_type_scheme_of_foreign_fn_decl<'a, 'tcx>(
             sig: ty::Binder(ty::FnSig {inputs: input_tys,
                                        output: output,
                                        variadic: decl.variadic}),
+            region_bound: ty::ReStatic,
         }));
 
     ty::TypeScheme {

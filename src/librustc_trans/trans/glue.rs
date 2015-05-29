@@ -357,6 +357,8 @@ fn trans_struct_drop<'blk, 'tcx>(bcx: Block<'blk, 'tcx>,
 {
     debug!("trans_struct_drop t: {}", bcx.ty_to_string(t));
 
+    let substs = &substs.clone().erase_regions();
+
     // Find and call the actual destructor
     let dtor_addr = get_res_dtor(bcx.ccx(), dtor_did, t, class_did, substs);
 
