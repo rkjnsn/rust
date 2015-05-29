@@ -140,6 +140,21 @@ pub unsafe fn try<F: FnOnce()>(f: F) -> Result<(), Box<Any + Send>> {
     // `dllexport`, but it's easier to not have conditional `src/rt/rust_try.ll`
     // files and instead just have this non-generic shim the compiler can take
     // care of exposing correctly.
+    #[cfg(not(stage0))]
+    unsafe fn inner_try<'a>(f: extern fn(*mut c_void)+'a, data: *mut c_void)
+                            -> Result<(), Box<Any + Send>> {
+        let prev = PANICKING.with(|s| s.get());
+        PANICKING.with(|s| s.set(false));
+        let ep = rust_try(f, data);
+        PANICKING.with(|s| s.set(prev));
+        if ep.is_null() {
+            Ok(())
+        } else {
+            Err(imp::cleanup(ep))
+        }
+    }
+
+    #[cfg(stage0)]
     unsafe fn inner_try(f: extern fn(*mut c_void), data: *mut c_void)
                         -> Result<(), Box<Any + Send>> {
         let prev = PANICKING.with(|s| s.get());
@@ -158,6 +173,17 @@ pub unsafe fn try<F: FnOnce()>(f: F) -> Result<(), Box<Any + Send>> {
         unsafe { (*opt_closure).take().unwrap()(); }
     }
 
+    #[cfg(not(stage0))]
+    extern {
+        // Rust's try-catch
+        // When f(...) returns normally, the return value is null.
+        // When f(...) throws, the return value is a pointer to the caught
+        // exception object.
+        fn rust_try<'a>(f: extern fn(*mut c_void)+'a,
+                        data: *mut c_void) -> *mut c_void;
+    }
+
+    #[cfg(stage0)]
     extern {
         // Rust's try-catch
         // When f(...) returns normally, the return value is null.

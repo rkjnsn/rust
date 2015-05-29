@@ -287,7 +287,7 @@ mod imp {
 
     unsafe impl<T> ::marker::Sync for Key<T> { }
 
-    impl<T> Key<T> {
+    impl<T:'static> Key<T> {
         pub const fn new() -> Key<T> {
             Key {
                 inner: UnsafeCell::new(None),
