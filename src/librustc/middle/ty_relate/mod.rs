@@ -276,7 +276,7 @@ fn relate_arg_vecs<'a,'tcx:'a,R>(relation: &mut R,
 
     a_args.iter()
           .zip(b_args.iter())
-          .map(|(a, b)| relation.relate_with_variance(ty::Contravariant, a, b))
+          .map(|(a, b)| relation.relate_with_variance(ty::Invariant, a, b))
           .collect()
 }
 
