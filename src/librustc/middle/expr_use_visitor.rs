@@ -291,7 +291,7 @@ impl OverloadedCallType {
 // supplies types from the tree. After type checking is complete, you
 // can just use the tcx as the typer.
 
-pub struct ExprUseVisitor<'d,'t,'tcx:'t,TYPER:'t> {
+pub struct ExprUseVisitor<'d,'t,'tcx:'t+'d,TYPER:'t> {
     typer: &'t TYPER,
     mc: mc::MemCategorizationContext<'t,TYPER>,
     delegate: &'d mut (Delegate<'tcx>+'d),

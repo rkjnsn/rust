@@ -37,10 +37,12 @@ pub struct WithHrAssoc<T>
 }
 
 fn with_assoc<'a,'b>() {
-    // We get no error here because the where clause has a higher-ranked assoc type,
-    // which could not be projected from.
+    // The error here is just because `'a:'b` must hold for the type
+    // below to be well-formed in general, it is not related to the HR
+    // relation.
 
     let _: &'a WithHrAssoc<TheType<'b>> = loop { };
+    //~^ ERROR cannot infer
 }
 
 ///////////////////////////////////////////////////////////////////////////
@@ -57,12 +59,13 @@ pub struct WithHrAssocSub<T>
 }
 
 fn with_assoc_sub<'a,'b>() {
-    // Same here, because although the where clause is not HR, it
-    // extends a trait in a HR way.
+    // The error here is just because `'a:'b` must hold for the type
+    // below to be well-formed, it is not related to the HR relation.
 
     let _: &'a WithHrAssocSub<TheType<'b>> = loop { };
+    //~^ ERROR cannot infer
 }
 
 #[rustc_error]
-fn main() { //~ ERROR compilation successful
+fn main() {
 }

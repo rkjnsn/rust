@@ -3297,6 +3297,48 @@ impl<'tcx> TyS<'tcx> {
             _ => false,
         }
     }
+
+    /// Returns the regions directly referenced from this type (but
+    /// not types reachable from this type via `walk_tys`). This
+    /// ignores late-bound regions binders.
+    pub fn regions(&self) -> Vec<ty::Region> {
+        match self.sty {
+            ty_rptr(region, _) => {
+                vec![*region]
+            }
+            ty_bare_fn(_, ref sig) => {
+                vec![sig.region_bound]
+            }
+            ty_trait(ref obj) => {
+                let mut v = vec![obj.bounds.region_bound];
+                v.push_all(obj.principal.skip_binder().substs.regions().as_slice());
+                v
+            }
+            ty_enum(_, substs) |
+            ty_struct(_, substs) => {
+                substs.regions().as_slice().to_vec()
+            }
+            ty_closure(_, substs) => {
+                substs.regions().as_slice().to_vec()
+            }
+            ty_bool |
+            ty_char |
+            ty_int(_) |
+            ty_uint(_) |
+            ty_float(_) |
+            ty_uniq(_) |
+            ty_str |
+            ty_vec(_, _) |
+            ty_ptr(_) |
+            ty_tup(_) |
+            ty_projection(_) |
+            ty_param(_) |
+            ty_infer(_) |
+            ty_err => {
+                vec![]
+            }
+        }
+    }
 }
 
 pub fn walk_ty<'tcx, F>(ty_root: Ty<'tcx>, mut f: F)
@@ -5845,7 +5887,6 @@ pub fn enum_variant_with_id<'tcx>(cx: &ctxt<'tcx>,
                               .clone()
 }
 
-
 // If the given item is in an external crate, looks up its type and adds it to
 // the type cache. Returns the type parameters and type.
 pub fn lookup_item_type<'tcx>(cx: &ctxt<'tcx>,
@@ -6819,58 +6860,6 @@ pub enum ExplicitSelfCategory {
     ByValueExplicitSelfCategory,
     ByReferenceExplicitSelfCategory(Region, ast::Mutability),
     ByBoxExplicitSelfCategory,
-}
-
-/// Pushes all the lifetimes in the given type onto the given list. A
-/// "lifetime in a type" is a lifetime specified by a reference or a lifetime
-/// in a list of type substitutions. This does *not* traverse into nominal
-/// types, nor does it resolve fictitious types.
-pub fn accumulate_lifetimes_in_type(accumulator: &mut Vec<ty::Region>,
-                                    ty: Ty) {
-    walk_ty(ty, |ty| {
-        match ty.sty {
-            ty_rptr(region, _) => {
-                accumulator.push(*region)
-            }
-            ty_trait(ref t) => {
-                accumulator.push_all(t.principal.0.substs.regions().as_slice());
-            }
-            ty_enum(_, substs) |
-            ty_struct(_, substs) => {
-                accum_substs(accumulator, substs);
-            }
-            ty_closure(_, substs) => {
-                accum_substs(accumulator, substs);
-            }
-            ty_bool |
-            ty_char |
-            ty_int(_) |
-            ty_uint(_) |
-            ty_float(_) |
-            ty_uniq(_) |
-            ty_str |
-            ty_vec(_, _) |
-            ty_ptr(_) |
-            ty_bare_fn(..) |
-            ty_tup(_) |
-            ty_projection(_) |
-            ty_param(_) |
-            ty_infer(_) |
-            ty_err => {
-            }
-        }
-    });
-
-    fn accum_substs(accumulator: &mut Vec<Region>, substs: &Substs) {
-        match substs.regions {
-            subst::ErasedRegions => {}
-            subst::NonerasedRegions(ref regions) => {
-                for region in regions.iter() {
-                    accumulator.push(*region)
-                }
-            }
-        }
-    }
 }
 
 /// A free variable referred to in a function.

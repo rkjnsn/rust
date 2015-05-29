@@ -509,8 +509,10 @@ fn find_implied_output_region(input_tys: &[Ty], input_pats: Vec<String>)
     let mut possible_implied_output_region = None;
 
     for (input_type, input_pat) in input_tys.iter().zip(input_pats.into_iter()) {
-        let mut accumulator = Vec::new();
-        ty::accumulate_lifetimes_in_type(&mut accumulator, *input_type);
+        let accumulator: Vec<_> =
+            input_type.walk()
+                      .flat_map(|t| t.regions())
+                      .collect();
 
         if accumulator.len() == 1 {
             // there's a chance that the unique lifetime of this
