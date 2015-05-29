@@ -936,14 +936,24 @@ impl<'a, 'tcx> Clean<Generics> for (&'a ty::Generics<'tcx>,
         let stripped_typarams = gens.types.get_slice(space).iter().map(|tp| {
             tp.clean(cx)
         }).collect::<Vec<_>>();
-        let stripped_lifetimes = gens.regions.get_slice(space).iter().map(|rp| {
-            let mut srp = rp.clone();
-            srp.bounds = Vec::new();
-            srp.clean(cx)
-        }).collect::<Vec<_>>();
+        let stripped_lifetimes =
+            gens.regions.get_slice(space)
+                        .iter()
+                        .filter(|rp| !rp.implicit)
+                        .map(|rp| {
+                            let mut srp = rp.clone();
+                            srp.bounds = Vec::new();
+                            srp.clean(cx)
+                        })
+                        .collect::<Vec<_>>();
 
-        let mut where_predicates = preds.predicates.get_slice(space)
-                                                   .to_vec().clean(cx);
+        let mut where_predicates =
+            preds.predicates.get_slice(space)
+                            .iter()
+                            .filter(|wp| !references_implicit(wp, gens))
+                            .cloned()
+                            .collect::<Vec<_>>()
+                            .clean(cx);
 
         // Type parameters and have a Sized bound by default unless removed with
         // ?Sized.  Scan through the predicates and mark any type parameter with
@@ -987,6 +997,28 @@ impl<'a, 'tcx> Clean<Generics> for (&'a ty::Generics<'tcx>,
             lifetimes: stripped_lifetimes,
             where_predicates: simplify::where_clauses(cx, where_predicates),
         }
+    }
+}
+
+/// The compiler sometimes creates implicit predicate attached to fns.
+/// These predicates can be recognized because they are always outlives
+/// predicates referencing aa implicit region parameter.
+fn references_implicit(predicate: &ty::Predicate, generics: &ty::Generics)
+                       -> bool {
+    // We create implicit preds of the form `T: 'r` and `'a: 'r` where
+    // `'r` is an implicit region, so check for those.
+    match *predicate {
+        ty::Predicate::RegionOutlives(ty::Binder(ty::OutlivesPredicate(_, ref r))) |
+        ty::Predicate::TypeOutlives(ty::Binder(ty::OutlivesPredicate(_, ref r))) => {
+            match *r {
+                ty::ReEarlyBound(ref ebr) =>
+                    generics.regions.get(ebr.space, ebr.index as usize).implicit,
+                _ =>
+                    false,
+            }
+        }
+
+        _ => false,
     }
 }
 
