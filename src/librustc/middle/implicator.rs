@@ -42,8 +42,9 @@ struct Implicator<'a, 'tcx: 'a> {
     visited: FnvHashSet<Ty<'tcx>>,
 }
 
-/// This routine computes the well-formedness constraints that must hold for the type `ty` to
-/// appear in a context with lifetime `outer_region`
+/// This routine computes the full set of well-formedness constraints
+/// that must hold for the type `ty` to appear in a context with
+/// lifetime `outer_region`.
 pub fn implications<'a,'tcx>(
     infcx: &'a InferCtxt<'a,'tcx>,
     closure_typer: &ty::ClosureTyper<'tcx>,
@@ -93,10 +94,13 @@ impl<'a, 'tcx> Implicator<'a, 'tcx> {
             ty::ty_int(..) |
             ty::ty_uint(..) |
             ty::ty_float(..) |
-            ty::ty_bare_fn(..) |
             ty::ty_err |
             ty::ty_str => {
                 // No borrowed content reachable here.
+            }
+
+            ty::ty_bare_fn(..) => {
+                self.accumulate_referenced_regions_and_types(ty);
             }
 
             ty::ty_closure(def_id, substs) => {
@@ -383,6 +387,37 @@ impl<'a, 'tcx> Implicator<'a, 'tcx> {
             // Each of these is an instance of the `'c <= 'b`
             // constraint above
             self.out.push(Implication::RegionSubRegion(Some(ty), r_d, r_c));
+        }
+
+        self.accumulate_referenced_regions_and_types(ty);
+    }
+
+    fn accumulate_referenced_regions_and_types(&mut self,
+                                               iface_ty: Ty<'tcx>)
+    {
+        // for now, `iface_ty` represents some type that is a fn or
+        // trait object argument, and because those appear underneath
+        // forall binders, we do not enforce the full WF requirements,
+        // just the lifetime "outlives" requirements.
+        for ty in iface_ty.walk() {
+            match ty.sty {
+                ty::ty_param(p) => {
+                    self.push_param_constraint_from_top(p);
+                }
+
+                _ => { }
+            }
+
+            for r in ty.regions() {
+                match r {
+                    ty::ReLateBound(..) => {
+                        // skip late-bound regions
+                    }
+                    _ => {
+                        self.push_region_constraint_from_top(r);
+                    }
+                }
+            }
         }
     }
 

@@ -92,7 +92,7 @@ use middle::region::CodeExtent;
 use middle::subst::Substs;
 use middle::traits;
 use middle::ty::{self, ClosureTyper, ReScope, Ty, MethodCall};
-use middle::infer::{self, GenericKind};
+use middle::infer::{self, GenericKind, InferCtxt};
 use middle::pat_util;
 use util::ppaux::{ty_to_string, Repr};
 
@@ -211,6 +211,10 @@ impl<'a, 'tcx> Rcx<'a, 'tcx> {
 
     pub fn tcx(&self) -> &'a ty::ctxt<'tcx> {
         self.fcx.ccx.tcx
+    }
+
+    pub fn infcx(&self) -> &InferCtxt<'a,'tcx> {
+        self.fcx.infcx()
     }
 
     fn set_body_id(&mut self, body_id: ast::NodeId) -> ast::NodeId {
@@ -1395,11 +1399,13 @@ fn link_reborrowed_region<'a, 'tcx>(rcx: &Rcx<'a, 'tcx>,
     }
 }
 
-/// Ensures that all borrowed data reachable via `ty` outlives `region`.
+/// Ensures that type is well-formed in `region`, which implies (among
+/// other things) that all borrowed data reachable via `ty` outlives
+/// `region`.
 pub fn type_must_outlive<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
-                               origin: infer::SubregionOrigin<'tcx>,
-                               ty: Ty<'tcx>,
-                               region: ty::Region)
+                                  origin: infer::SubregionOrigin<'tcx>,
+                                  ty: Ty<'tcx>,
+                                  region: ty::Region)
 {
     debug!("type_must_outlive(ty={}, region={})",
            ty.repr(rcx.tcx()),
@@ -1407,6 +1413,137 @@ pub fn type_must_outlive<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
 
     let implications = implicator::implications(rcx.fcx.infcx(), rcx.fcx, rcx.body_id,
                                                 ty, region, origin.span());
+    check_implications(rcx, origin, implications);
+}
+
+/// Checks that all data reachable via `ty` *strictly* outlives `scope`.
+/// This is used by dropck.
+///
+/// CAUTION: It is mostly but not entirely equivalent to `T:'parent`
+/// where `'parent` is the parent of `scope`. The difference is subtle
+/// and has to do with trait objects, primarily. In particular, if you
+/// have `Foo<'y>+'z`, then we require that `'z:'parent` but not
+/// `'y:'parent` (same with lifetimes appearing in fn arguments). This
+/// is because there is no actual reference to the trait object that
+/// outlives `scope`, so we don't need to require that the type could
+/// be named outside `scope`.  Because trait objects are always
+/// considered "suspicious" by dropck, if we don't add this special
+/// case, you wind up with some kind of annoying and odd limitations
+/// that crop up
+/// `src/test/compile-fail/regions-early-bound-trait-param.rs`.
+/// Basically there we have `&'foo Trait<'foo>+'bar`, and thus forcing
+/// `'foo` to outlive `'parent` also forces the borrow to outlive
+/// `'parent`, which is longer than should be necessary. The existence
+/// of this "the same but different" predicate is somewhat bothersome
+/// and questionable.
+pub fn type_strictly_outlives<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
+                                        origin: infer::SubregionOrigin<'tcx>,
+                                        ty: Ty<'tcx>,
+                                        scope: CodeExtent)
+{
+    debug!("type_strictly_outlives(ty={}, scope={})",
+           ty.repr(rcx.tcx()),
+           scope.repr(rcx.tcx()));
+
+    let span = origin.span();
+
+    let parent_region =
+        match rcx.tcx().region_maps.opt_encl_scope(scope) {
+            Some(parent_scope) => ty::ReScope(parent_scope),
+            None => rcx.tcx().sess.span_bug(
+                span, &format!("no enclosing scope found for scope: {:?}",
+                               scope)),
+        };
+
+    helper(rcx, origin, ty, parent_region);
+
+    // TODO this is bad because it is a copy-and-paste of implicator,
+    // which in turn highlights that this is NOT QUITE `Foo:'r`.
+    fn helper<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
+                        origin: infer::SubregionOrigin<'tcx>,
+                        ty: Ty<'tcx>,
+                        parent_region: ty::Region)
+    {
+        debug!("type_strictly_outlives::helper: ty={} parent_region={}",
+               ty.repr(rcx.tcx()), parent_region.repr(rcx.tcx()));
+
+        match ty.sty {
+            ty::ty_bool |
+            ty::ty_char |
+            ty::ty_int(..) |
+            ty::ty_uint(..) |
+            ty::ty_float(..) |
+            ty::ty_err |
+            ty::ty_str => {
+                // No borrowed content reachable here.
+            }
+
+            ty::ty_bare_fn(..) => {
+                // TODO bare fn bounds?
+            }
+
+            ty::ty_closure(def_id, substs) => {
+                closure_must_outlive(rcx, origin, parent_region, def_id, substs);
+            }
+
+            ty::ty_trait(ref t) => {
+                rcx.fcx.mk_subr(origin, parent_region, t.bounds.region_bound);
+            }
+
+            ty::ty_enum(_, substs) |
+            ty::ty_struct(_, substs) => {
+                for &ty in substs.types.iter() {
+                    helper(rcx, origin.clone(), ty, parent_region);
+                }
+
+                for &r in substs.regions().iter() {
+                    rcx.fcx.mk_subr(origin.clone(), parent_region, r);
+                }
+            }
+
+            ty::ty_vec(t, _) |
+            ty::ty_ptr(ty::mt { ty: t, .. }) |
+            ty::ty_uniq(t) => {
+                helper(rcx, origin, t, parent_region);
+            }
+
+            ty::ty_rptr(&r_b, _) => {
+                rcx.fcx.mk_subr(origin, parent_region, r_b);
+            }
+
+            ty::ty_param(p) => {
+                generic_must_outlive(rcx, origin.clone(), parent_region, &GenericKind::Param(p));
+            }
+
+            ty::ty_projection(ref data) => {
+                // `<T as TraitRef<..>>::Name`
+                generic_must_outlive(rcx, origin.clone(),
+                                    parent_region, &GenericKind::Projection(data.clone()));
+            }
+
+            ty::ty_tup(ref tuptys) => {
+                for &tupty in tuptys {
+                    helper(rcx, origin.clone(), tupty, parent_region);
+                }
+            }
+
+            ty::ty_infer(_) => {
+                // This should not happen, BUT:
+                //
+                //   Currently we uncover region relationships on
+                //   entering the fn check. We should do this after
+                //   the fn check, then we can call this case a bug().
+            }
+        }
+    }
+}
+
+fn check_implications<'a,'tcx>(rcx: &mut Rcx<'a,'tcx>,
+                               origin: infer::SubregionOrigin<'tcx>,
+                               implications: Vec<implicator::Implication<'tcx>>)
+{
+    debug!("check_implications");
+
     for implication in implications {
         debug!("implication: {}", implication.repr(rcx.tcx()));
         match implication {
@@ -1439,10 +1576,10 @@ pub fn type_must_outlive<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
 }
 
 fn closure_must_outlive<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
-                                  origin: infer::SubregionOrigin<'tcx>,
-                                  region: ty::Region,
-                                  def_id: ast::DefId,
-                                  substs: &'tcx Substs<'tcx>) {
+                                 origin: infer::SubregionOrigin<'tcx>,
+                                 region: ty::Region,
+                                 def_id: ast::DefId,
+                                 substs: &'tcx Substs<'tcx>) {
     debug!("closure_must_outlive(region={}, def_id={}, substs={})",
            region.repr(rcx.tcx()), def_id.repr(rcx.tcx()), substs.repr(rcx.tcx()));
 
@@ -1455,15 +1592,195 @@ fn closure_must_outlive<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
     }
 }
 
-fn generic_must_outlive<'a, 'tcx>(rcx: &Rcx<'a, 'tcx>,
+fn generic_must_outlive<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
                                   origin: infer::SubregionOrigin<'tcx>,
                                   region: ty::Region,
                                   generic: &GenericKind<'tcx>) {
+    match *generic {
+        GenericKind::Param(ref param_ty) => {
+            param_ty_must_outlive(rcx, origin, region, generic, param_ty);
+        }
+        GenericKind::Projection(ref data) => {
+            projection_must_outlive(rcx, origin, region, generic, data);
+        }
+    }
+}
+
+fn param_ty_must_outlive<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
+                                   origin: infer::SubregionOrigin<'tcx>,
+                                   region: ty::Region,
+                                   generic: &GenericKind<'tcx>,
+                                   param_ty: &ty::ParamTy) {
     let param_env = &rcx.fcx.inh.param_env;
 
-    debug!("param_must_outlive(region={}, generic={})",
+    debug!("param_must_outlive(region={}, param_ty={})",
+           region.repr(rcx.tcx()),
+           param_ty.repr(rcx.tcx()));
+
+    let mut param_bounds = generic_bounds(rcx, generic);
+
+    // Add in the default bound of fn body that applies to all in
+    // scope type parameters:
+    param_bounds.push(param_env.implicit_region_bound);
+
+    // Inform region inference that this generic must be properly
+    // bounded.
+    rcx.fcx.infcx().verify_generic_bound(origin,
+                                         generic.clone(),
+                                         region,
+                                         param_bounds);
+}
+
+fn projection_must_outlive<'a, 'tcx>(rcx: &mut Rcx<'a, 'tcx>,
+                                     origin: infer::SubregionOrigin<'tcx>,
+                                     region: ty::Region,
+                                     generic: &GenericKind<'tcx>,
+                                     projection_ty: &ty::ProjectionTy<'tcx>) {
+    let param_env = &rcx.fcx.inh.param_env;
+
+    debug!("projection_must_outlive(region={}, generic={})",
            region.repr(rcx.tcx()),
            generic.repr(rcx.tcx()));
+
+    // This is a particularly thorny situation for inference, and for
+    // now we don't have a complete solution, we just do the best we
+    // can. The problem is that there are multiple ways for `<P0 as
+    // TraitRef<P1..Pn>>::Foo: 'r` to be satisfied:
+    //
+    // 1. If `Pi: 'r` forall i, it is satisfied.
+    // 2. If there is a suitable where-clause, it can be satisfied.
+    // 3. The trait declaration may declare `'static` bounds on `Foo` as well.
+    //
+    // The fact that there are so many options here makes this thorny.
+    // In the case of parameter relations like `T: 'r`, it's somewhat
+    // simpler, because checking such a relation does not affect
+    // inference.  This is true because the region bounds we can
+    // derive for `T` never involve region variables -- they are
+    // always free regions.  The only place a region variable can come
+    // is on the RHS, and in that case, the smaller the region, the
+    // better. This means that our current inference, which always
+    // infers the smallest region it can, can just be used, and we'll
+    // know what the smallest value for `'r` is when it's done. We can
+    // then compare that to the regions in the LHS, which are already
+    // as big as possible, and we're all done.
+    //
+    // Projections can in fact be this simple as well. In particular,
+    // if the parameters `P0..Pn` do not involve any region variables,
+    // that's the same situation.
+    //
+    // Where things get throny is when region variables are involved,
+    // because in that case relating `Pi: 'r` may influence the
+    // inference process, since it could cause `'r` to be inferred to
+    // a larger value. But the problem is that if we add that as a
+    // constraint into our dataflow graph, we've essentially committed
+    // to using option 1 (above) to show that `<P0 as
+    // Trait<P1..Pn>>::Foo: 'r` is satisfied, and it may be that
+    // Option 1 does not apply, but Option 2 or 3 does. But we can't
+    // know that now.
+    //
+    // For now we choose to accept this. It's a conservative choice,
+    // so we can move to a more sophisticated inference model later.
+    // And it's sometimes possible to workaround by introducing
+    // explicit type parameters or type annotations. But it ain't
+    // great!
+
+    // First assemble bounds that we KNOW apply:
+    let mut param_bounds = generic_bounds(rcx, generic); // ...from where clause
+    param_bounds.push_all(&projection_bounds(rcx, origin.span(), projection_ty)); // ...from trait
+
+    // If we know that the projection outlives 'static, then we're done here.
+    if param_bounds.contains(&ty::ReStatic) {
+        return;
+    }
+
+    // Otherwise, as explained above, if inference variables are
+    // involved, fallback to rule #1.
+    if
+        projection_ty.trait_ref.substs.types.iter().any(|t| ty::type_needs_infer(t)) ||
+        projection_ty.trait_ref.substs.regions().iter().any(|r| r.needs_infer())
+    {
+        for &component_ty in &projection_ty.trait_ref.substs.types {
+            type_must_outlive(rcx, origin.clone(), component_ty, region);
+        }
+
+        for &r in projection_ty.trait_ref.substs.regions() {
+            rcx.fcx.mk_subr(origin.clone(), region, r);
+        }
+
+        return;
+    }
+
+    // Here, we OUGHT to improve the verify system to be more flexible.
+    // In particular, we want to have a kind of tree with Any/All predicates,
+    // so that we can say:
+    //
+    //    Any(
+    //       Regions(param_bounds),
+    //       All( XXX ))
+    //
+    // where `XXX` are the trees needed for all the
+    // types/regions. Even then there'd be some remaining complexity
+    // (e.g. nested projections), that we could gloss over (e.g. by
+    // forcing ourselves to use rule #1 above, and hence just
+    // enumerating the set of types etc). And of course it's all still
+    // an incomplete approximation.
+    //
+    // I've chosen to forego that complexity for now and instead add a
+    // really hacky, simple rule. If there are no region bounds in the
+    // trait, and all types are parameters, we can add the implicit
+    // region bound indicating that this projection is live for the fn
+    // itself. This makes most code in The Real World compile, anyway.
+    // And the rest of code will just...fail.
+    if
+        projection_ty.trait_ref.substs.types.iter().all(|t| t.is_any_param()) &&
+        projection_ty.trait_ref.substs.regions().iter().all(
+            |r| outlives_implicit_region_bound(&param_env.implicit_region_bound, r))
+    {
+        param_bounds.push(param_env.implicit_region_bound);
+    }
+
+    // Inform region inference that this generic must be properly
+    // bounded.
+    rcx.fcx.infcx().verify_generic_bound(origin,
+                                         generic.clone(),
+                                         region,
+                                         param_bounds);
+
+    fn outlives_implicit_region_bound(implicit_region_bound: &ty::Region,
+                                      region: &ty::Region)
+                                      -> bool
+    {
+        match *region {
+            ty::ReStatic => true,
+            ty::ReFree(ref free) => {
+                match *implicit_region_bound {
+                    ty::ReScope(CodeExtent::DestructionScope(node_id)) => {
+                        free.scope.node_id == node_id
+                    }
+                    _ => false,
+                }
+            }
+            // to be more precise, we could consider
+            // scope(destruction-scope), but in practice we never see
+            // that
+            ty::ReScope(..) |
+            ty::ReEmpty => {
+                false
+            }
+            ty::ReEarlyBound(..) |
+            ty::ReLateBound(..) |
+            ty::ReInfer(..) => {
+                panic!("Invalid region in outlives_implicit_region_bound: {:?}", region)
+            }
+        }
+    }
+}
+
+fn generic_bounds<'a, 'tcx>(rcx: &Rcx<'a, 'tcx>,
+                            generic: &GenericKind<'tcx>)
+                            -> Vec<ty::Region>
+{
+    let param_env = &rcx.fcx.inh.param_env;
 
     // To start, collect bounds from user:
     let mut param_bounds =
@@ -1471,20 +1788,7 @@ fn generic_must_outlive<'a, 'tcx>(rcx: &Rcx<'a, 'tcx>,
                                    generic.to_ty(rcx.tcx()),
                                    param_env.caller_bounds.clone());
 
-    // In the case of a projection T::Foo, we may be able to extract bounds from the trait def:
-    match *generic {
-        GenericKind::Param(..) => { }
-        GenericKind::Projection(ref projection_ty) => {
-            param_bounds.push_all(
-                &projection_bounds(rcx, origin.span(), projection_ty));
-        }
-    }
-
-    // Add in the default bound of fn body that applies to all in
-    // scope type parameters:
-    param_bounds.push(param_env.implicit_region_bound);
-
-    // Finally, collect regions we scraped from the well-formedness
+    // Next, collect regions we scraped from the well-formedness
     // constraints in the fn signature. To do that, we walk the list
     // of known relations from the fn ctxt.
     //
@@ -1504,12 +1808,7 @@ fn generic_must_outlive<'a, 'tcx>(rcx: &Rcx<'a, 'tcx>,
         }
     }
 
-    // Inform region inference that this generic must be properly
-    // bounded.
-    rcx.fcx.infcx().verify_generic_bound(origin,
-                                         generic.clone(),
-                                         region,
-                                         param_bounds);
+    param_bounds
 }
 
 fn projection_bounds<'a,'tcx>(rcx: &Rcx<'a, 'tcx>,
