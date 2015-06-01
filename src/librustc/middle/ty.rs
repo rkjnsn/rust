@@ -17,7 +17,6 @@ pub use self::InferTy::*;
 pub use self::InferRegion::*;
 pub use self::ImplOrTraitItemId::*;
 pub use self::ClosureKind::*;
-pub use self::Variance::*;
 pub use self::AutoAdjustment::*;
 pub use self::Representability::*;
 pub use self::AutoRef::*;
@@ -297,10 +296,9 @@ pub struct ItemVariances {
 
 #[derive(Clone, PartialEq, RustcDecodable, RustcEncodable, Debug, Copy)]
 pub enum Variance {
-    Covariant,      // T<A> <: T<B> iff A <: B -- e.g., function return type
-    Invariant,      // T<A> <: T<B> iff B == A -- e.g., type of mutable cell
-    Contravariant,  // T<A> <: T<B> iff B <: A -- e.g., function param type
-    Bivariant,      // T<A> <: T<B>            -- e.g., unused type parameter
+    B, // Bivariant
+    V, // Variant (co- for types, contra- for lifetimes)
+    I, // Invariant
 }
 
 #[derive(Copy, Clone, Debug)]
@@ -6645,10 +6643,9 @@ pub fn hash_crate_independent<'tcx>(tcx: &ctxt<'tcx>, ty: Ty<'tcx>, svh: &Svh) -
 impl Variance {
     pub fn to_string(self) -> &'static str {
         match self {
-            Covariant => "+",
-            Contravariant => "-",
-            Invariant => "o",
-            Bivariant => "*",
+            Variance::B => "B",
+            Variance::V => "V",
+            Variance::I => "I",
         }
     }
 }
