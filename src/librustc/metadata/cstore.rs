@@ -25,6 +25,7 @@ use util::nodemap::{FnvHashMap, NodeMap};
 use std::cell::{RefCell, Ref};
 use std::rc::Rc;
 use std::path::PathBuf;
+use std::collections::VecMap;
 use flate::Bytes;
 use syntax::ast;
 use syntax::codemap;
@@ -86,7 +87,7 @@ pub struct CrateSource {
 }
 
 pub struct CStore {
-    metas: RefCell<FnvHashMap<ast::CrateNum, Rc<crate_metadata>>>,
+    metas: RefCell<VecMap<Rc<crate_metadata>>>,
     /// Map from NodeId's of local extern crate statements to crate numbers
     extern_mod_crate_map: RefCell<NodeMap<ast::CrateNum>>,
     used_crate_sources: RefCell<Vec<CrateSource>>,
@@ -98,7 +99,7 @@ pub struct CStore {
 impl CStore {
     pub fn new(intr: Rc<IdentInterner>) -> CStore {
         CStore {
-            metas: RefCell::new(FnvHashMap()),
+            metas: RefCell::new(VecMap::new()),
             extern_mod_crate_map: RefCell::new(FnvHashMap()),
             used_crate_sources: RefCell::new(Vec::new()),
             used_libraries: RefCell::new(Vec::new()),
@@ -112,7 +113,7 @@ impl CStore {
     }
 
     pub fn get_crate_data(&self, cnum: ast::CrateNum) -> Rc<crate_metadata> {
-        self.metas.borrow().get(&cnum).unwrap().clone()
+        self.metas.borrow().get(&(cnum as usize)).unwrap().clone()
     }
 
     pub fn get_crate_hash(&self, cnum: ast::CrateNum) -> Svh {
@@ -121,14 +122,14 @@ impl CStore {
     }
 
     pub fn set_crate_data(&self, cnum: ast::CrateNum, data: Rc<crate_metadata>) {
-        self.metas.borrow_mut().insert(cnum, data);
+        self.metas.borrow_mut().insert(cnum as usize, data);
     }
 
     pub fn iter_crate_data<I>(&self, mut i: I) where
         I: FnMut(ast::CrateNum, &crate_metadata),
     {
-        for (&k, v) in &*self.metas.borrow() {
-            i(k, &**v);
+        for (k, v) in &*self.metas.borrow() {
+            i(k as ast::CrateNum, &**v);
         }
     }
 
@@ -136,10 +137,10 @@ impl CStore {
     pub fn iter_crate_data_origins<I>(&self, mut i: I) where
         I: FnMut(ast::CrateNum, &crate_metadata, Option<CrateSource>),
     {
-        for (&k, v) in &*self.metas.borrow() {
-            let origin = self.get_used_crate_source(k);
-            origin.as_ref().map(|cs| { assert!(k == cs.cnum); });
-            i(k, &**v, origin);
+        for (k, v) in &*self.metas.borrow() {
+            let origin = self.get_used_crate_source(k as ast::CrateNum);
+            origin.as_ref().map(|cs| { assert!(k as ast::CrateNum == cs.cnum); });
+            i(k as ast::CrateNum, &**v, origin);
         }
     }
 
@@ -185,8 +186,8 @@ impl CStore {
             }
             ordering.push(cnum);
         };
-        for (&num, _) in &*self.metas.borrow() {
-            visit(self, num, &mut ordering);
+        for (num, _) in &*self.metas.borrow() {
+            visit(self, num as ast::CrateNum, &mut ordering);
         }
         ordering.reverse();
         let mut libs = self.used_crate_sources.borrow()
