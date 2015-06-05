@@ -619,57 +619,62 @@ fn link_rlib<'a>(sess: &'a Session,
             ab.add_file(&metadata).unwrap();
             remove(sess, &metadata);
 
+            let store_bytecode = ::std::env::var("RUSTC_NO_BYTECODE").is_err();
+            if !store_bytecode { info!("not storing bytecode") }
+
             // For LTO purposes, the bytecode of this library is also inserted
             // into the archive.  If codegen_units > 1, we insert each of the
             // bitcode files.
-            for i in 0..sess.opts.cg.codegen_units {
-                // Note that we make sure that the bytecode filename in the
-                // archive is never exactly 16 bytes long by adding a 16 byte
-                // extension to it. This is to work around a bug in LLDB that
-                // would cause it to crash if the name of a file in an archive
-                // was exactly 16 bytes.
-                let bc_filename = obj_filename.with_extension(&format!("{}.bc", i));
-                let bc_deflated_filename = obj_filename.with_extension(
-                    &format!("{}.bytecode.deflate", i));
+            if store_bytecode {
+                for i in 0..sess.opts.cg.codegen_units {
+                    // Note that we make sure that the bytecode filename in the
+                    // archive is never exactly 16 bytes long by adding a 16 byte
+                    // extension to it. This is to work around a bug in LLDB that
+                    // would cause it to crash if the name of a file in an archive
+                    // was exactly 16 bytes.
+                    let bc_filename = obj_filename.with_extension(&format!("{}.bc", i));
+                    let bc_deflated_filename = obj_filename.with_extension(
+                        &format!("{}.bytecode.deflate", i));
 
-                let mut bc_data = Vec::new();
-                match fs::File::open(&bc_filename).and_then(|mut f| {
-                    f.read_to_end(&mut bc_data)
-                }) {
-                    Ok(..) => {}
-                    Err(e) => sess.fatal(&format!("failed to read bytecode: {}",
-                                                 e))
-                }
-
-                let bc_data_deflated = flate::deflate_bytes(&bc_data[..]);
-
-                let mut bc_file_deflated = match fs::File::create(&bc_deflated_filename) {
-                    Ok(file) => file,
-                    Err(e) => {
-                        sess.fatal(&format!("failed to create compressed \
-                                             bytecode file: {}", e))
+                    let mut bc_data = Vec::new();
+                    match fs::File::open(&bc_filename).and_then(|mut f| {
+                        f.read_to_end(&mut bc_data)
+                    }) {
+                        Ok(..) => {}
+                        Err(e) => sess.fatal(&format!("failed to read bytecode: {}",
+                                                      e))
                     }
-                };
 
-                match write_rlib_bytecode_object_v1(&mut bc_file_deflated,
-                                                    &bc_data_deflated) {
-                    Ok(()) => {}
-                    Err(e) => {
-                        sess.fatal(&format!("failed to write compressed \
-                                             bytecode: {}", e));
-                    }
-                };
+                    let bc_data_deflated = flate::deflate_bytes(&bc_data[..]);
 
-                ab.add_file(&bc_deflated_filename).unwrap();
-                remove(sess, &bc_deflated_filename);
+                    let mut bc_file_deflated = match fs::File::create(&bc_deflated_filename) {
+                        Ok(file) => file,
+                        Err(e) => {
+                            sess.fatal(&format!("failed to create compressed \
+                                                 bytecode file: {}", e))
+                        }
+                    };
 
-                // See the bottom of back::write::run_passes for an explanation
-                // of when we do and don't keep .0.bc files around.
-                let user_wants_numbered_bitcode =
+                    match write_rlib_bytecode_object_v1(&mut bc_file_deflated,
+                                                        &bc_data_deflated) {
+                        Ok(()) => {}
+                        Err(e) => {
+                            sess.fatal(&format!("failed to write compressed \
+                                                 bytecode: {}", e));
+                        }
+                    };
+
+                    ab.add_file(&bc_deflated_filename).unwrap();
+                    remove(sess, &bc_deflated_filename);
+
+                    // See the bottom of back::write::run_passes for an explanation
+                    // of when we do and don't keep .0.bc files around.
+                    let user_wants_numbered_bitcode =
                         sess.opts.output_types.contains(&OutputTypeBitcode) &&
                         sess.opts.cg.codegen_units > 1;
-                if !sess.opts.cg.save_temps && !user_wants_numbered_bitcode {
-                    remove(sess, &bc_filename);
+                    if !sess.opts.cg.save_temps && !user_wants_numbered_bitcode {
+                        remove(sess, &bc_filename);
+                    }
                 }
             }
 
