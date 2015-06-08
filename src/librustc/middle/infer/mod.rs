@@ -20,7 +20,7 @@ pub use self::ValuePairs::*;
 pub use self::fixup_err::*;
 pub use middle::ty::IntVarValue;
 pub use self::freshen::TypeFreshener;
-pub use self::region_inference::GenericKind;
+pub use self::region_inference::{GenericKind, VerifyBound};
 
 use middle::free_region::FreeRegionMap;
 use middle::subst;
@@ -1049,13 +1049,13 @@ impl<'a, 'tcx> InferCtxt<'a, 'tcx> {
                                 origin: SubregionOrigin<'tcx>,
                                 kind: GenericKind<'tcx>,
                                 a: ty::Region,
-                                bs: Vec<ty::Region>) {
+                                bound: VerifyBound) {
         debug!("verify_generic_bound({}, {} <: {})",
                kind.repr(self.tcx),
                a.repr(self.tcx),
-               bs.repr(self.tcx));
+               bound.repr(self.tcx));
 
-        self.region_vars.verify_generic_bound(origin, kind, a, bs);
+        self.region_vars.verify_generic_bound(origin, kind, a, bound);
     }
 
     pub fn can_equate<'b,T>(&'b self, a: &T, b: &T) -> UnitResult<'tcx>

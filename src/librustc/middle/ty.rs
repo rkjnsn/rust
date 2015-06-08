@@ -2047,7 +2047,7 @@ impl<'tcx> PolyProjectionPredicate<'tcx> {
 
 /// Represents the projection of an associated type. In explicit UFCS
 /// form this would be written `<T as Trait<..>>::N`.
-#[derive(Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct ProjectionTy<'tcx> {
     /// The trait reference `T as Trait<..>`.
     pub trait_ref: ty::TraitRef<'tcx>,
