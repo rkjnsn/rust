@@ -33,10 +33,9 @@ use syntax::abi;
 use syntax::ast;
 use syntax::ast_map;
 use syntax::ast_util::local_def;
-use syntax::attr;
+use syntax::attr::{self, InlineAttr};
 use syntax::codemap::DUMMY_SP;
 use std::hash::{Hasher, Hash, SipHasher};
-use std::cell::Cell;
 
 pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
                                 fn_id: ast::DefId,
@@ -66,6 +65,8 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
     let item_ty = ty::lookup_item_type(ccx.tcx(), fn_id).ty;
     let mono_ty = item_ty.subst(ccx.tcx(), psubsts);
 
+    // If the local LLVM module already has a declaration
+    // of the monomorphization we need then just use it.
     match ccx.monomorphized().borrow().get(&hash_id) {
         Some(&val) => {
             debug!("leaving monomorphic fn {}",
@@ -154,10 +155,6 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         None => ()
     }
 
-    // If we're *not* optimizing compile time can be improved by using
-    // upstream monomorphizations.
-    let optimizing = ccx.sess().opts.optimize != OptLevel::No;
-    let post_linkage_export = Cell::new(None);
     let mk_lldecl = |abi: abi::Abi| {
         let lldecl = if abi != abi::Rust {
             foreign::decl_rust_fn_with_foreign_abi(ccx, mono_ty, &s[..])
@@ -168,72 +165,121 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             })
         };
 
-        // Sadly, we're storing this information thrice.
+        // Sadly, we're storing this information twice.
         // First, with the quickly-calculated hash for the early bailout
         ccx.monomorphized().borrow_mut().insert(hash_id, lldecl);
         // Second with the universal hash. This is for the hack second bailout
         ccx.strong_monomorphized().borrow_mut().insert(universal_hash_id, lldecl);
         lldecl
     };
-    let setup_lldecl = |lldecl, attrs: &[ast::Attribute]| {
-        base::update_linkage(ccx, lldecl, None, base::OriginalTranslation);
-        attributes::from_fn_attrs(ccx, attrs, lldecl);
+    let setup_lldecl = |lldecl, inlineity: InlineAttr, desc: &'static str| {
+        // The following logic decides whether to emit just an
+        // external declaration, or a complete definition, and what
+        // sort of linkage to use. These decisions affect compile
+        // times, binary size, and runtime performance.
 
-        // The first monomorphization will be exported for reuse by
-        // downstream crates. Note though that because of dependency
-        // diamonds the 'first' monomorphization may not be the only
-        // first. These functions have weak_odr linkage so that duplicates
-        // across crates can be discarded.
-        let is_first = !ccx.have_monomorphization(universal_hash_id);
+        // The 'primary' translation is the first instance of a
+        // monomorphization known in all dependency crates, as well
+        // as all codegen units of this crate.
+        let is_primary = !ccx.have_monomorphization(universal_hash_id);
 
-        // inline functions not translated if there is an available
-        // translation exported in an upstream crate and we're not
-        // optimizing
-        let inline_attr = attr::find_inline_attr(None, attrs);
-        let inline = inline_attr == attr::InlineAttr::Hint;
-        let trans_for_inline = inline && !optimizing;
+        // Some additional factors to consider
+        enum Gen { Primary, Secondary }
+        let gen = if is_primary { Gen::Primary } else { Gen::Secondary };
+        let opt_level = ccx.sess().opts.optimize;
 
-        // inline(always) functions are always translated
-        let inline_always = inline_attr == attr::InlineAttr::Always;
-        let trans_everywhere = is_first || trans_for_inline || inline_always;
-
-        if !optimizing && is_first {
-            // Set a flag to set the function to weak odr linkage so that
-            // duplicates can be thrown away at link time
-            post_linkage_export.set(Some(llvm::WeakODRLinkage));
-            // Put it in a table for later export
-            ccx.available_monomorphizations().borrow_mut().insert(universal_hash_id);
-            info!("exported monomorphization: {}", s);
-        } else if optimizing && is_first {
-            // When optimizing, we don't make the functions available
-            // downstream, but with odr linkage duplicates can again
-            // be removed at link time. With linkonce (as opposed to
-            // weak) linkage, llvm is further allowed to discard the
-            // function instead of translate it.
-            post_linkage_export.set(Some(llvm::LinkOnceODRLinkage));
-
-            // Actually, in an optimimzed build, make non-inline
-            // functions available downstream. Unless explicitly
-            // marked #[inline] generics are not guaranteed to be
-            // eligible for inlining.
-            if !inline && !inline_always {
-                post_linkage_export.set(Some(llvm::WeakODRLinkage));
-                ccx.available_monomorphizations().borrow_mut().insert(universal_hash_id);
+        // Only called for logging
+        let d = || format!("{} {} {} {}", desc, ty::item_path_str(ccx.tcx(), fn_id), psubsts.repr(ccx.tcx()), s);
+        
+        let (linkage, translate, save) = match (gen, opt_level, inlineity) {
+            (Gen::Primary, OptLevel::No, _) => {
+                // This is a primary translation but we're not optimizing.
+                // Export it for reuse by downstream crates.
+                // Because of diamond dependencies this may not be
+                // odr linkage so that duplicates can be thrown away
+                // at link time, and export it for downstream reuse.
+                info!("primary monomorphization (non-optimized): {}", d());
+                (llvm::WeakODRLinkage, true, true)
             }
-        } else if !first && (trans_for_inline || inline_always) {
-            // These functions have to be translated, but by being
-            // marked available externally, llvm can throw them away
-            // after inlining them since there are already copies
-            // available elsewhere.
-            post_linkage_export.set(Some(llvm::AvailableExternallyLinkage));
-        } else if !optimizing && !is_first && !inline_always { 
-            info!("elided monomorphization: {}", s);
+            (Gen::Primary, _, InlineAttr::None) => {
+                // In an optimimzed build, make functions w/o
+                // #[inline] available downstream so further
+                // compilation units may opt to reuse it. Unless
+                // explicitly marked #[inline] generics are not
+                // guaranteed to be eligible for inlining.
+                info!("primary monomorphization (optimized non-inline): {}", d());
+                (llvm::WeakODRLinkage, true, true)
+            }
+            (Gen::Primary, _, _) => {
+                // Otherwise when optimizing we don't make the
+                // functions available downstream to save metadata
+                // space and lookup time, but with odr linkage
+                // duplicates can again be removed at link time. With
+                // linkonce (as opposed to weak) linkage, llvm is
+                // further allowed to discard the function instead of
+                // emit it as object code.
+                //
+                // FIXME: It may be worth it to make these available
+                // downstream too, so that e.g. compiling a debug
+                // crate against stable std can benefit from some
+                // optimized functions.
+                info!("primary monomorphization (optimized inline): {}", d());
+                (llvm::LinkOnceODRLinkage, true, false)
+            }
+            (Gen::Secondary, _, InlineAttr::Always) => {
+                // Secondary translations of inline(always) are always
+                // emitted so they can be inlined and with
+                // available_externally linkage are discarded from the
+                // final objects
+                info!("secondary monomorphization (inline always): {}", d());
+                (llvm::AvailableExternallyLinkage, true, false)
+            }
+            (Gen::Secondary, OptLevel::No, InlineAttr::Hint) => {
+                // Secondary translations of inline functions are not
+                // re-emitted if optimizations are off to save compile time
+                info!("elided monomorphization (non-optimized inline): {}", d());
+                (llvm::ExternalLinkage, false, false)
+            }
+            (Gen::Secondary, _, InlineAttr::Hint) => {
+                // Secondary translations of inline functions are
+                // re-emitted if optimizations are on.
+                info!("secondary monomorphization (optimized inline): {}", d());
+                (llvm::AvailableExternallyLinkage, true, false)
+            }
+            (Gen::Secondary, OptLevel::Aggressive, InlineAttr::None) => {
+                // Secondary translations of non-inline functions when
+                // optimimzing aggressively are re-emitted for
+                // performance.
+                info!("secondary monomorphization (optimized non-inline): {}", d());
+                (llvm::AvailableExternallyLinkage, true, false)
+            }
+            (Gen::Secondary, _, InlineAttr::None) => {
+                // Secondary translations of non-inline functions when
+                // not optimimzing aggressively are not translated.
+                info!("elided monomorphization (non-inline): {}", d());
+                (llvm::ExternalLinkage, false, false)
+            }
+            (Gen::Secondary, _, InlineAttr::Never) => {
+                info!("elided monomorphization (never-inline): {}", d());
+                (llvm::ExternalLinkage, false, false)
+            }
+        };
+
+        if save {
+            ccx.available_monomorphizations().borrow_mut().insert(universal_hash_id);
         }
+
+        llvm::SetLinkage(lldecl, linkage);
 
         // If `true`, then `lldecl` should be given a function body.
         // Otherwise, it should be left as a declaration of an external
         // function, with no definition in the current compilation unit.
-        trans_everywhere
+        translate
+    };
+    let setup_lldecl_from_attrs = |lldecl, attrs: &[ast::Attribute]| {
+        attributes::from_fn_attrs(ccx, attrs, lldecl);
+        let inlineity = attr::find_inline_attr(None, attrs);
+        setup_lldecl(lldecl, inlineity, "fn")
     };
 
     let lldecl = match map_node {
@@ -244,7 +290,7 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
                   ..
               } => {
                   let d = mk_lldecl(abi);
-                  let needs_body = setup_lldecl(d, &i.attrs);
+                  let needs_body = setup_lldecl_from_attrs(d, &i.attrs);
                   if needs_body {
                       if abi != abi::Rust {
                           foreign::trans_rust_fn_with_foreign_abi(
@@ -267,19 +313,21 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             let tvs = ty::enum_variants(ccx.tcx(), local_def(parent));
             let this_tv = tvs.iter().find(|tv| { tv.id.node == fn_id.node}).unwrap();
             let d = mk_lldecl(abi::Rust);
-            attributes::inline(d, attributes::InlineAttr::Hint);
-            match v.node.kind {
-                ast::TupleVariantKind(ref args) => {
-                    trans_enum_variant(ccx,
-                                       parent,
-                                       &*v,
-                                       &args[..],
-                                       this_tv.disr_val,
-                                       psubsts,
-                                       d);
+            let needs_body = setup_lldecl(d, InlineAttr::Hint, "variant");
+            if needs_body {
+                match v.node.kind {
+                    ast::TupleVariantKind(ref args) => {
+                        trans_enum_variant(ccx,
+                                           parent,
+                                           &*v,
+                                           &args[..],
+                                           this_tv.disr_val,
+                                           psubsts,
+                                           d);
+                    }
+                    ast::StructVariantKind(_) =>
+                        ccx.sess().bug("can't monomorphize struct variants"),
                 }
-                ast::StructVariantKind(_) =>
-                    ccx.sess().bug("can't monomorphize struct variants"),
             }
             d
         }
@@ -287,7 +335,7 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             match impl_item.node {
                 ast::MethodImplItem(ref sig, ref body) => {
                     let d = mk_lldecl(abi::Rust);
-                    let needs_body = setup_lldecl(d, &impl_item.attrs);
+                    let needs_body = setup_lldecl_from_attrs(d, &impl_item.attrs);
                     if needs_body {
                         trans_fn(ccx,
                                  &sig.decl,
@@ -309,7 +357,7 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             match trait_item.node {
                 ast::MethodTraitItem(ref sig, Some(ref body)) => {
                     let d = mk_lldecl(abi::Rust);
-                    let needs_body = setup_lldecl(d, &trait_item.attrs);
+                    let needs_body = setup_lldecl_from_attrs(d, &trait_item.attrs);
                     if needs_body {
                         trans_fn(ccx, &sig.decl, body, d,
                                  psubsts, trait_item.id, &[]);
@@ -324,13 +372,15 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         }
         ast_map::NodeStructCtor(struct_def) => {
             let d = mk_lldecl(abi::Rust);
-            attributes::inline(d, attributes::InlineAttr::Hint);
-            base::trans_tuple_struct(ccx,
-                                     &struct_def.fields,
-                                     struct_def.ctor_id.expect("ast-mapped tuple struct \
-                                                                didn't have a ctor id"),
-                                     psubsts,
-                                     d);
+            let needs_body = setup_lldecl(d, InlineAttr::Hint, "tuple-struct");
+            if needs_body {
+                base::trans_tuple_struct(ccx,
+                                         &struct_def.fields,
+                                         struct_def.ctor_id.expect("ast-mapped tuple struct \
+                                                                    didn't have a ctor id"),
+                                         psubsts,
+                                         d);
+            }
             d
         }
 
@@ -349,10 +399,6 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
     };
 
     ccx.monomorphizing().borrow_mut().insert(fn_id, depth);
-
-    if let Some(linkage) = post_linkage_export.get() {
-        llvm::SetLinkage(lldecl, linkage);
-    }
 
     debug!("leaving monomorphic fn {}", ty::item_path_str(ccx.tcx(), fn_id));
     (lldecl, mono_ty, true)
@@ -379,7 +425,7 @@ pub fn new_universal_mono_id<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
 
     def_svh.hash(hash_state);
     def_id.node.hash(hash_state);
-    
+
     for ty in params {
         ty::hash_crate_independent_helper(ccx.tcx(), *ty, &def_svh, hash_state);
     }
