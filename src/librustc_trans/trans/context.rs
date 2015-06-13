@@ -723,11 +723,8 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
     }
 
     pub fn have_monomorphization(&self, mono_id: UniversalMonoId) -> bool {
-        if self.shared.upstream_monomorphizations.contains(&mono_id) {
-            true
-        } else {
-            self.shared.available_monomorphizations.borrow().contains(&mono_id)
-        }
+        self.shared.upstream_monomorphizations.contains(&mono_id)
+            || self.shared.available_monomorphizations.borrow().contains(&mono_id)
     }
 
     pub fn available_monomorphizations<'a>(&'a self) -> &'a RefCell<FnvHashSet<UniversalMonoId>> {

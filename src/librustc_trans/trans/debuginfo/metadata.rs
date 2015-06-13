@@ -339,7 +339,7 @@ impl<'tcx> TypeMap<'tcx> {
                 cx.sess().cstore.get_crate_hash(source_def_id.krate)
             };
 
-            output.push_str(&format!("{}", crate_hash));
+            output.push_str(&format!("{:x}", crate_hash.to_u64()));
             output.push_str("/");
             output.push_str(&format!("{:x}", def_id.node));
 

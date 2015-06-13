@@ -61,6 +61,7 @@ impl Svh {
         Svh { hash: hash }
     }
 
+    #[inline]
     pub fn to_u64(&self) -> u64 { self.hash }
 
     pub fn calculate(metadata: &Vec<String>, krate: &ast::Crate) -> Svh {

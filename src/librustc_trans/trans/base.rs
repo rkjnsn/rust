@@ -41,7 +41,7 @@ use middle::lang_items::{LangItem, ExchangeMallocFnLangItem, StartFnLangItem};
 use middle::weak_lang_items;
 use middle::subst::Substs;
 use middle::ty::{self, Ty, ClosureTyper, type_is_simd, simd_size};
-use session::config::{self, NoDebugInfo, OptLevel};
+use session::config::{self, NoDebugInfo};
 use session::Session;
 use trans::_match;
 use trans::adt;
@@ -2501,10 +2501,6 @@ fn register_method(ccx: &CrateContext, id: ast::NodeId,
 pub fn crate_ctxt_to_encode_parms<'a, 'tcx>(cx: &'a SharedCrateContext<'tcx>,
                                             ie: encoder::EncodeInlinedItem<'a>)
                                             -> encoder::EncodeParams<'a, 'tcx> {
-
-    if cx.sess().opts.optimize != OptLevel::No {
-        cx.available_monomorphizations().borrow_mut().clear();
-    };
 
     encoder::EncodeParams {
         diag: cx.sess().diagnostic(),

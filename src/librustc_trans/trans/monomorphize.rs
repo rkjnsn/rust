@@ -154,9 +154,10 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         None => ()
     }
 
-    let is_first = !ccx.have_monomorphization(universal_hash_id);
-    let secondary_translation = Cell::new(false);
-    let do_linkonce_opts = Cell::new(false);
+    // If we're *not* optimizing compile time can be improved by using
+    // upstream monomorphizations.
+    let optimizing = ccx.sess().opts.optimize != OptLevel::No;
+    let post_linkage_export = Cell::new(None);
     let mk_lldecl = |abi: abi::Abi| {
         let lldecl = if abi != abi::Rust {
             foreign::decl_rust_fn_with_foreign_abi(ccx, mono_ty, &s[..])
@@ -170,34 +171,69 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         // Sadly, we're storing this information thrice.
         // First, with the quickly-calculated hash for the early bailout
         ccx.monomorphized().borrow_mut().insert(hash_id, lldecl);
-        // Second with the universal hash. This is a hack
+        // Second with the universal hash. This is for the hack second bailout
         ccx.strong_monomorphized().borrow_mut().insert(universal_hash_id, lldecl);
-        ccx.available_monomorphizations().borrow_mut().insert(universal_hash_id);
         lldecl
     };
     let setup_lldecl = |lldecl, attrs: &[ast::Attribute]| {
         base::update_linkage(ccx, lldecl, None, base::OriginalTranslation);
         attributes::from_fn_attrs(ccx, attrs, lldecl);
 
-        let can_linkonce_opts = ccx.sess().opts.optimize == OptLevel::No;
-        let trans_everywhere = attr::requests_inline(attrs);
-        let trans_everywhere = trans_everywhere || !can_linkonce_opts;
+        // The first monomorphization will be exported for reuse by
+        // downstream crates. Note though that because of dependency
+        // diamonds the 'first' monomorphization may not be the only
+        // first. These functions have weak_odr linkage so that duplicates
+        // across crates can be discarded.
+        let is_first = !ccx.have_monomorphization(universal_hash_id);
 
-        secondary_translation.set(trans_everywhere && !is_first);
-        do_linkonce_opts.set(can_linkonce_opts);
+        // inline functions not translated if there is an available
+        // translation exported in an upstream crate and we're not
+        // optimizing
+        let inline_attr = attr::find_inline_attr(None, attrs);
+        let inline = inline_attr == attr::InlineAttr::Hint;
+        let trans_for_inline = inline && !optimizing;
 
-        if can_linkonce_opts {
-            // FIXME: If this is from the local crate and unreachable
-            // then we shouldn't make it public. No downstream users.
-            llvm::SetLinkage(lldecl, llvm::ExternalLinkage);
-        } else {
-            llvm::SetLinkage(lldecl, llvm::InternalLinkage);
+        // inline(always) functions are always translated
+        let inline_always = inline_attr == attr::InlineAttr::Always;
+        let trans_everywhere = is_first || trans_for_inline || inline_always;
+
+        if !optimizing && is_first {
+            // Set a flag to set the function to weak odr linkage so that
+            // duplicates can be thrown away at link time
+            post_linkage_export.set(Some(llvm::WeakODRLinkage));
+            // Put it in a table for later export
+            ccx.available_monomorphizations().borrow_mut().insert(universal_hash_id);
+            info!("exported monomorphization: {}", s);
+        } else if optimizing && is_first {
+            // When optimizing, we don't make the functions available
+            // downstream, but with odr linkage duplicates can again
+            // be removed at link time. With linkonce (as opposed to
+            // weak) linkage, llvm is further allowed to discard the
+            // function instead of translate it.
+            post_linkage_export.set(Some(llvm::LinkOnceODRLinkage));
+
+            // Actually, in an optimimzed build, make non-inline
+            // functions available downstream. Unless explicitly
+            // marked #[inline] generics are not guaranteed to be
+            // eligible for inlining.
+            if !inline && !inline_always {
+                post_linkage_export.set(Some(llvm::WeakODRLinkage));
+                ccx.available_monomorphizations().borrow_mut().insert(universal_hash_id);
+            }
+        } else if !first && (trans_for_inline || inline_always) {
+            // These functions have to be translated, but by being
+            // marked available externally, llvm can throw them away
+            // after inlining them since there are already copies
+            // available elsewhere.
+            post_linkage_export.set(Some(llvm::AvailableExternallyLinkage));
+        } else if !optimizing && !is_first && !inline_always { 
+            info!("elided monomorphization: {}", s);
         }
 
         // If `true`, then `lldecl` should be given a function body.
         // Otherwise, it should be left as a declaration of an external
         // function, with no definition in the current compilation unit.
-        trans_everywhere || is_first
+        trans_everywhere
     };
 
     let lldecl = match map_node {
@@ -314,31 +350,8 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
 
     ccx.monomorphizing().borrow_mut().insert(fn_id, depth);
 
-    if do_linkonce_opts.get() {
-        if is_first {
-            // The first time a crate dag instantiates a function with
-            // a given set of substitutions it is declared
-            // linkonce_odr. By being linkonce, it can be exported
-            // publicly by multiple crates in a diamond, and the
-            // linker will throw one out. ODR allows *this*
-            // translation unit to assume that any downstream
-            // implementations of this function that may override it
-            // have *the same implementation* as this one - which lets
-            // LLVM inline this one.
-            //
-            // Subsequent monomorphizations in downstream crates will
-            // have available_externally linkage. This is a
-            // compile-time optimization that lets the downstream
-            // compilation units reuse the upstream translations.
-            llvm::SetLinkage(lldecl, llvm::WeakODRLinkage);
-            info!("first mono: {}", s);
-        } else if secondary_translation.get() {
-            llvm::SetLinkage(lldecl, llvm::AvailableExternallyLinkage);
-            info!("second mono: {}", s);
-        } else {
-            info!("unmonomorphized: {}", s);
-            llvm::SetLinkage(lldecl, llvm::ExternalLinkage);
-        }
+    if let Some(linkage) = post_linkage_export.get() {
+        llvm::SetLinkage(lldecl, linkage);
     }
 
     debug!("leaving monomorphic fn {}", ty::item_path_str(ccx.tcx(), fn_id));
@@ -349,12 +362,14 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
 pub struct MonoId<'tcx> {
     pub def: ast::DefId,
     pub params: &'tcx subst::VecPerParamSpace<Ty<'tcx>>
-}        
+}
 
+/// Create a UniversalMonoId that globally identifies a function
+/// monomorphization along with its region-elided type substitutions.
 pub fn new_universal_mono_id<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
                                        def_id: ast::DefId,
                                        params: &'tcx subst::VecPerParamSpace<Ty<'tcx>>) -> UniversalMonoId {
-    let svh = if def_id.krate == ast::LOCAL_CRATE {
+    let def_svh = if def_id.krate == ast::LOCAL_CRATE {
         ccx.link_meta().crate_hash
     } else {
         ccx.tcx().sess.cstore.get_crate_hash(def_id.krate)
@@ -362,12 +377,11 @@ pub fn new_universal_mono_id<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
 
     let ref mut hash_state = SipHasher::new();
 
-    svh.hash(hash_state);
+    def_svh.hash(hash_state);
     def_id.node.hash(hash_state);
     
     for ty in params {
-        let hash = ty::hash_crate_independent(ccx.tcx(), *ty, &svh);
-        hash.hash(hash_state);
+        ty::hash_crate_independent_helper(ccx.tcx(), *ty, &def_svh, hash_state);
     }
 
     UniversalMonoId::new(hash_state.finish())

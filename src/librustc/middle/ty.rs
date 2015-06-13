@@ -6439,141 +6439,146 @@ pub fn trait_item_of_item(tcx: &ctxt, def_id: ast::DefId)
 /// context it's calculated within. This is used by the `type_id` intrinsic.
 pub fn hash_crate_independent<'tcx>(tcx: &ctxt<'tcx>, ty: Ty<'tcx>, svh: &Svh) -> u64 {
     let mut state = SipHasher::new();
-    helper(tcx, ty, svh, &mut state);
+    hash_crate_independent_helper(tcx, ty, svh, &mut state);
     return state.finish();
+}
 
-    fn helper<'tcx>(tcx: &ctxt<'tcx>, ty: Ty<'tcx>, svh: &Svh,
-                    state: &mut SipHasher) {
-        macro_rules! byte { ($b:expr) => { ($b as u8).hash(state) } }
-        macro_rules! hash { ($e:expr) => { $e.hash(state) }  }
+pub fn hash_crate_independent_helper<'tcx>(tcx: &ctxt<'tcx>, ty: Ty<'tcx>, svh: &Svh,
+                                           state: &mut SipHasher) {
+    // FIXME: This lint believes the below assignment to helper is
+    // unconditional recursion
+    #![allow(unconditional_recursion)]
+    let helper = hash_crate_independent_helper;
 
-        let region = |state: &mut SipHasher, r: Region| {
-            match r {
-                ReStatic => {}
-                ReLateBound(db, BrAnon(i)) => {
-                    db.hash(state);
-                    i.hash(state);
-                }
-                ReEmpty |
-                ReEarlyBound(..) |
-                ReLateBound(..) |
-                ReFree(..) |
-                ReScope(..) |
-                ReInfer(..) => {
-                    tcx.sess.bug("unexpected region found when hashing a type")
-                }
+    macro_rules! byte { ($b:expr) => { ($b as u8).hash(state) } }
+    macro_rules! hash { ($e:expr) => { $e.hash(state) }  }
+
+    let region = |state: &mut SipHasher, r: Region| {
+        match r {
+            ReStatic => {}
+            ReLateBound(db, BrAnon(i)) => {
+                db.hash(state);
+                i.hash(state);
             }
-        };
-        let did = |state: &mut SipHasher, did: DefId| {
-            let h = if ast_util::is_local(did) {
-                *svh
-            } else {
-                tcx.sess.cstore.get_crate_hash(did.krate)
-            };
-            h.hash(state);
-            did.node.hash(state);
-        };
-        let mt = |state: &mut SipHasher, mt: mt| {
-            mt.mutbl.hash(state);
-        };
-        let fn_sig = |state: &mut SipHasher, sig: &Binder<FnSig<'tcx>>| {
-            let sig = anonymize_late_bound_regions(tcx, sig).0;
-            for a in &sig.inputs { helper(tcx, *a, svh, state); }
-            if let ty::FnConverging(output) = sig.output {
-                helper(tcx, output, svh, state);
+            ReEmpty |
+            ReEarlyBound(..) |
+            ReLateBound(..) |
+            ReFree(..) |
+            ReScope(..) |
+            ReInfer(..) => {
+                tcx.sess.bug("unexpected region found when hashing a type")
             }
+        }
+    };
+    let did = |state: &mut SipHasher, did: DefId| {
+        let h = if ast_util::is_local(did) {
+            *svh
+        } else {
+            tcx.sess.cstore.get_crate_hash(did.krate)
         };
-        maybe_walk_ty(ty, |ty| {
-            match ty.sty {
-                ty_bool => byte!(2),
-                ty_char => byte!(3),
-                ty_int(i) => {
-                    byte!(4);
-                    hash!(i);
-                }
-                ty_uint(u) => {
-                    byte!(5);
-                    hash!(u);
-                }
-                ty_float(f) => {
-                    byte!(6);
-                    hash!(f);
-                }
-                ty_str => {
-                    byte!(7);
-                }
-                ty_enum(d, _) => {
-                    byte!(8);
-                    did(state, d);
-                }
-                ty_uniq(_) => {
-                    byte!(9);
-                }
-                ty_vec(_, Some(n)) => {
-                    byte!(10);
-                    n.hash(state);
-                }
-                ty_vec(_, None) => {
-                    byte!(11);
-                }
-                ty_ptr(m) => {
-                    byte!(12);
-                    mt(state, m);
-                }
-                ty_rptr(r, m) => {
-                    byte!(13);
-                    region(state, *r);
-                    mt(state, m);
-                }
-                ty_bare_fn(opt_def_id, ref b) => {
-                    byte!(14);
-                    hash!(opt_def_id);
-                    hash!(b.unsafety);
-                    hash!(b.abi);
-                    fn_sig(state, &b.sig);
-                    return false;
-                }
-                ty_trait(ref data) => {
-                    byte!(17);
-                    did(state, data.principal_def_id());
-                    hash!(data.bounds);
-
-                    let principal = anonymize_late_bound_regions(tcx, &data.principal).0;
-                    for subty in principal.substs.types.iter() {
-                        helper(tcx, *subty, svh, state);
-                    }
-
-                    return false;
-                }
-                ty_struct(d, _) => {
-                    byte!(18);
-                    did(state, d);
-                }
-                ty_tup(ref inner) => {
-                    byte!(19);
-                    hash!(inner.len());
-                }
-                ty_param(p) => {
-                    byte!(20);
-                    hash!(p.space);
-                    hash!(p.idx);
-                    hash!(token::get_name(p.name));
-                }
-                ty_infer(_) => unreachable!(),
-                ty_err => byte!(21),
-                ty_closure(d, _) => {
-                    byte!(22);
-                    did(state, d);
-                }
-                ty_projection(ref data) => {
-                    byte!(23);
-                    did(state, data.trait_ref.def_id);
-                    hash!(token::get_name(data.item_name));
-                }
+        h.hash(state);
+        did.node.hash(state);
+    };
+    let mt = |state: &mut SipHasher, mt: mt| {
+        mt.mutbl.hash(state);
+    };
+    let fn_sig = |state: &mut SipHasher, sig: &Binder<FnSig<'tcx>>| {
+        let sig = anonymize_late_bound_regions(tcx, sig).0;
+        for a in &sig.inputs { helper(tcx, *a, svh, state); }
+        if let ty::FnConverging(output) = sig.output {
+            helper(tcx, output, svh, state);
+        }
+    };
+    maybe_walk_ty(ty, |ty| {
+        match ty.sty {
+            ty_bool => byte!(2),
+            ty_char => byte!(3),
+            ty_int(i) => {
+                byte!(4);
+                hash!(i);
             }
-            true
-        });
-    }
+            ty_uint(u) => {
+                byte!(5);
+                hash!(u);
+            }
+            ty_float(f) => {
+                byte!(6);
+                hash!(f);
+            }
+            ty_str => {
+                byte!(7);
+            }
+            ty_enum(d, _) => {
+                byte!(8);
+                did(state, d);
+            }
+            ty_uniq(_) => {
+                byte!(9);
+            }
+            ty_vec(_, Some(n)) => {
+                byte!(10);
+                n.hash(state);
+            }
+            ty_vec(_, None) => {
+                byte!(11);
+            }
+            ty_ptr(m) => {
+                byte!(12);
+                mt(state, m);
+            }
+            ty_rptr(r, m) => {
+                byte!(13);
+                region(state, *r);
+                mt(state, m);
+            }
+            ty_bare_fn(opt_def_id, ref b) => {
+                byte!(14);
+                hash!(opt_def_id);
+                hash!(b.unsafety);
+                hash!(b.abi);
+                fn_sig(state, &b.sig);
+                return false;
+            }
+            ty_trait(ref data) => {
+                byte!(17);
+                did(state, data.principal_def_id());
+                hash!(data.bounds);
+
+                let principal = anonymize_late_bound_regions(tcx, &data.principal).0;
+                for subty in principal.substs.types.iter() {
+                    helper(tcx, *subty, svh, state);
+                }
+
+                return false;
+            }
+            ty_struct(d, _) => {
+                byte!(18);
+                did(state, d);
+            }
+            ty_tup(ref inner) => {
+                byte!(19);
+                hash!(inner.len());
+            }
+            ty_param(p) => {
+                byte!(20);
+                hash!(p.space);
+                hash!(p.idx);
+                hash!(token::get_name(p.name));
+            }
+            ty_infer(_) => unreachable!(),
+            ty_err => byte!(21),
+            ty_closure(d, _) => {
+                byte!(22);
+                did(state, d);
+            }
+            ty_projection(ref data) => {
+                byte!(23);
+                did(state, data.trait_ref.def_id);
+                hash!(token::get_name(data.item_name));
+            }
+        }
+        true
+    });
 }
 
 impl Variance {
