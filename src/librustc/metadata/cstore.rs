@@ -235,17 +235,18 @@ impl CStore {
         self.extern_mod_crate_map.borrow().get(&emod_id).cloned()
     }
 
+    /// Load the unique id's of all monomorphized functions that
+    /// dependency's are exporting. trans can use this to avoid
+    /// retranslating functions.
     pub fn load_monomorphizations(&self) -> FnvHashSet<UniversalMonoId> {
         let mut all_monos = FnvHashSet();
         self.iter_crate_data(|_num, data| {
             let some_monos = decoder::get_monomorphizations(data);
-            info!("got {} new monos!", some_monos.len());
             all_monos.reserve(some_monos.len());
             for mono in some_monos {
                 all_monos.insert(mono);
             }
         });
-        info!("got {} TOTAL monos!", all_monos.len());
         return all_monos;
     }
 }

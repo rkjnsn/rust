@@ -10,8 +10,13 @@
 
 use std::hash::{Hash, Hasher};
 
-// A *globally* unique identifier of a monomorphized functions,
-// a hash of the svh, node_id, and type substitutions.
+// A *globally* unique identifier of a monomorphized functions, a
+// cryptographic hash of the svh, node_id, and type
+// substitutions. Crates put this in their metadata to communicate
+// which monomorphizations they export.
+//
+// These are not calculated here but in the `new_universal_mono_id`
+// function in `trans`.
 #[derive(PartialEq, Eq, Debug, RustcDecodable, RustcEncodable, Copy, Clone)]
 pub struct UniversalMonoId {
     hash: u64,
@@ -29,8 +34,6 @@ impl UniversalMonoId {
 impl Hash for UniversalMonoId {
     #[inline]
     fn hash<H: Hasher>(&self, state: &mut H) {
-        // FIXME: There's no need to rehash this since it's already a hash.
-        // Could be wins from using a 'null' Hasher.
         self.hash.hash(state);
     }
 }

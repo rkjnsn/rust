@@ -2193,11 +2193,11 @@ fn encode_metadata_inner(wr: &mut Cursor<Vec<u8>>,
     encode_impls(&ecx, krate, &mut rbml_w);
     stats.impl_bytes = rbml_w.writer.seek(SeekFrom::Current(0)).unwrap() - i;
 
-    // Encode monomorphizations
+    // Encode unique id's of exported monomorphised functions
     i = rbml_w.writer.seek(SeekFrom::Current(0)).unwrap();
     encode_monomorphizations(&mut rbml_w, &monomorphizations.borrow());
     stats.monomorphizations_bytes = rbml_w.writer.seek(SeekFrom::Current(0)).unwrap() - i;
-    
+
     // Encode miscellaneous info.
     i = rbml_w.writer.seek(SeekFrom::Current(0)).unwrap();
     encode_misc_info(&ecx, krate, &mut rbml_w);

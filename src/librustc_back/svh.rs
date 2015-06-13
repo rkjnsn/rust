@@ -62,7 +62,7 @@ impl Svh {
     }
 
     pub fn to_u64(&self) -> u64 { self.hash }
-    
+
     pub fn calculate(metadata: &Vec<String>, krate: &ast::Crate) -> Svh {
         // FIXME (#14132): This is better than it used to be, but it still not
         // ideal. We now attempt to hash only the relevant portions of the

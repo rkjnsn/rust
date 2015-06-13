@@ -204,7 +204,6 @@ fn symbol_hash<'tcx>(tcx: &ty::ctxt<'tcx>,
     symbol_hasher.input_str(&link_meta.crate_name);
     symbol_hasher.input_str("-");
     let svh = link_meta.crate_hash.to_u64();
-    // FIXME: There must be a better way to do this. Is this truncation allowed?
     let svh: &[u8] = &[(svh >> 0) as u8,
                        (svh >> 8) as u8,
                        (svh >> 16) as u8,

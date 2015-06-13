@@ -75,10 +75,6 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         None => ()
     }
 
-        info!("monomorphizing: {} ({})",
-              ty::item_path_str(ccx.tcx(), fn_id),
-              psubsts.repr(ccx.tcx()));
-
     debug!("monomorphic_fn(\
             fn_id={}, \
             psubsts={}, \
@@ -109,6 +105,8 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
 
     debug!("mono_ty = {} (post-substitution)", mono_ty.repr(ccx.tcx()));
 
+    // FIXME: This shouldn't be needed. Maybe related to the
+    // 'strong_monomorphizd' hack
     let mono_ty = normalize_associated_type(ccx.tcx(), &mono_ty);
     debug!("mono_ty = {} (post-normalization)", mono_ty.repr(ccx.tcx()));
 
@@ -132,44 +130,49 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         monomorphizing.insert(fn_id, depth + 1);
     }
 
-    // This is pretty expensive to compute
     let universal_hash_id = new_universal_mono_id(ccx, original_fn_id, &psubsts.types);
 
     let hash;
-    let symbol = {
+    let s = {
         hash = format!("h{}", universal_hash_id.to_u64());
         ccx.tcx().map.with_path(fn_id.node, |path| {
             exported_name(path, &hash[..])
         })
     };
 
-    debug!("monomorphize_fn mangled to {}", symbol);
+    debug!("monomorphize_fn mangled to {}", s);
 
-    info!("monomorphic hash_id: {:?}, symbol: {}", universal_hash_id, symbol);
+    info!("monomorphic hash_id: {:?}, symbol: {}", universal_hash_id, s);
 
-    // This is a hack
+    // This is a hack to account for cases that the early bailout
+    // (with ccx.monomorphized) misses because it considers some
+    // functions to be different that this id considers the same.
     match ccx.strong_monomorphized().borrow().get(&universal_hash_id) {
         Some(&val) => {
             return (val, mono_ty, false);
         }
         None => ()
     }
-    
+
     let is_first = !ccx.have_monomorphization(universal_hash_id);
     let secondary_translation = Cell::new(false);
     let do_linkonce_opts = Cell::new(false);
     let mk_lldecl = |abi: abi::Abi| {
         let lldecl = if abi != abi::Rust {
-            foreign::decl_rust_fn_with_foreign_abi(ccx, mono_ty, &symbol[..])
+            foreign::decl_rust_fn_with_foreign_abi(ccx, mono_ty, &s[..])
         } else {
             // FIXME(nagisa): perhaps needs a more fine grained selection? See setup_lldecl below.
-            declare::define_internal_rust_fn(ccx, &symbol[..], mono_ty).unwrap_or_else(||{
-                ccx.sess().bug(&format!("symbol `{}` already defined", symbol));
+            declare::define_internal_rust_fn(ccx, &s[..], mono_ty).unwrap_or_else(||{
+                ccx.sess().bug(&format!("symbol `{}` already defined", s));
             })
         };
 
+        // Sadly, we're storing this information thrice.
+        // First, with the quickly-calculated hash for the early bailout
         ccx.monomorphized().borrow_mut().insert(hash_id, lldecl);
+        // Second with the universal hash. This is a hack
         ccx.strong_monomorphized().borrow_mut().insert(universal_hash_id, lldecl);
+        ccx.available_monomorphizations().borrow_mut().insert(universal_hash_id);
         lldecl
     };
     let setup_lldecl = |lldecl, attrs: &[ast::Attribute]| {
@@ -328,13 +331,12 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             // compile-time optimization that lets the downstream
             // compilation units reuse the upstream translations.
             llvm::SetLinkage(lldecl, llvm::WeakODRLinkage);
-            ccx.available_monomorphizations().borrow_mut().insert(universal_hash_id);
-            info!("first mono: {}", symbol);
+            info!("first mono: {}", s);
         } else if secondary_translation.get() {
             llvm::SetLinkage(lldecl, llvm::AvailableExternallyLinkage);
-            info!("second mono: {}", symbol);
+            info!("second mono: {}", s);
         } else {
-            info!("unmonomorphized: {}", symbol);
+            info!("unmonomorphized: {}", s);
             llvm::SetLinkage(lldecl, llvm::ExternalLinkage);
         }
     }
