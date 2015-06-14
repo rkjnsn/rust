@@ -208,6 +208,7 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
                 // explicitly marked #[inline] generics are not
                 // guaranteed to be eligible for inlining.
                 info!("primary monomorphization (optimized non-inline): {}", d());
+                //(llvm::InternalLinkage, true, false)
                 (llvm::WeakODRLinkage, true, true)
             }
             (Gen::Primary, _, _) => {
@@ -224,7 +225,9 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
                 // crate against stable std can benefit from some
                 // optimized functions.
                 info!("primary monomorphization (optimized inline): {}", d());
-                (llvm::LinkOnceODRLinkage, true, false)
+                //(llvm::LinkOnceODRLinkage, true, false)
+                (llvm::WeakODRLinkage, true, true)
+                //(llvm::InternalLinkage, true, false)
             }
             (Gen::Secondary, _, InlineAttr::Always) => {
                 // Secondary translations of inline(always) are always
@@ -250,6 +253,13 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
                 // Secondary translations of non-inline functions when
                 // optimimzing aggressively are re-emitted for
                 // performance.
+                info!("secondary monomorphization (aggressive-optimized non-inline): {}", d());
+                (llvm::AvailableExternallyLinkage, true, false)
+            }
+            (Gen::Secondary, OptLevel::Default, InlineAttr::None) => {
+                // FIXME: Even at -O2 we inline generics that are not
+                // marked #[inline]. Otherwise rustc is slow. This should
+                // probably be fixed in rustc/std and removed.
                 info!("secondary monomorphization (optimized non-inline): {}", d());
                 (llvm::AvailableExternallyLinkage, true, false)
             }
