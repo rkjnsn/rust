@@ -143,13 +143,16 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
 
     debug!("monomorphize_fn mangled to {}", s);
 
-    info!("monomorphic hash_id: {:?}, symbol: {}", universal_hash_id, s);
+    // Only called for logging
+    let d = || format!("#{}# {} {} {:x}", ty::item_path_str(ccx.tcx(), fn_id),
+                       psubsts.repr(ccx.tcx()), s, universal_hash_id.to_u64());
 
     // This is a hack to account for cases that the early bailout
     // (with ccx.monomorphized) misses because it considers some
     // functions to be different that this id considers the same.
     match ccx.strong_monomorphized().borrow().get(&universal_hash_id) {
         Some(&val) => {
+            info!("duplicate universal mono id: {}", d());
             return (val, mono_ty, false);
         }
         None => ()
@@ -183,95 +186,51 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         // as all codegen units of this crate.
         let is_primary = !ccx.have_monomorphization(universal_hash_id);
 
-        // Some additional factors to consider
         enum Gen { Primary, Secondary }
         let gen = if is_primary { Gen::Primary } else { Gen::Secondary };
         let opt_level = ccx.sess().opts.optimize;
 
-        // Only called for logging
-        let d = || format!("{} {} {} {}", desc, ty::item_path_str(ccx.tcx(), fn_id), psubsts.repr(ccx.tcx()), s);
-        
         let (linkage, translate, save) = match (gen, opt_level, inlineity) {
             (Gen::Primary, OptLevel::No, _) => {
-                // This is a primary translation but we're not optimizing.
-                // Export it for reuse by downstream crates.
-                // Because of diamond dependencies this may not be
-                // odr linkage so that duplicates can be thrown away
-                // at link time, and export it for downstream reuse.
-                info!("primary monomorphization (non-optimized): {}", d());
+                // This is a primary translation and we're not
+                // optimizing. Export it for reuse by downstream
+                // crates to save downstream compile time. Because of
+                // diamond dependencies this may not be the only
+                // 'primary' translation, so use weak odr linkage so
+                // that duplicates can be thrown away at link time.
+                info!("primary monomorphization (non-optimized): {} {}", desc, d());
                 (llvm::WeakODRLinkage, true, true)
             }
-            (Gen::Primary, _, InlineAttr::None) => {
-                // In an optimimzed build, make functions w/o
-                // #[inline] available downstream so further
-                // compilation units may opt to reuse it. Unless
-                // explicitly marked #[inline] generics are not
-                // guaranteed to be eligible for inlining.
-                info!("primary monomorphization (optimized non-inline): {}", d());
-                //(llvm::InternalLinkage, true, false)
-                (llvm::WeakODRLinkage, true, true)
+            (Gen::Secondary, OptLevel::No, InlineAttr::Always) => {
+                // Even when not optimizing, secondary translations of
+                // inline(always) functions are emitted so they can be
+                // inlined.
+                info!("secondary monomorphization (non-optimized-inline-always): {} {}", desc, d());
+                (llvm::AvailableExternallyLinkage, true, false)
+            }
+            (Gen::Secondary, OptLevel::No, _) => {
+                // When not optimimzing, other secondary translations
+                // are omitted to improve compile time.
+                info!("elided monomorphization (non-optimized): {} {}", desc, d());
+                (llvm::ExternalLinkage, false, false)
             }
             (Gen::Primary, _, _) => {
-                // Otherwise when optimizing we don't make the
-                // functions available downstream to save metadata
-                // space and lookup time, but with odr linkage
-                // duplicates can again be removed at link time. With
-                // linkonce (as opposed to weak) linkage, llvm is
-                // further allowed to discard the function instead of
-                // emit it as object code.
-                //
-                // FIXME: It may be worth it to make these available
-                // downstream too, so that e.g. compiling a debug
-                // crate against stable std can benefit from some
-                // optimized functions.
-                info!("primary monomorphization (optimized inline): {}", d());
-                //(llvm::LinkOnceODRLinkage, true, false)
-                (llvm::WeakODRLinkage, true, true)
-                //(llvm::InternalLinkage, true, false)
+                // When optimizing, just use internal linkage.
+                // FIXME: Final binary size could be reduced by using
+                // LinkOnceODRLinkage but in experiments functions
+                // with LinkOnceODRLinkage do not optimize as well,
+                // both because of omissions on LLVM's inliner, as
+                // well as probably its other optimization passes.
+                info!("primary monomorphization (optimized): {} {}", desc, d());
+                (llvm::InternalLinkage, true, false)
             }
-            (Gen::Secondary, _, InlineAttr::Always) => {
-                // Secondary translations of inline(always) are always
-                // emitted so they can be inlined and with
-                // available_externally linkage are discarded from the
-                // final objects
-                info!("secondary monomorphization (inline always): {}", d());
-                (llvm::AvailableExternallyLinkage, true, false)
-            }
-            (Gen::Secondary, OptLevel::No, InlineAttr::Hint) => {
-                // Secondary translations of inline functions are not
-                // re-emitted if optimizations are off to save compile time
-                info!("elided monomorphization (non-optimized inline): {}", d());
-                (llvm::ExternalLinkage, false, false)
-            }
-            (Gen::Secondary, _, InlineAttr::Hint) => {
-                // Secondary translations of inline functions are
-                // re-emitted if optimizations are on.
-                info!("secondary monomorphization (optimized inline): {}", d());
-                (llvm::AvailableExternallyLinkage, true, false)
-            }
-            (Gen::Secondary, OptLevel::Aggressive, InlineAttr::None) => {
-                // Secondary translations of non-inline functions when
-                // optimimzing aggressively are re-emitted for
-                // performance.
-                info!("secondary monomorphization (aggressive-optimized non-inline): {}", d());
-                (llvm::AvailableExternallyLinkage, true, false)
-            }
-            (Gen::Secondary, OptLevel::Default, InlineAttr::None) => {
-                // FIXME: Even at -O2 we inline generics that are not
-                // marked #[inline]. Otherwise rustc is slow. This should
-                // probably be fixed in rustc/std and removed.
-                info!("secondary monomorphization (optimized non-inline): {}", d());
-                (llvm::AvailableExternallyLinkage, true, false)
-            }
-            (Gen::Secondary, _, InlineAttr::None) => {
-                // Secondary translations of non-inline functions when
-                // not optimimzing aggressively are not translated.
-                info!("elided monomorphization (non-inline): {}", d());
-                (llvm::ExternalLinkage, false, false)
-            }
-            (Gen::Secondary, _, InlineAttr::Never) => {
-                info!("elided monomorphization (never-inline): {}", d());
-                (llvm::ExternalLinkage, false, false)
+            (Gen::Secondary, _, _) => {
+                // Secondary optimized translations just use internal
+                // linkage. Presently, this case should only arise
+                // when linking optimized crates to non-optimized
+                // crates.
+                info!("secondary monomorphization (optimized): {} {}", desc, d());
+                (llvm::InternalLinkage, true, false)
             }
         };
 
@@ -440,7 +399,7 @@ pub fn new_universal_mono_id<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         ty::hash_crate_independent_helper(ccx.tcx(), *ty, &def_svh, hash_state);
     }
 
-    UniversalMonoId::new(hash_state.finish())
+    UniversalMonoId::from_hash(hash_state.finish())
 }
 
 /// Monomorphizes a type from the AST by first applying the in-scope

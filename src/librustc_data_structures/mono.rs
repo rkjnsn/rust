@@ -23,8 +23,8 @@ pub struct UniversalMonoId {
 }
 
 impl UniversalMonoId {
-    pub fn new(crypto_hash: u64) -> UniversalMonoId {
-        UniversalMonoId { hash: crypto_hash }
+    pub fn from_hash(hash: u64) -> UniversalMonoId {
+        UniversalMonoId { hash: hash }
     }
 
     #[inline]

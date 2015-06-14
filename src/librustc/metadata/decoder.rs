@@ -1189,7 +1189,7 @@ pub fn get_crate_deps(data: &[u8]) -> Vec<CrateDep> {
     reader::tagged_docs(depsdoc, tag_crate_dep).enumerate().map(|(crate_num, depdoc)| {
         let name = docstr(depdoc, tag_crate_dep_crate_name);
         let hash = reader::doc_as_u64(reader::get_doc(depdoc, tag_crate_dep_hash));
-        let hash = Svh::new(hash);
+        let hash = Svh::from_hash(hash);
         CrateDep {
             cnum: crate_num as u32 + 1,
             name: name,
@@ -1210,14 +1210,14 @@ fn list_crate_deps(data: &[u8], out: &mut io::Write) -> io::Result<()> {
 pub fn maybe_get_crate_hash(data: &[u8]) -> Option<Svh> {
     let cratedoc = rbml::Doc::new(data);
     reader::maybe_get_doc(cratedoc, tag_crate_hash).map(|doc| {
-        Svh::new(reader::doc_as_u64(doc))
+        Svh::from_hash(reader::doc_as_u64(doc))
     })
 }
 
 pub fn get_crate_hash(data: &[u8]) -> Svh {
     let cratedoc = rbml::Doc::new(data);
     let hashdoc = reader::get_doc(cratedoc, tag_crate_hash);
-    Svh::new(reader::doc_as_u64(hashdoc))
+    Svh::from_hash(reader::doc_as_u64(hashdoc))
 }
 
 pub fn maybe_get_crate_name(data: &[u8]) -> Option<String> {

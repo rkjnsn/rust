@@ -57,7 +57,7 @@ pub struct Svh {
 }
 
 impl Svh {
-    pub fn new(hash: u64) -> Svh {
+    pub fn from_hash(hash: u64) -> Svh {
         Svh { hash: hash }
     }
 
