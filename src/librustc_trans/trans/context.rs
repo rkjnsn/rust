@@ -76,6 +76,8 @@ pub struct SharedCrateContext<'tcx> {
 
     upstream_monomorphizations: FnvHashSet<UniversalMonoId>,
     available_monomorphizations: RefCell<FnvHashSet<UniversalMonoId>>,
+    pending_available_monomorphizations: RefCell<FnvHashMap<MonoId<'tcx>, UniversalMonoId>>,
+
     available_drop_glues: RefCell<FnvHashMap<DropGlueKind<'tcx>, String>>,
     use_dll_storage_attrs: bool,
 }
@@ -327,6 +329,7 @@ impl<'tcx> SharedCrateContext<'tcx> {
             check_drop_flag_for_sanity: check_drop_flag_for_sanity,
             upstream_monomorphizations: upstream_monomorphizations,
             available_monomorphizations: RefCell::new(FnvHashSet()),
+            pending_available_monomorphizations: RefCell::new(FnvHashMap()),
             available_drop_glues: RefCell::new(FnvHashMap()),
             use_dll_storage_attrs: use_dll_storage_attrs,
         };
@@ -424,6 +427,10 @@ impl<'tcx> SharedCrateContext<'tcx> {
 
     pub fn available_monomorphizations<'a>(&'a self) -> &'a RefCell<FnvHashSet<UniversalMonoId>> {
         &self.available_monomorphizations
+    }
+
+    pub fn pending_available_monomorphizations<'a>(&'a self) -> &'a RefCell<FnvHashMap<MonoId<'tcx>, UniversalMonoId>> {
+        &self.pending_available_monomorphizations
     }
 }
 

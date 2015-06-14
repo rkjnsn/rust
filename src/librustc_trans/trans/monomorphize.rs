@@ -69,6 +69,17 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
     // of the monomorphization we need then just use it.
     match ccx.monomorphized().borrow().get(&hash_id) {
         Some(&val) => {
+            let universal_id_to_save = ccx.shared()
+                .pending_available_monomorphizations()
+                .borrow_mut()
+                .remove(&hash_id);
+            if let Some(universal_id) = universal_id_to_save {
+                let d = || format!("#{}# {} {:x}", ty::item_path_str(ccx.tcx(), fn_id),
+                                   psubsts.repr(ccx.tcx()), universal_id.to_u64());
+                info!("exporting mono id: {}", d());
+                llvm::SetLinkage(val, llvm::WeakODRLinkage);
+                ccx.available_monomorphizations().borrow_mut().insert(universal_id);
+            }
             debug!("leaving monomorphic fn {}",
             ty::item_path_str(ccx.tcx(), fn_id));
             return (val, mono_ty, false);
@@ -181,6 +192,16 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         // sort of linkage to use. These decisions affect compile
         // times, binary size, and runtime performance.
 
+        // Things that aren't reachable always have internal linkage
+        let reachable = original_fn_id.krate != ast::LOCAL_CRATE
+            || ccx.reachable().contains(&original_fn_id.node);
+        if !reachable {
+            // Sadly, most things in Rust tend to be reachable
+            info!("unreachable monomorphization: {} {}", desc, d());
+            llvm::SetLinkage(lldecl, llvm::InternalLinkage);
+            return true;
+        }
+
         // The 'primary' translation is the first instance of a
         // monomorphization known in all dependency crates, as well
         // as all codegen units of this crate.
@@ -199,7 +220,7 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
                 // 'primary' translation, so use weak odr linkage so
                 // that duplicates can be thrown away at link time.
                 info!("primary monomorphization (non-optimized): {} {}", desc, d());
-                (llvm::WeakODRLinkage, true, true)
+                (llvm::InternalLinkage, true, true)
             }
             (Gen::Secondary, OptLevel::No, InlineAttr::Always) => {
                 // Even when not optimizing, secondary translations of
@@ -235,7 +256,8 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         };
 
         if save {
-            ccx.available_monomorphizations().borrow_mut().insert(universal_hash_id);
+            ccx.shared().pending_available_monomorphizations()
+                .borrow_mut().insert(hash_id, universal_hash_id);
         }
 
         llvm::SetLinkage(lldecl, linkage);
@@ -373,7 +395,7 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
     (lldecl, mono_ty, true)
 }
 
-#[derive(PartialEq, Eq, Hash, Debug)]
+#[derive(PartialEq, Eq, Hash, Debug, Copy, Clone)]
 pub struct MonoId<'tcx> {
     pub def: ast::DefId,
     pub params: &'tcx subst::VecPerParamSpace<Ty<'tcx>>
