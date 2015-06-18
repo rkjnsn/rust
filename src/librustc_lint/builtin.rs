@@ -2215,7 +2215,7 @@ pub struct UnstableFeatures;
 declare_lint! {
     UNSTABLE_FEATURES,
     Allow,
-    "enabling unstable features"
+    "enabling unstable features (deprecated. do not use)"
 }
 
 impl LintPass for UnstableFeatures {
@@ -2226,7 +2226,7 @@ impl LintPass for UnstableFeatures {
         if attr::contains_name(&[attr.node.value.clone()], "feature") {
             if let Some(items) = attr.node.value.meta_item_list() {
                 for item in items {
-                    ctx.span_lint(UNSTABLE_FEATURES, item.span, "unstable feature");
+                    ctx.span_lint(UNSTABLE_FEATURES, item.span, "unstable features");
                 }
             }
         }
