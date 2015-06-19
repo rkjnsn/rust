@@ -67,6 +67,7 @@ enum DuplicateCheckingMode {
     ForbidDuplicateTypesAndModules,
     ForbidDuplicateValues,
     ForbidDuplicateTypesAndValues,
+    ForbidDuplicateTypesModulesValues,
     OverwriteDuplicates
 }
 
@@ -196,6 +197,18 @@ impl<'a, 'b:'a, 'tcx:'b> GraphBuilder<'a, 'b, 'tcx> {
                                 duplicate_type = TypeError;
                             }
                         };
+                        if child.defined_in_namespace(ValueNS) {
+                            duplicate_type = ValueError;
+                            n = Some(ValueNS);
+                        }
+                        n
+                    }
+                    ForbidDuplicateTypesModulesValues => {
+                        let mut n = None;
+                        if child.defined_in_namespace(TypeNS) {
+                            duplicate_type = TypeError;
+                            n = Some(TypeNS);
+                        }
                         if child.defined_in_namespace(ValueNS) {
                             duplicate_type = ValueError;
                             n = Some(ValueNS);
@@ -480,7 +493,7 @@ impl<'a, 'b:'a, 'tcx:'b> GraphBuilder<'a, 'b, 'tcx> {
             ItemStruct(ref struct_def, _) => {
                 // Adding to both Type and Value namespaces or just Type?
                 let (forbid, ctor_id) = match struct_def.ctor_id {
-                    Some(ctor_id)   => (ForbidDuplicateTypesAndValues, Some(ctor_id)),
+                    Some(ctor_id)   => (ForbidDuplicateTypesModulesValues, Some(ctor_id)),
                     None            => (ForbidDuplicateTypesAndModules, None)
                 };
 

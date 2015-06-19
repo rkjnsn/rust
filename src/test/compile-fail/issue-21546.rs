@@ -8,8 +8,14 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+// Also works as a test for #14564
+
 mod Foo { }
+//~^ NOTE first definition of type or module
+
 struct Foo;
+//~^ ERROR duplicate definition of type or module `Foo`
+
 impl Foo { }
 
 fn main() { }
