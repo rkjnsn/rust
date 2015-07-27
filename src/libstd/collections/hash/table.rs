@@ -187,14 +187,17 @@ impl<K, V> RawBucket<K, V> {
 // Buckets hold references to the table.
 impl<K, V, M> FullBucket<K, V, M> {
     /// Borrow a reference to the table.
+    #[meld_hint(no_drop)]
     pub fn table(&self) -> &M {
         &self.table
     }
     /// Move out the reference to the table.
+    #[meld_hint(no_drop)]
     pub fn into_table(self) -> M {
         self.table
     }
     /// Get the raw index.
+    #[meld_hint(no_drop)]
     pub fn index(&self) -> usize {
         self.idx
     }
@@ -202,10 +205,12 @@ impl<K, V, M> FullBucket<K, V, M> {
 
 impl<K, V, M> EmptyBucket<K, V, M> {
     /// Borrow a reference to the table.
+    #[meld_hint(no_drop)]
     pub fn table(&self) -> &M {
         &self.table
     }
     /// Move out the reference to the table.
+    #[meld_hint(no_drop)]
     pub fn into_table(self) -> M {
         self.table
     }
@@ -213,10 +218,12 @@ impl<K, V, M> EmptyBucket<K, V, M> {
 
 impl<K, V, M> Bucket<K, V, M> {
     /// Move out the reference to the table.
+    #[meld_hint(no_drop)]
     pub fn into_table(self) -> M {
         self.table
     }
     /// Get the raw index.
+    #[meld_hint(no_drop)]
     pub fn index(&self) -> usize {
         self.idx
     }
@@ -654,12 +661,14 @@ impl<K, V> RawTable<K, V> {
     }
 
     /// The hashtable's capacity, similar to a vector's.
+    #[meld_hint(no_drop)]
     pub fn capacity(&self) -> usize {
         self.capacity
     }
 
     /// The number of elements ever `put` in the hashtable, minus the number
     /// of elements ever `take`n.
+    #[meld_hint(no_drop)]
     pub fn size(&self) -> usize {
         self.size
     }

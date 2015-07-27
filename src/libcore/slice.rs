@@ -89,6 +89,7 @@ pub trait SliceExt {
     fn binary_search_by<F>(&self, f: F) -> Result<usize, usize> where
         F: FnMut(&Self::Item) -> Ordering;
     fn len(&self) -> usize;
+    #[meld_hint(no_drop)]
     fn is_empty(&self) -> bool { self.len() == 0 }
     fn get_mut<'a>(&'a mut self, index: usize) -> Option<&'a mut Self::Item>;
     fn iter_mut<'a>(&'a mut self) -> IterMut<'a, Self::Item>;
@@ -248,11 +249,13 @@ impl<T> SliceExt for [T] {
     }
 
     #[inline]
+    #[meld_hint(no_drop)]
     unsafe fn get_unchecked(&self, index: usize) -> &T {
         transmute(self.repr().data.offset(index as isize))
     }
 
     #[inline]
+    #[meld_hint(no_drop)]
     fn as_ptr(&self) -> *const T {
         self.repr().data
     }
@@ -279,6 +282,7 @@ impl<T> SliceExt for [T] {
     }
 
     #[inline]
+    #[meld_hint(no_drop)]
     fn len(&self) -> usize { self.repr().len }
 
     #[inline]
@@ -401,11 +405,13 @@ impl<T> SliceExt for [T] {
     }
 
     #[inline]
+    #[meld_hint(no_drop)]
     unsafe fn get_unchecked_mut(&mut self, index: usize) -> &mut T {
         transmute((self.repr().data as *mut T).offset(index as isize))
     }
 
     #[inline]
+    #[meld_hint(no_drop)]
     fn as_mut_ptr(&mut self) -> *mut T {
         self.repr().data as *mut T
     }
@@ -573,6 +579,7 @@ impl<T> ops::Index<RangeFull> for [T] {
     type Output = [T];
 
     #[inline]
+    #[meld_hint(no_drop)]
     fn index(&self, _index: RangeFull) -> &[T] {
         self
     }
@@ -651,6 +658,7 @@ impl<'a, T> IntoIterator for &'a mut [T] {
 }
 
 #[inline(always)]
+#[meld_hint(no_drop)]
 fn size_from_ptr<T>(_: *const T) -> usize {
     mem::size_of::<T>()
 }
@@ -1398,6 +1406,7 @@ pub fn mut_ref_slice<'a, A>(s: &'a mut A) -> &'a mut [A] {
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub unsafe fn from_raw_parts<'a, T>(p: *const T, len: usize) -> &'a [T] {
     transmute(RawSlice { data: p, len: len })
 }
@@ -1410,6 +1419,7 @@ pub unsafe fn from_raw_parts<'a, T>(p: *const T, len: usize) -> &'a [T] {
 /// mutable slice.
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub unsafe fn from_raw_parts_mut<'a, T>(p: *mut T, len: usize) -> &'a mut [T] {
     transmute(RawSlice { data: p, len: len })
 }

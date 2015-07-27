@@ -408,11 +408,13 @@ trait UnsafeFlavor<T> {
     }
 }
 impl<T> UnsafeFlavor<T> for Sender<T> {
+    #[meld_hint(no_drop)]
     fn inner_unsafe<'a>(&'a self) -> &'a UnsafeCell<Flavor<T>> {
         &self.inner
     }
 }
 impl<T> UnsafeFlavor<T> for Receiver<T> {
+    #[meld_hint(no_drop)]
     fn inner_unsafe<'a>(&'a self) -> &'a UnsafeCell<Flavor<T>> {
         &self.inner
     }

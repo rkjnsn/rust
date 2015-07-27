@@ -868,6 +868,7 @@ impl<T: ?Sized> UnsafeCell<T> {
     /// ```
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[meld_hint(no_drop)]
     pub fn get(&self) -> *mut T {
         // FIXME(#23542) Replace with type ascription.
         #![allow(trivial_casts)]

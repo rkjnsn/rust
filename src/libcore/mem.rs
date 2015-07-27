@@ -108,6 +108,7 @@ pub use intrinsics::transmute;
 /// }
 /// ```
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub fn forget<T>(t: T) {
     unsafe { intrinsics::forget(t) }
 }
@@ -123,6 +124,7 @@ pub fn forget<T>(t: T) {
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub fn size_of<T>() -> usize {
     unsafe { intrinsics::size_of::<T>() }
 }
@@ -138,6 +140,7 @@ pub fn size_of<T>() -> usize {
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub fn size_of_val<T: ?Sized>(val: &T) -> usize {
     unsafe { intrinsics::size_of_val(val) }
 }
@@ -189,6 +192,7 @@ pub fn min_align_of_val<T: ?Sized>(val: &T) -> usize {
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub fn align_of<T>() -> usize {
     unsafe { intrinsics::min_align_of::<T>() }
 }
@@ -270,6 +274,7 @@ pub unsafe fn dropped<T>() -> T {
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub unsafe fn uninitialized<T>() -> T {
     intrinsics::uninit()
 }
@@ -487,6 +492,7 @@ pub const POST_DROP_USIZE: usize = POST_DROP_U64 as usize;
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub unsafe fn transmute_copy<T, U>(src: &T) -> U {
     // FIXME(#23542) Replace with type ascription.
     #![allow(trivial_casts)]

@@ -158,6 +158,10 @@ const KNOWN_FEATURES: &'static [(&'static str, &'static str, Status)] = &[
 
     // Allows using #[prelude_import] on glob `use` items.
     ("prelude_import", "1.2.0", Active),
+
+    // Allows using the #[merge] attribute to indicate generic functions
+    // the translations to which rustc should attempt to merge
+    ("meld_functions", "1.3.0", Active),
 ];
 // (changing above list without updating src/doc/reference.md makes @cmr sad)
 
@@ -283,6 +287,11 @@ pub const KNOWN_ATTRIBUTES: &'static [(&'static str, AttributeType)] = &[
     ("rustc_reflect_like", Gated("reflect",
                                  "defining reflective traits is still evolving")),
 
+    // Experimental function merging
+    ("meld_hint", Gated("meld_functions", "internal use")),
+    ("assert_meld", Gated("meld_functions", "internal use")),
+    ("assert_no_meld", Gated("meld_functions", "internal use")),
+
     // Crate level attributes
     ("crate_name", CrateLevel),
     ("crate_type", CrateLevel),
@@ -333,6 +342,7 @@ pub struct Features {
     /// #![feature] attrs for non-language (library) features
     pub declared_lib_features: Vec<(InternedString, Span)>,
     pub const_fn: bool,
+    pub meld_functions: bool
 }
 
 impl Features {
@@ -354,6 +364,7 @@ impl Features {
             declared_stable_lang_features: Vec::new(),
             declared_lib_features: Vec::new(),
             const_fn: false,
+            meld_functions: false
         }
     }
 }
@@ -793,6 +804,7 @@ fn check_crate_inner<F>(cm: &CodeMap, span_handler: &SpanHandler,
         declared_stable_lang_features: accepted_features,
         declared_lib_features: unknown_features,
         const_fn: cx.has_feature("const_fn"),
+        meld_functions: cx.has_feature("meld_functions"),
     }
 }
 

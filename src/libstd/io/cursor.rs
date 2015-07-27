@@ -41,10 +41,12 @@ impl<T> Cursor<T> {
 
     /// Consumes this cursor, returning the underlying value.
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[meld_hint(no_drop)]
     pub fn into_inner(self) -> T { self.inner }
 
     /// Gets a reference to the underlying value in this cursor.
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[meld_hint(no_drop)]
     pub fn get_ref(&self) -> &T { &self.inner }
 
     /// Gets a mutable reference to the underlying value in this cursor.
@@ -56,6 +58,7 @@ impl<T> Cursor<T> {
 
     /// Returns the current value of this cursor
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[meld_hint(no_drop)]
     pub fn position(&self) -> u64 { self.pos }
 
     /// Sets the value of this cursor

@@ -154,6 +154,7 @@ pub unsafe trait Repr<T> {
     /// for the struct. This is a safe method because by default it does not
     /// enable write-access to the fields of the return value in safe code.
     #[inline]
+    #[meld_hint(no_drop)]
     fn repr(&self) -> T { unsafe { mem::transmute_copy(&self) } }
 }
 

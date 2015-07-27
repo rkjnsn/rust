@@ -70,6 +70,7 @@
        test(no_crate_inject))]
 #![no_std]
 
+#![feature(meld_functions)]
 #![feature(allocator)]
 #![feature(box_syntax)]
 #![feature(coerce_unsized)]

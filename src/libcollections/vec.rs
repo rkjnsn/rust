@@ -305,6 +305,7 @@ impl<T> Vec<T> {
     /// ```
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[meld_hint(no_drop)]
     pub fn capacity(&self) -> usize {
         self.cap
     }
@@ -822,6 +823,7 @@ impl<T> Vec<T> {
     /// ```
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[meld_hint(no_drop)]
     pub fn len(&self) -> usize { self.len }
 
     /// Returns `true` if the vector contains no elements.
@@ -1419,6 +1421,7 @@ impl<T> ops::Index<ops::RangeFull> for Vec<T> {
     type Output = [T];
 
     #[inline]
+    #[meld_hint(no_drop)]
     fn index(&self, _index: ops::RangeFull) -> &[T] {
         self
     }
@@ -1940,6 +1943,7 @@ pub struct DerefVec<'a, T:'a> {
 impl<'a, T> Deref for DerefVec<'a, T> {
     type Target = Vec<T>;
 
+    #[meld_hint(no_drop)]
     fn deref<'b>(&'b self) -> &'b Vec<T> {
         &self.x
     }

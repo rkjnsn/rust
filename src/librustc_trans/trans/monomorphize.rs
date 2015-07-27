@@ -25,6 +25,7 @@ use trans::base;
 use trans::common::*;
 use trans::declare;
 use trans::foreign;
+use trans::meld;
 use middle::ty::{self, HasTypeFlags, Ty};
 
 use syntax::abi;
@@ -63,14 +64,27 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
     debug!("mono_ty = {:?} (post-substitution)", mono_ty);
 
     match ccx.monomorphized().borrow().get(&hash_id) {
-        Some(&val) => {
+        Some(&(val, melded)) => {
             debug!("leaving monomorphic fn {}",
             ccx.tcx().item_path_str(fn_id));
-            return (val, mono_ty, false);
+            return (val, mono_ty, melded);
         }
         None => ()
     }
 
+    // Calculate whether this instance can be merged with a
+    // previously-emitted instance
+    let meld_hash = match meld::try_meld(ccx, fn_id, &psubsts) {
+        meld::Result::Melded(val) => {
+            // A previous instance worked, reuse it next time
+            ccx.monomorphized().borrow_mut().insert(hash_id, (val, true));
+            return (val, mono_ty, true /* must cast melded fn to call */);
+        }
+        meld::Result::Unmelded(h) => h
+    };
+
+    info!("monomorphizing: {} % {:?}", ccx.tcx().item_path_str(fn_id), psubsts.types);
+        
     debug!("monomorphic_fn(\
             fn_id={:?}, \
             psubsts={:?}, \
@@ -117,16 +131,22 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
         monomorphizing.insert(fn_id, depth + 1);
     }
 
-    let hash;
-    let s = {
+    let (s, hash) = {
         let mut state = SipHasher::new();
         hash_id.hash(&mut state);
         mono_ty.hash(&mut state);
 
-        hash = format!("h{}", state.finish());
-        ccx.tcx().map.with_path(fn_id.node, |path| {
+        let mut hash = format!("h{}", state.finish());
+        if meld_hash.is_ok() {
+            // This function is meldable, put that info in the symbol so (human) debuggers
+            // can comprehend what they are seeing.
+            hash.push_str("_melded");
+        };
+        let s = ccx.tcx().map.with_path(fn_id.node, |path| {
             exported_name(path, &hash[..])
-        })
+        });
+
+        (s, hash)
     };
 
     debug!("monomorphize_fn mangled to {}", s);
@@ -143,7 +163,9 @@ pub fn monomorphic_fn<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
             })
         };
 
-        ccx.monomorphized().borrow_mut().insert(hash_id.take().unwrap(), lldecl);
+        assert!(ccx.monomorphized().borrow_mut().insert(hash_id.take().unwrap(), (lldecl, false)).is_none());
+
+        meld::register(ccx, meld_hash, lldecl);
         lldecl
     };
     let setup_lldecl = |lldecl, attrs: &[ast::Attribute]| {

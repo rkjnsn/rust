@@ -30,6 +30,7 @@
 #![allow(trivial_casts)]
 #![cfg_attr(test, allow(deprecated))] // rand
 
+#![feature(meld_functions)]
 #![feature(alloc)]
 #![feature(box_patterns)]
 #![feature(box_raw)]

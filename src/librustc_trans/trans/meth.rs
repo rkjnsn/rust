@@ -274,7 +274,7 @@ pub fn trans_static_method_callee<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
     }
 }
 
-fn method_with_name(ccx: &CrateContext, impl_id: ast::DefId, name: ast::Name)
+pub fn method_with_name(ccx: &CrateContext, impl_id: ast::DefId, name: ast::Name)
                     -> ast::DefId {
     match ccx.impl_method_cache().borrow().get(&(impl_id, name)).cloned() {
         Some(m) => return m,
@@ -323,7 +323,7 @@ fn trans_monomorphized_callee<'blk, 'tcx>(bcx: Block<'blk, 'tcx>,
             // those from the impl and those from the method:
             let callee_substs =
                 combine_impl_and_methods_tps(
-                    bcx, MethodCallKey(method_call), vtable_impl.substs);
+                    ccx, MethodCallKey(method_call), bcx.fcx.param_substs, vtable_impl.substs);
 
             // translate the function
             let datum = trans_fn_ref_with_substs(bcx.ccx(),
@@ -393,14 +393,13 @@ fn trans_monomorphized_callee<'blk, 'tcx>(bcx: Block<'blk, 'tcx>,
  /// In that case, the vector we want is: `[X, M1, M2, M3]`.  Therefore, what we do now is to slice
  /// off the method type parameters and append them to the type parameters from the type that the
  /// receiver is mapped to.
-fn combine_impl_and_methods_tps<'blk, 'tcx>(bcx: Block<'blk, 'tcx>,
-                                            node: ExprOrMethodCall,
-                                            rcvr_substs: subst::Substs<'tcx>)
-                                            -> subst::Substs<'tcx>
+pub fn combine_impl_and_methods_tps<'a, 'tcx>(ccx: &CrateContext<'a, 'tcx>,
+                                              node: ExprOrMethodCall,
+                                              fcx_substs: &'a Substs<'tcx>,
+                                              rcvr_substs: subst::Substs<'tcx>)
+                                              -> subst::Substs<'tcx>
 {
-    let ccx = bcx.ccx();
-
-    let node_substs = node_id_substs(ccx, node, bcx.fcx.param_substs);
+    let node_substs = node_id_substs(ccx, node, fcx_substs);
 
     debug!("rcvr_substs={:?}", rcvr_substs);
     debug!("node_substs={:?}", node_substs);

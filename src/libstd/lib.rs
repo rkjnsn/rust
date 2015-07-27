@@ -103,6 +103,7 @@
        test(no_crate_inject, attr(deny(warnings))),
        test(attr(allow(dead_code, deprecated, unused_variables, unused_mut))))]
 
+#![feature(meld_functions)]
 #![feature(alloc)]
 #![feature(allow_internal_unstable)]
 #![feature(associated_consts)]

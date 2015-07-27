@@ -52,6 +52,7 @@ mod intrinsic;
 mod llrepr;
 mod machine;
 mod _match;
+mod meld;
 mod meth;
 mod monomorphize;
 mod tvec;

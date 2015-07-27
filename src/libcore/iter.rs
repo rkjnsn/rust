@@ -545,6 +545,7 @@ pub trait Iterator {
     /// assert_eq!(it.next(), Some(5));
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
+    #[meld_hint(no_drop)]
     fn by_ref(&mut self) -> &mut Self where Self: Sized { self }
 
     /// Loops through the entire iterator, collecting all of the elements into
@@ -1190,6 +1191,7 @@ impl<I: Iterator> IntoIterator for I {
     type Item = I::Item;
     type IntoIter = I;
 
+    #[meld_hint(no_drop)]
     fn into_iter(self) -> I {
         self
     }

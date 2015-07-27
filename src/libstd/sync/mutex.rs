@@ -352,10 +352,12 @@ impl<'a, T: ?Sized> Drop for MutexGuard<'a, T> {
     }
 }
 
+#[meld_hint(no_drop)]
 pub fn guard_lock<'a, T: ?Sized>(guard: &MutexGuard<'a, T>) -> &'a sys::Mutex {
     &guard.__lock.lock
 }
 
+#[meld_hint(no_drop)]
 pub fn guard_poison<'a, T: ?Sized>(guard: &MutexGuard<'a, T>) -> &'a poison::Flag {
     &guard.__lock.poison
 }

@@ -124,6 +124,7 @@ pub use intrinsics::write_bytes;
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub fn null<T>() -> *const T { 0 as *const T }
 
 /// Creates a null mutable raw pointer.
@@ -138,6 +139,7 @@ pub fn null<T>() -> *const T { 0 as *const T }
 /// ```
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub fn null_mut<T>() -> *mut T { 0 as *mut T }
 
 /// Swaps the values at two mutable locations of the same type, without
@@ -190,6 +192,7 @@ pub unsafe fn replace<T>(dest: *mut T, mut src: T) -> T {
 /// because it will attempt to drop the value previously at `*src`.
 #[inline(always)]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub unsafe fn read<T>(src: *const T) -> T {
     let mut tmp: T = mem::uninitialized();
     copy_nonoverlapping(src, &mut tmp, 1);
@@ -242,6 +245,7 @@ pub unsafe fn read_and_drop<T>(dest: *mut T) -> T {
 /// memory that has previously been `read` from.
 #[inline]
 #[stable(feature = "rust1", since = "1.0.0")]
+#[meld_hint(no_drop)]
 pub unsafe fn write<T>(dst: *mut T, src: T) {
     intrinsics::move_val_init(&mut *dst, src)
 }
@@ -252,6 +256,7 @@ impl<T: ?Sized> *const T {
     /// Returns true if the pointer is null.
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
+    #[meld_hint(no_drop)]
     pub fn is_null(self) -> bool where T: Sized {
         self == 0 as *const T
     }
@@ -289,6 +294,7 @@ impl<T: ?Sized> *const T {
     /// any further use of the returned value will result in undefined behavior.
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
+    #[meld_hint(no_drop)]
     pub unsafe fn offset(self, count: isize) -> *const T where T: Sized {
         intrinsics::offset(self, count)
     }
@@ -300,6 +306,7 @@ impl<T: ?Sized> *mut T {
     /// Returns true if the pointer is null.
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
+    #[meld_hint(no_drop)]
     pub fn is_null(self) -> bool where T: Sized {
         self == 0 as *mut T
     }
@@ -336,6 +343,7 @@ impl<T: ?Sized> *mut T {
     /// the pointer is used.
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline]
+    #[meld_hint(no_drop)]
     pub unsafe fn offset(self, count: isize) -> *mut T where T: Sized {
         intrinsics::offset(self, count) as *mut T
     }
@@ -555,6 +563,7 @@ impl<T:?Sized> Deref for Unique<T> {
     type Target = *mut T;
 
     #[inline]
+    #[meld_hint(no_drop)]
     fn deref<'a>(&'a self) -> &'a *mut T {
         unsafe { mem::transmute(&*self.pointer) }
     }

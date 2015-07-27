@@ -136,6 +136,7 @@ impl<'mutex, T> ReentrantMutexGuard<'mutex, T> {
 impl<'mutex, T> Deref for ReentrantMutexGuard<'mutex, T> {
     type Target = T;
 
+    #[meld_hint(no_drop)]
     fn deref<'a>(&'a self) -> &'a T {
         &self.__lock.data
     }

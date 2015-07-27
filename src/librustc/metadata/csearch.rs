@@ -397,6 +397,25 @@ pub fn is_staged_api(cstore: &cstore::CStore, krate: ast::CrateNum) -> bool {
     return false;
 }
 
+pub fn is_meld_func_crate(cstore: &cstore::CStore, krate: ast::CrateNum) -> bool {
+    let cdata = cstore.get_crate_data(krate);
+    let attrs = decoder::get_crate_attributes(cdata.data());
+
+    let mut crate_wants_meld = false;
+    for attr in &attrs {
+        if attr.check_name("feature") {
+            for item in attr.meta_item_list().unwrap_or(&[]) {
+                if item.check_name("meld_functions") {
+                    crate_wants_meld = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    return crate_wants_meld;
+}
+
 pub fn get_repr_attrs(cstore: &cstore::CStore, def: ast::DefId)
                       -> Vec<attr::ReprAttr> {
     let cdata = cstore.get_crate_data(def.krate);

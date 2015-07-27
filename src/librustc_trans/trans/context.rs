@@ -22,6 +22,7 @@ use trans::common::{ExternMap,BuilderRef_res};
 use trans::debuginfo;
 use trans::declare;
 use trans::glue::DropGlueKind;
+use trans::meld::MeldState;
 use trans::monomorphize::MonoId;
 use trans::type_::{Type, TypeNames};
 use middle::subst::Substs;
@@ -96,8 +97,9 @@ pub struct LocalCrateContext<'tcx> {
     /// came from)
     external_srcs: RefCell<NodeMap<ast::DefId>>,
     /// Cache instances of monomorphized functions
-    monomorphized: RefCell<FnvHashMap<MonoId<'tcx>, ValueRef>>,
+    monomorphized: RefCell<FnvHashMap<MonoId<'tcx>, (ValueRef, bool)>>,
     monomorphizing: RefCell<DefIdMap<usize>>,
+    meld_state: RefCell<MeldState<'tcx>>,
     available_monomorphizations: RefCell<FnvHashSet<String>>,
     /// Cache generated vtables
     vtables: RefCell<FnvHashMap<ty::PolyTraitRef<'tcx>, ValueRef>>,
@@ -446,6 +448,7 @@ impl<'tcx> LocalCrateContext<'tcx> {
                 external_srcs: RefCell::new(NodeMap()),
                 monomorphized: RefCell::new(FnvHashMap()),
                 monomorphizing: RefCell::new(DefIdMap()),
+                meld_state: RefCell::new(MeldState::new()),
                 available_monomorphizations: RefCell::new(FnvHashSet()),
                 vtables: RefCell::new(FnvHashMap()),
                 const_cstr_cache: RefCell::new(FnvHashMap()),
@@ -633,12 +636,16 @@ impl<'b, 'tcx> CrateContext<'b, 'tcx> {
         &self.local.external_srcs
     }
 
-    pub fn monomorphized<'a>(&'a self) -> &'a RefCell<FnvHashMap<MonoId<'tcx>, ValueRef>> {
+    pub fn monomorphized<'a>(&'a self) -> &'a RefCell<FnvHashMap<MonoId<'tcx>, (ValueRef, bool)>> {
         &self.local.monomorphized
     }
 
     pub fn monomorphizing<'a>(&'a self) -> &'a RefCell<DefIdMap<usize>> {
         &self.local.monomorphizing
+    }
+
+    pub fn meld_state<'a>(&'a self) -> &'a RefCell<MeldState<'tcx>> {
+        &self.local.meld_state
     }
 
     pub fn vtables<'a>(&'a self) -> &'a RefCell<FnvHashMap<ty::PolyTraitRef<'tcx>, ValueRef>> {
