@@ -56,6 +56,7 @@ pub trait Linker {
     fn no_whole_archives(&mut self);
     fn export_symbols(&mut self, sess: &Session, trans: &CrateTranslation,
                       tmpdir: &Path);
+    fn try_gold_linker(&mut self);
 }
 
 pub struct GnuLinker<'a> {
@@ -198,6 +199,24 @@ impl<'a> Linker for GnuLinker<'a> {
 
     fn export_symbols(&mut self, _: &Session, _: &CrateTranslation, _: &Path) {
         // noop, visibility in object files takes care of this
+    }
+
+    fn try_gold_linker(&mut self) {
+        let gold_exists = Path::new("/usr/bin/ld.gold").exists();
+        let opt_out = self.sess.opts.cg.disable_gold;
+
+        match (gold_exists, opt_out) {
+            (true, false) => {
+                info!("linking with ld.gold");
+                self.cmd.arg("-fuse-ld=gold");
+            }
+            (false, _) => {
+                info!("ld.gold not found. linking with ld");
+            }
+            (_, true) => {
+                info!("opting out of ld.gold");
+            }
+        }
     }
 }
 
@@ -358,4 +377,6 @@ impl<'a> Linker for MsvcLinker<'a> {
         arg.push(path);
         self.cmd.arg(&arg);
     }
+
+    fn try_gold_linker(&mut self) {}
 }
