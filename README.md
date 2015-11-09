@@ -1,13 +1,18 @@
 # The Rust Programming Language
 
-Rust is a fast systems programming language that guarantees
-memory safety and offers painless concurrency ([no data races]).
-It does not employ a garbage collector and has minimal runtime overhead.
+Rust is a systems programming language that produces fast programs,
+guarantees memory safety, and offers [unique solutions to
+concurrency][c] through its [ownership-based type system][o].
 
-This repo contains the code for the compiler (`rustc`), as well
-as standard libraries, tools and documentation for Rust.
+It is portable to many platforms, including many traditionally served
+only by C, C++ and assembly, and employs [LLVM] for code generation.
 
-[no data races]: http://blog.rust-lang.org/2015/04/10/Fearless-Concurrency.html
+This repository contains the code for the compiler and standard
+library, as well as tools and documentation.
+
+[c]: http://blog.rust-lang.org/2015/04/10/Fearless-Concurrency.html
+[o]: http://doc.rust-lang.org/book/ownership.html
+[LLVM]: http://www.llvm.org
 
 ## Quick Start
 
