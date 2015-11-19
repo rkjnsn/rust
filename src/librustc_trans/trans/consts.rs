@@ -27,11 +27,13 @@ use middle::const_eval::{const_int_checked_shr, const_uint_checked_shr};
 use middle::const_eval::EvalHint::ExprTypeChecked;
 use middle::const_eval::eval_const_expr_partial;
 use middle::def_id::DefId;
+use middle::def::DefStruct;
 use trans::{adt, closure, debuginfo, expr, inline, machine};
 use trans::base::{self, push_ctxt};
 use trans::common::{self, type_is_sized, ExprOrMethodCall, node_id_substs, C_nil, const_get_elt};
 use trans::common::{CrateContext, C_integral, C_floating, C_bool, C_str_slice, C_bytes, val_ty};
 use trans::common::{C_struct, C_undef, const_to_opt_int, const_to_opt_uint, VariantInfo, C_uint};
+use trans::common::C_floating_f64;
 use trans::common::{type_is_fat_ptr, Field, C_vector, C_array, C_null, ExprId, MethodCallKey};
 use trans::declare;
 use trans::monomorphize;
@@ -104,6 +106,56 @@ pub fn const_lit(cx: &CrateContext, e: &hir::Expr, lit: &ast::Lit)
         ast::LitByteStr(ref data) => {
             addr_of(cx, C_bytes(cx, &data[..]), 1, "byte_str")
         }
+    }
+}
+
+pub fn const_val<'a, 'tcx>(cx: &CrateContext<'a, 'tcx>, val: &ConstVal, ty: Ty<'tcx>) -> ValueRef {
+    let _icx = push_ctxt("trans_const");
+    debug!("const_val: {:?}", val);
+    let llty = type_of::type_of(cx, ty);
+    match *val {
+        ConstVal::Float(v) => C_floating_f64(v, llty),
+        ConstVal::Bool(v) => C_bool(cx, v),
+        ConstVal::Int(v) => C_integral(llty, v as u64, true),
+        ConstVal::Uint(v) => C_integral(llty, v, false),
+        ConstVal::Str(ref v) => C_str_slice(cx, v.clone()),
+        ConstVal::ByteStr(ref v) => {
+            addr_of(cx, C_bytes(cx, v), 1, "byte_str")
+        }
+        /*
+        ConstVal::Int(i) => match ty.sty {
+            ty::TyInt(ty) => C_integral(Type::int_from_ty(cx, ty), i as u64, true),
+            _ => unimplemented!(),
+        },
+        ConstVal::Uint(u) => match ty.sty {
+            ty::TyUint(ty) => C_integral(Type::uint_from_ty(cx, ty), u, false),
+            _ => unimplemented!(),
+        },
+        ConstVal::Float(f) => match ty.sty {
+            ty::TyFloat(ty) => C_floating_f64(f, Type::float_from_ty(cx, ty)),
+            _ => unimplemented!(),
+        },
+        ConstVal::Bool(b) => C_bool(cx, b),
+        ConstVal::Str(s) => C_str_slice(cx, s),
+        ConstVal::ByteStr(ref data) => {
+            addr_of(cx, C_bytes(cx, &data[..]), 1, "byte_str")
+        },*/
+        ConstVal::Struct(id, ref field_values) => {
+            let repr = adt::represent_type(cx, ty);
+            let mut trans_fields = Vec::with_capacity(field_values.len());
+            let VariantInfo { discr, fields } = VariantInfo::of_node(cx.tcx(), ty, id);
+            for Field(f_name, f_ty) in fields {
+                let value = field_values.get(&f_name).expect("trans knows struct fields that const doesn't");
+                let value = const_val(cx, value, f_ty);
+                trans_fields.push(value);
+            }
+            if ty.is_simd() {
+                C_vector(&trans_fields[..])
+            } else {
+                adt::trans_const(cx, &*repr, discr, &trans_fields[..])
+            }
+        },
+        _ => unimplemented!(),
     }
 }
 

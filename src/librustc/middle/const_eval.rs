@@ -39,6 +39,7 @@ use std::borrow::{Cow, IntoCow};
 use std::num::wrapping::OverflowingOps;
 use std::cmp::Ordering;
 use std::collections::hash_map::Entry::Vacant;
+use std::collections::HashMap;
 use std::hash;
 use std::mem::transmute;
 use std::{i8, i16, i32, i64, u8, u16, u32, u64};
@@ -253,11 +254,11 @@ pub enum ConstVal {
     Str(InternedString),
     ByteStr(Rc<Vec<u8>>),
     Bool(bool),
-    Struct(ast::NodeId),
-    Tuple(ast::NodeId),
+    Struct(ast::NodeId, HashMap<ast::Name, ConstVal>),
+    Tuple(Vec<ConstVal>),
     Function(DefId),
-    Array(ast::NodeId, u64),
-    Repeat(ast::NodeId, u64),
+    Array(Vec<ConstVal>),
+    Repeat(Box<ConstVal>, usize),
 }
 
 impl hash::Hash for ConstVal {
@@ -269,11 +270,16 @@ impl hash::Hash for ConstVal {
             Str(ref a) => a.hash(state),
             ByteStr(ref a) => a.hash(state),
             Bool(a) => a.hash(state),
-            Struct(a) => a.hash(state),
-            Tuple(a) => a.hash(state),
+            Struct(id, ref a) => {
+                id.hash(state);
+                for entry in a {
+                    entry.hash(state);
+                }
+            },
+            Tuple(ref a) => a.hash(state),
             Function(a) => a.hash(state),
-            Array(a, n) => { a.hash(state); n.hash(state) },
-            Repeat(a, n) => { a.hash(state); n.hash(state) },
+            Array(ref a) => a.hash(state),
+            Repeat(ref a, n) => { a.hash(state); n.hash(state) },
         }
     }
 }
@@ -291,11 +297,11 @@ impl PartialEq for ConstVal {
             (&Str(ref a), &Str(ref b)) => a == b,
             (&ByteStr(ref a), &ByteStr(ref b)) => a == b,
             (&Bool(a), &Bool(b)) => a == b,
-            (&Struct(a), &Struct(b)) => a == b,
-            (&Tuple(a), &Tuple(b)) => a == b,
+            (&Struct(id, ref a), &Struct(idb, ref b)) => (id == idb) && (a == b),
+            (&Tuple(ref a), &Tuple(ref b)) => a == b,
             (&Function(a), &Function(b)) => a == b,
-            (&Array(a, an), &Array(b, bn)) => (a == b) && (an == bn),
-            (&Repeat(a, an), &Repeat(b, bn)) => (a == b) && (an == bn),
+            (&Array(ref a), &Array(ref b)) => a == b,
+            (&Repeat(ref a, an), &Repeat(ref b, bn)) => (a == b) && (an == bn),
             _ => false,
         }
     }
@@ -313,7 +319,7 @@ impl ConstVal {
             Str(_) => "string literal",
             ByteStr(_) => "byte string literal",
             Bool(_) => "boolean",
-            Struct(_) => "struct",
+            Struct(..) => "struct",
             Tuple(_) => "tuple",
             Function(_) => "function definition",
             Array(..) => "array",
@@ -404,6 +410,8 @@ pub enum ErrKind {
     InvalidOpForUintInt(hir::BinOp_),
     NegateOn(ConstVal),
     NotOn(ConstVal),
+    BadStructBase(ConstVal),
+    ExpectedStructDef(def::Def),
 
     NegateWithOverflow(i64),
     AddiWithOverflow(i64, i64),
@@ -448,6 +456,10 @@ impl ConstEvalErr {
             InvalidOpForUintInt(..) => "can't do this op on a usize and isize".into_cow(),
             NegateOn(ref const_val) => format!("negate on {}", const_val.description()).into_cow(),
             NotOn(ref const_val) => format!("not on {}", const_val.description()).into_cow(),
+            BadStructBase(ref const_val) =>
+                format!("bad struct base: `{}`", const_val.description()).into_cow(),
+            ExpectedStructDef(def) =>
+                format!("expected struct definition, got: `{:?}`", def).into_cow(),
 
             NegateWithOverflow(..) => "attempted to negate with overflow".into_cow(),
             AddiWithOverflow(..) => "attempted to add with overflow".into_cow(),
@@ -838,18 +850,23 @@ pub fn eval_const_expr_partial<'tcx>(tcx: &ty::ctxt<'tcx>,
         }
       }
       hir::ExprBinary(op, ref a, ref b) => {
-        let b_ty = match op.node {
-            hir::BiShl | hir::BiShr => {
-                if let ExprTypeChecked = ty_hint {
-                    ExprTypeChecked
-                } else {
-                    UncheckedExprHint(tcx.types.usize)
-                }
+        let a = try!(eval_const_expr_partial(tcx, &**a, ty_hint, fn_args));
+        let b_ty = if let ExprTypeChecked = ty_hint {
+            ExprTypeChecked
+        } else {
+            match op.node {
+                hir::BiShl | hir::BiShr => UncheckedExprHint(tcx.types.usize),
+                _ => match a {
+                    Int(_) => UncheckedExprHint(tcx.types.isize),
+                    Uint(_) => UncheckedExprHint(tcx.types.usize),
+                    // don't care about the other types, they don't do much arithmetics
+                    _ => ty_hint,
+                },
             }
-            _ => ty_hint
         };
-        match (try!(eval_const_expr_partial(tcx, &**a, ty_hint, fn_args)),
-               try!(eval_const_expr_partial(tcx, &**b, b_ty, fn_args))) {
+
+        let b = try!(eval_const_expr_partial(tcx, &**b, b_ty, fn_args));
+        match (a, b) {
           (Float(a), Float(b)) => {
             match op.node {
               hir::BiAdd => Float(a + b),
@@ -1032,7 +1049,8 @@ pub fn eval_const_expr_partial<'tcx>(tcx: &ty::ctxt<'tcx>,
                   (lookup_variant_by_id(tcx, enum_def, variant_def), None)
               }
               Some(def::DefStruct(_)) => {
-                  return Ok(ConstVal::Struct(e.id))
+                  // FIXME: necessary to check if struct is a unit struct?
+                  return Ok(ConstVal::Struct(e.id, HashMap::new()))
               }
               Some(def::DefLocal(_, id)) => {
                   debug!("DefLocal({:?}): {:?}", id, fn_args);
@@ -1134,9 +1152,40 @@ pub fn eval_const_expr_partial<'tcx>(tcx: &ty::ctxt<'tcx>,
             None => unreachable!(),
         }
       }
-      hir::ExprTup(_) => Tuple(e.id),
-      hir::ExprStruct(..) => Struct(e.id),
+      hir::ExprTup(ref fields) => {
+          let field_hint = if let ExprTypeChecked = ty_hint {
+              ExprTypeChecked
+          } else {
+              UncheckedExprNoHint
+          };
+          let mut fs = Vec::with_capacity(fields.len());
+          for field in fields {
+              fs.push(try!(eval_const_expr_partial(tcx, &**field, field_hint, fn_args)))
+          }
+          Tuple(fs)
+      },
+      hir::ExprStruct(_, ref fields, ref base_opt) => {
+          let mut base = if let Some(ref base) = *base_opt {
+              match try!(eval_const_expr_partial(tcx, &**base, ty_hint, fn_args)) {
+                  Struct(_, base) => base,
+                  other => signal!(e, BadStructBase(other)),
+              }
+          } else {
+              HashMap::new()
+          };
+          let field_hint = if let ExprTypeChecked = ty_hint {
+              ExprTypeChecked
+          } else {
+              UncheckedExprNoHint
+          };
+          for field in fields {
+              let val = try!(eval_const_expr_partial(tcx, &*field.expr, field_hint, fn_args));
+              base.insert(field.name.node, val);
+          }
+          Struct(e.id, base)
+      },
       hir::ExprIndex(ref arr, ref idx) => {
+        //if tcx.sess.features.borrow().const_index
         let arr_hint = if let ExprTypeChecked = ty_hint {
             ExprTypeChecked
         } else {
@@ -1149,26 +1198,16 @@ pub fn eval_const_expr_partial<'tcx>(tcx: &ty::ctxt<'tcx>,
             UncheckedExprHint(tcx.types.usize)
         };
         let idx = match try!(eval_const_expr_partial(tcx, idx, idx_hint, fn_args)) {
-            Int(i) if i >= 0 => i as u64,
+            Int(i) if i >= 0 => i as usize,
             Int(_) => signal!(idx, IndexNegative),
-            Uint(i) => i,
+            Uint(i) => i as usize,
             _ => signal!(idx, IndexNotInt),
         };
         match arr {
-            Array(_, n) if idx >= n => signal!(e, IndexOutOfBounds),
-            Array(v, _) => if let hir::ExprVec(ref v) = tcx.map.expect_expr(v).node {
-                try!(eval_const_expr_partial(tcx, &*v[idx as usize], ty_hint, fn_args))
-            } else {
-                unreachable!()
-            },
-
+            Array(ref v) if idx >= v.len() => signal!(e, IndexOutOfBounds),
+            Array(v) => v[idx as usize].clone(),
             Repeat(_, n) if idx >= n => signal!(e, IndexOutOfBounds),
-            Repeat(elem, _) => try!(eval_const_expr_partial(
-                tcx,
-                &*tcx.map.expect_expr(elem),
-                ty_hint,
-                fn_args,
-            )),
+            Repeat(elem, _) => *elem,
 
             ByteStr(ref data) if idx as usize >= data.len()
                 => signal!(e, IndexOutOfBounds),
@@ -1180,19 +1219,35 @@ pub fn eval_const_expr_partial<'tcx>(tcx: &ty::ctxt<'tcx>,
             _ => signal!(e, IndexedNonVec),
         }
       }
-      hir::ExprVec(ref v) => Array(e.id, v.len() as u64),
-      hir::ExprRepeat(_, ref n) => {
+      hir::ExprVec(ref v) => {
+          let hint = if let ExprTypeChecked = ty_hint {
+              ExprTypeChecked
+          } else {
+              UncheckedExprNoHint
+          };
+          let mut fs = Vec::with_capacity(v.len());
+          for val in v {
+              fs.push(try!(eval_const_expr_partial(tcx, &**val, hint, fn_args)))
+          }
+          Array(fs)
+      }
+      hir::ExprRepeat(ref val, ref n) => {
           let len_hint = if let ExprTypeChecked = ty_hint {
               ExprTypeChecked
           } else {
               UncheckedExprHint(tcx.types.usize)
           };
+          let val_hint = if let ExprTypeChecked = ty_hint {
+              ExprTypeChecked
+          } else {
+              UncheckedExprNoHint
+          };
           Repeat(
-              e.id,
+              box try!(eval_const_expr_partial(tcx, &**val, val_hint, fn_args)),
               match try!(eval_const_expr_partial(tcx, &**n, len_hint, fn_args)) {
-                  Int(i) if i >= 0 => i as u64,
+                  Int(i) if i >= 0 => i as usize,
                   Int(_) => signal!(e, RepeatCountNotNatural),
-                  Uint(i) => i,
+                  Uint(i) => i as usize,
                   _ => signal!(e, RepeatCountNotInt),
               },
           )
@@ -1203,22 +1258,15 @@ pub fn eval_const_expr_partial<'tcx>(tcx: &ty::ctxt<'tcx>,
         } else {
             UncheckedExprNoHint
         };
-        if let Ok(c) = eval_const_expr_partial(tcx, base, base_hint, fn_args) {
-            if let Tuple(tup_id) = c {
-                if let hir::ExprTup(ref fields) = tcx.map.expect_expr(tup_id).node {
-                    if index.node < fields.len() {
-                        return eval_const_expr_partial(tcx, &fields[index.node], base_hint, fn_args)
-                    } else {
-                        signal!(e, TupleIndexOutOfBounds);
-                    }
-                } else {
-                    unreachable!()
-                }
+        let c = try!(eval_const_expr_partial(tcx, base, base_hint, fn_args));
+        if let Tuple(fields) = c {
+            if index.node < fields.len() {
+                fields[index.node].clone()
             } else {
-                signal!(base, ExpectedConstTuple);
+                signal!(e, TupleIndexOutOfBounds);
             }
         } else {
-            signal!(base, NonConstPath)
+            signal!(base, ExpectedConstTuple);
         }
       }
       hir::ExprField(ref base, field_name) => {
@@ -1228,25 +1276,16 @@ pub fn eval_const_expr_partial<'tcx>(tcx: &ty::ctxt<'tcx>,
         } else {
             UncheckedExprNoHint
         };
-        if let Ok(c) = eval_const_expr_partial(tcx, base, base_hint, fn_args) {
-            if let Struct(struct_id) = c {
-                if let hir::ExprStruct(_, ref fields, _) = tcx.map.expect_expr(struct_id).node {
-                    // Check that the given field exists and evaluate it
-                    // if the idents are compared run-pass/issue-19244 fails
-                    if let Some(f) = fields.iter().find(|f| f.name.node
-                                                         == field_name.node) {
-                        return eval_const_expr_partial(tcx, &*f.expr, base_hint, fn_args)
-                    } else {
-                        signal!(e, MissingStructField);
-                    }
-                } else {
-                    unreachable!()
-                }
+        let c = try!(eval_const_expr_partial(tcx, base, base_hint, fn_args));
+        if let Struct(_, mut fields) = c {
+            if let Some(f) = fields.remove(&field_name.node) {
+                f
             } else {
-                signal!(base, ExpectedConstStruct);
+                // FIXME: is this unreachable?
+                signal!(e, MissingStructField);
             }
         } else {
-            signal!(base, NonConstPath);
+            signal!(base, ExpectedConstStruct);
         }
       }
       _ => signal!(e, MiscCatchAll)
