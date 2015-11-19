@@ -122,24 +122,6 @@ pub fn const_val<'a, 'tcx>(cx: &CrateContext<'a, 'tcx>, val: &ConstVal, ty: Ty<'
         ConstVal::ByteStr(ref v) => {
             addr_of(cx, C_bytes(cx, v), 1, "byte_str")
         }
-        /*
-        ConstVal::Int(i) => match ty.sty {
-            ty::TyInt(ty) => C_integral(Type::int_from_ty(cx, ty), i as u64, true),
-            _ => unimplemented!(),
-        },
-        ConstVal::Uint(u) => match ty.sty {
-            ty::TyUint(ty) => C_integral(Type::uint_from_ty(cx, ty), u, false),
-            _ => unimplemented!(),
-        },
-        ConstVal::Float(f) => match ty.sty {
-            ty::TyFloat(ty) => C_floating_f64(f, Type::float_from_ty(cx, ty)),
-            _ => unimplemented!(),
-        },
-        ConstVal::Bool(b) => C_bool(cx, b),
-        ConstVal::Str(s) => C_str_slice(cx, s),
-        ConstVal::ByteStr(ref data) => {
-            addr_of(cx, C_bytes(cx, &data[..]), 1, "byte_str")
-        },*/
         ConstVal::Struct(id, ref field_values) => {
             let repr = adt::represent_type(cx, ty);
             let mut trans_fields = Vec::with_capacity(field_values.len());
