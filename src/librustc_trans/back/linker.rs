@@ -8,6 +8,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
+use std::env;
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::io::{self, BufWriter};
@@ -202,19 +203,20 @@ impl<'a> Linker for GnuLinker<'a> {
     }
 
     fn try_gold_linker(&mut self) {
-        use metadata::filesearch::PATH_ENTRY_SEPARATOR;
+        if !cfg!(target_os = "linux") {
+            return;
+        }
 
         let gold_exists = match env::var("PATH") {
-            Some(env_path) => {
-                env_path.split(PATH_ENTRY_SEPARATOR).any(|p| {
-                    let mut p = PathBuf::new(p);
+            Ok(env_path) => {
+                env_path.split(":").any(|p| {
+                    let mut p = PathBuf::from(p);
                     p.push("ld.gold");
                     p.exists()
                 })
             }
-            None => false
+            Err(_) => false
         };
-        let gold_exists = Path::new("/usr/bin/ld.gold").exists();
         let opt_out = self.sess.opts.cg.disable_gold;
 
         match (gold_exists, opt_out) {
