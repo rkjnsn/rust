@@ -202,6 +202,18 @@ impl<'a> Linker for GnuLinker<'a> {
     }
 
     fn try_gold_linker(&mut self) {
+        use metadata::filesearch::PATH_ENTRY_SEPARATOR;
+
+        let gold_exists = match env::var("PATH") {
+            Some(env_path) => {
+                env_path.split(PATH_ENTRY_SEPARATOR).any(|p| {
+                    let mut p = PathBuf::new(p);
+                    p.push("ld.gold");
+                    p.exists()
+                })
+            }
+            None => false
+        };
         let gold_exists = Path::new("/usr/bin/ld.gold").exists();
         let opt_out = self.sess.opts.cg.disable_gold;
 
