@@ -364,7 +364,13 @@ extern "C" LLVMMetadataRef LLVMDIBuilderCreateFunction(
         unwrapDI<DIFile>(File), LineNo,
         unwrapDI<DISubroutineType>(Ty), isLocalToUnit, isDefinition, ScopeLine,
         Flags, isOptimized,
+#if LLVM_VERSION_MINOR < 7
         unwrap<Function>(Fn),
+#endif
+#if LLVM_VERSION_MINOR >= 8
+        unwrapDIptr<MDTuple>(TParam),
+        unwrapDIptr<DISubprogram>(Decl)));
+#else
         unwrapDIptr<MDNode>(TParam),
         unwrapDIptr<MDNode>(Decl)));
 #endif
@@ -844,7 +850,6 @@ LLVMRustLinkInExternalBitcode(LLVMModuleRef dst, char *bc, size_t len) {
     DiagnosticPrinterRawOStream DP(Stream);
 #if LLVM_VERSION_MINOR >= 8
     if (Linker::linkModules(*Dst, std::move(Src.get()))) {
-#elif LLVM_VERSION_MINOR >= 7
     if (Linker::LinkModules(Dst, Src->get(), [&](const DiagnosticInfo &DI) { DI.print(DP); })) {
 #else
     if (Linker::LinkModules(Dst, *Src, [&](const DiagnosticInfo &DI) { DI.print(DP); })) {
