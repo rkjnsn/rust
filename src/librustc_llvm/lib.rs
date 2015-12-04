@@ -2210,6 +2210,12 @@ extern {
     pub fn LLVMInitializePNaClTarget();
     pub fn LLVMInitializePNaClTargetMC();
 }
+#[cfg(have_component_jsbackend)]
+extern {
+    pub fn LLVMInitializeJSBackendTargetInfo();
+    pub fn LLVMInitializeJSBackendTarget();
+    pub fn LLVMInitializeJSBackendTargetMC();
+}
 
 // LLVM requires symbols from this library, but apparently they're not printed
 // during llvm-config?
@@ -2438,6 +2444,17 @@ pub fn initialize_available_targets() {
     #[cfg(not(have_component_pnacl))]
     fn init_pnacl() { }
     init_pnacl();
+    #[cfg(have_component_jsbackend)]
+    fn init_jsbackend() {
+        unsafe {
+            LLVMInitializeJSBackendTargetInfo();
+            LLVMInitializeJSBackendTarget();
+            LLVMInitializeJSBackendTargetMC();
+        }
+    }
+    #[cfg(not(have_component_jsbackend))]
+    fn init_jsbackend() { }
+    init_jsbackend();
 }
 
 pub fn last_error() -> Option<String> {
