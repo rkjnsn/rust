@@ -62,6 +62,7 @@ RUSTBOOK = $(RPATH_VAR2_T_$(CFG_BUILD)_H_$(CFG_BUILD)) $(RUSTBOOK_EXE)
 # The error-index-generator executable...
 ERR_IDX_GEN_EXE = $(HBIN2_H_$(CFG_BUILD))/error-index-generator$(X_$(CFG_BUILD))
 ERR_IDX_GEN = $(RPATH_VAR2_T_$(CFG_BUILD)_H_$(CFG_BUILD)) $(ERR_IDX_GEN_EXE)
+ERR_IDX_GEN_MD = $(RPATH_VAR2_T_$(CFG_BUILD)_H_$(CFG_BUILD)) $(ERR_IDX_GEN_EXE) markdown
 
 D := $(S)src/doc
 
@@ -220,3 +221,7 @@ error-index: doc/error-index.html
 doc/error-index.html: $(ERR_IDX_GEN_EXE) | doc/
 	$(Q)$(call E, error-index-generator: $@)
 	$(Q)$(ERR_IDX_GEN)
+
+doc/error-index.md: $(ERR_IDX_GEN_EXE) | doc/
+	$(Q)$(call E, error-index-generator: $@)
+	$(Q)$(ERR_IDX_GEN_MD)
