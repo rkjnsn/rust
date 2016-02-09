@@ -894,13 +894,25 @@ $(foreach host,$(CFG_HOST), \
 
 define DEF_DOC_TEST_ERROR_INDEX
 
-check-stage$(1)-T-$(2)-H-$(3)-doc-error-index-exec: \
-	doc/error-index.md \
-	check-stage$(1)-rustdocck \
-	$$(RUSTDOC_$(1)_T_$(2)_H_$(3)) --test "doc/error-index.md"
-#	$$(HBIN$(1)_H_$(3))/rustdoc$$(X_$(3)) --test doc/error-index.md
+check-stage$(1)-T-$(2)-H-$(3)-doc-error-index-exec: $$(call TEST_OK_FILE,$(1),$(2),$(3),doc-error-index)
 
+ifeq ($(2),$$(CFG_BUILD))
+$$(call TEST_OK_FILE,$(1),$(2),$(3),doc-error-index): \
+		$$(TEST_SREQ$(1)_T_$(2)_H_$(3)) \
+		doc/error-index.md
+	$$(Q)touch $$@.start_time
+	$$(RUSTDOC_$(1)_T_$(2)_H_$(3)) --test doc/error-index.md
+	$$(Q)touch -r $$@.start_time $$@ && rm $$@.start_time
+else
+$$(call TEST_OK_FILE,$(1),$(2),$(3),doc-error-index):
+	$$(Q)touch $$@
+endif
 endef
+
+$(foreach host,$(CFG_HOST), \
+ $(foreach target,$(CFG_TARGET), \
+  $(foreach stage,$(STAGES), \
+   $(eval $(call DEF_DOC_TEST_ERROR_INDEX,$(stage),$(target),$(host))))))
 
 ######################################################################
 # Shortcut rules
