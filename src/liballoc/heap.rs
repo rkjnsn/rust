@@ -56,7 +56,11 @@ fn check_size_and_alignment(size: usize, align: usize) {
 #[inline]
 pub unsafe fn allocate(size: usize, align: usize) -> *mut u8 {
     check_size_and_alignment(size, align);
-    __rust_allocate(size, align)
+    let r = __rust_allocate(size, align);
+    ::rtinst::call(::rtinst::Event::Allocate {
+        size: size, align: align, ptr: r
+    });
+    r
 }
 
 /// Resize the allocation referenced by `ptr` to `size` bytes.
@@ -76,7 +80,11 @@ pub unsafe fn allocate(size: usize, align: usize) -> *mut u8 {
 #[inline]
 pub unsafe fn reallocate(ptr: *mut u8, old_size: usize, size: usize, align: usize) -> *mut u8 {
     check_size_and_alignment(size, align);
-    __rust_reallocate(ptr, old_size, size, align)
+    let r = __rust_reallocate(ptr, old_size, size, align);
+    ::rtinst::call(::rtinst::Event::Reallocate {
+        inptr: ptr, old_size: old_size, size: size, align: align, outptr: r
+    });
+    r
 }
 
 /// Resize the allocation referenced by `ptr` to `size` bytes.
@@ -98,7 +106,11 @@ pub unsafe fn reallocate_inplace(ptr: *mut u8,
                                  align: usize)
                                  -> usize {
     check_size_and_alignment(size, align);
-    __rust_reallocate_inplace(ptr, old_size, size, align)
+    let r = __rust_reallocate_inplace(ptr, old_size, size, align);
+    ::rtinst::call(::rtinst::Event::ReallocateInplace {
+        ptr: ptr, old_size: old_size, size: size, align: align
+    });
+    r
 }
 
 /// Deallocates the memory referenced by `ptr`.
@@ -110,7 +122,11 @@ pub unsafe fn reallocate_inplace(ptr: *mut u8,
 /// any value in range_inclusive(requested_size, usable_size).
 #[inline]
 pub unsafe fn deallocate(ptr: *mut u8, old_size: usize, align: usize) {
-    __rust_deallocate(ptr, old_size, align)
+    let r = __rust_deallocate(ptr, old_size, align);
+    ::rtinst::call(::rtinst::Event::Deallocate {
+        ptr: ptr, old_size: old_size, align: align
+    });
+    r
 }
 
 /// Returns the usable size of an allocation created with the specified the
@@ -153,6 +169,9 @@ unsafe fn exchange_free(ptr: *mut u8, old_size: usize, align: usize) {
 #[lang = "box_free"]
 #[inline]
 unsafe fn box_free<T>(ptr: *mut T) {
+    ::rtinst::call(::rtinst::Event::BoxDrop {
+        t: ::rtinst::ti::<T>(), ptr: &*ptr as *const T as *const u8
+    });
     let size = size_of::<T>();
     // We do not allocate for Box<T> when T is ZST, so deallocation is also not necessary.
     if size != 0 {

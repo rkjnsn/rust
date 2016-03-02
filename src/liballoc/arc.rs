@@ -198,7 +198,11 @@ impl<T> Arc<T> {
             weak: atomic::AtomicUsize::new(1),
             data: data,
         };
-        Arc { _ptr: unsafe { Shared::new(Box::into_raw(x)) } }
+        let arc = Arc { _ptr: unsafe { Shared::new(Box::into_raw(x)) } };
+        ::rtinst::call(::rtinst::Event::ArcCreate {
+            t: ::rtinst::ti::<T>(), ptr: &*arc as *const T as *const u8
+        });
+        arc
     }
 
     /// Unwraps the contained value if the `Arc<T>` has only one strong reference.
@@ -314,6 +318,9 @@ impl<T: ?Sized> Arc<T> {
         ptr::drop_in_place(&mut (*ptr).data);
 
         if self.inner().weak.fetch_sub(1, Release) == 1 {
+            ::rtinst::call(::rtinst::Event::ArcDrop {
+                t: ::rtinst::uti::<T>(), ptr: &(*ptr).data as *const T as *const u8
+            });
             atomic::fence(Acquire);
             deallocate(ptr as *mut u8, size_of_val(&*ptr), align_of_val(&*ptr))
         }
@@ -726,6 +733,9 @@ impl<T: ?Sized> Drop for Weak<T> {
         // meaning that drop could only subsequently run ON that remaining weak
         // ref, which can only happen after the lock is released.
         if self.inner().weak.fetch_sub(1, Release) == 1 {
+            ::rtinst::call(::rtinst::Event::ArcDrop {
+                t: ::rtinst::uti::<T>(), ptr: unsafe { &(*ptr).data } as *const T as *const u8
+            });
             atomic::fence(Acquire);
             unsafe { deallocate(ptr as *mut u8, size_of_val(&*ptr), align_of_val(&*ptr)) }
         }

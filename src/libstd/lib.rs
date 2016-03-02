@@ -298,6 +298,7 @@ extern crate collections as core_collections;
 extern crate alloc;
 extern crate rustc_unicode;
 extern crate libc;
+extern crate rtinst;
 
 #[cfg(stage0)]
 extern crate alloc_system;
@@ -459,3 +460,51 @@ pub mod __rand {
 // the rustdoc documentation for primitive types. Using `include!`
 // because rustdoc only looks for these modules at the crate level.
 include!("primitive_docs.rs");
+
+#[doc(hidden)]
+#[unstable(feature = "rtinst", issue = "0")]
+pub fn activate_inst() {
+    set_start_time();
+    rtinst::set_handler(handle_inst);
+}
+
+#[doc(hidden)]
+#[unstable(feature = "rtinst", issue = "0")]
+pub fn deactivate_inst() {
+    fn null_handler(_: rtinst::Event) { }
+    rtinst::set_handler(null_handler);
+}
+
+fn handle_inst(e: rtinst::Event) {
+    use io::Write;
+    deactivate_inst();
+    let thread_id = unsafe { libc::pthread_self() as u64 };
+    let now = time::Instant::now();
+    let start_time = START_TIME.load(sync::atomic::Ordering::SeqCst);
+    assert!(start_time != 0);
+    let start_time: &time::Instant = unsafe { mem::transmute(start_time) };
+    let time = now.duration_since(*start_time);
+    let mut stderr = io::stderr();
+    {
+        // Protect threaded writes to stderr
+        static LOCK: sync::StaticMutex = sync::MUTEX_INIT;
+        let _g = LOCK.lock().unwrap();
+        let _ = writeln!(stderr,
+                         "RTINST [{thread}][{s}.{ns:9}] {event:?}",
+                         thread = thread_id,
+                         s = time.as_secs(),
+                         ns = time.subsec_nanos(),
+                         event = e);
+    }
+    rtinst::set_handler(handle_inst);
+}
+
+// This is a Box<Instant>
+// FIXME: There must be a better way to do this
+static START_TIME: sync::atomic::AtomicUsize = sync::atomic::ATOMIC_USIZE_INIT;
+
+fn set_start_time() {
+    let start = boxed::Box::new(time::Instant::now());
+    let start = unsafe { mem::transmute(start) };
+    START_TIME.store(start, sync::atomic::Ordering::SeqCst);
+}

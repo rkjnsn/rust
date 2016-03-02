@@ -293,10 +293,16 @@ impl<T> Vec<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new() -> Vec<T> {
-        Vec {
+        let v = Vec {
             buf: RawVec::new(),
             len: 0,
-        }
+        };
+        ::rtinst::call(::rtinst::Event::VecCreate {
+            t: ::rtinst::ti::<T>(),
+            len: 0, capacity: v.buf.cap(),
+            ptr: v.buf.ptr() as *const T as *const u8
+        });
+        v
     }
 
     /// Constructs a new, empty `Vec<T>` with the specified capacity.
@@ -328,10 +334,16 @@ impl<T> Vec<T> {
     #[inline]
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn with_capacity(capacity: usize) -> Vec<T> {
-        Vec {
+        let v = Vec {
             buf: RawVec::with_capacity(capacity),
             len: 0,
-        }
+        };
+        ::rtinst::call(::rtinst::Event::VecCreate {
+            t: ::rtinst::ti::<T>(),
+            len: 0, capacity: v.buf.cap(),
+            ptr: v.buf.ptr() as *const T as *const u8
+        });
+        v
     }
 
     /// Creates a `Vec<T>` directly from the raw components of another vector.
@@ -419,7 +431,14 @@ impl<T> Vec<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn reserve(&mut self, additional: usize) {
+        let old_ptr = self.buf.ptr() as *const T as *const u8;
         self.buf.reserve(self.len, additional);
+        ::rtinst::call(::rtinst::Event::VecResize {
+            t: ::rtinst::ti::<T>(),
+            len: self.len, capacity: self.buf.cap(),
+            old_ptr: old_ptr,
+            new_ptr: self.buf.ptr() as *const T as *const u8
+        });
     }
 
     /// Reserves the minimum capacity for exactly `additional` more elements to
@@ -443,7 +462,14 @@ impl<T> Vec<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn reserve_exact(&mut self, additional: usize) {
+        let old_ptr = self.buf.ptr() as *const T as *const u8;
         self.buf.reserve_exact(self.len, additional);
+        ::rtinst::call(::rtinst::Event::VecResize {
+            t: ::rtinst::ti::<T>(),
+            len: self.len, capacity: self.buf.cap(),
+            old_ptr: old_ptr,
+            new_ptr: self.buf.ptr() as *const T as *const u8
+        });
     }
 
     /// Shrinks the capacity of the vector as much as possible.
@@ -462,7 +488,14 @@ impl<T> Vec<T> {
     /// ```
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn shrink_to_fit(&mut self) {
+        let old_ptr = self.buf.ptr() as *const T as *const u8;
         self.buf.shrink_to_fit(self.len);
+        ::rtinst::call(::rtinst::Event::VecResize {
+            t: ::rtinst::ti::<T>(),
+            len: self.len, capacity: self.buf.cap(),
+            old_ptr: old_ptr,
+            new_ptr: self.buf.ptr() as *const T as *const u8
+        });
     }
 
     /// Converts the vector into Box<[T]>.
@@ -473,7 +506,14 @@ impl<T> Vec<T> {
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn into_boxed_slice(mut self) -> Box<[T]> {
         unsafe {
+            let old_ptr = self.buf.ptr() as *const T as *const u8;
             self.shrink_to_fit();
+            ::rtinst::call(::rtinst::Event::VecResize {
+                t: ::rtinst::ti::<T>(),
+                len: self.len, capacity: self.buf.cap(),
+                old_ptr: old_ptr,
+                new_ptr: self.buf.ptr() as *const T as *const u8
+            });
             let buf = ptr::read(&self.buf);
             mem::forget(self);
             buf.into_box()
@@ -594,7 +634,14 @@ impl<T> Vec<T> {
 
         // space for the new element
         if len == self.buf.cap() {
+            let old_ptr = self.buf.ptr() as *const T as *const u8;
             self.buf.double();
+            ::rtinst::call(::rtinst::Event::VecResize {
+                t: ::rtinst::ti::<T>(),
+                len: self.len, capacity: self.buf.cap(),
+                old_ptr: old_ptr,
+                new_ptr: self.buf.ptr() as *const T as *const u8
+            });
         }
 
         unsafe {
@@ -703,7 +750,14 @@ impl<T> Vec<T> {
         // This will panic or abort if we would allocate > isize::MAX bytes
         // or if the length increment would overflow for zero-sized types.
         if self.len == self.buf.cap() {
+            let old_ptr = self.buf.ptr() as *const T as *const u8;
             self.buf.double();
+            ::rtinst::call(::rtinst::Event::VecResize {
+                t: ::rtinst::ti::<T>(),
+                len: self.len, capacity: self.buf.cap(),
+                old_ptr: old_ptr,
+                new_ptr: self.buf.ptr() as *const T as *const u8
+            });
         }
         unsafe {
             let end = self.as_mut_ptr().offset(self.len as isize);
@@ -753,7 +807,14 @@ impl<T> Vec<T> {
     #[inline]
     #[stable(feature = "append", since = "1.4.0")]
     pub fn append(&mut self, other: &mut Self) {
+        let old_ptr = self.buf.ptr() as *const T as *const u8;
         self.reserve(other.len());
+        ::rtinst::call(::rtinst::Event::VecResize {
+            t: ::rtinst::ti::<T>(),
+            len: self.len, capacity: self.buf.cap(),
+            old_ptr: old_ptr,
+            new_ptr: self.buf.ptr() as *const T as *const u8
+        });
         let len = self.len();
         unsafe {
             ptr::copy_nonoverlapping(other.as_ptr(), self.get_unchecked_mut(len), other.len());
@@ -945,7 +1006,14 @@ impl<T: Clone> Vec<T> {
 
     /// Extend the vector by `n` additional clones of `value`.
     fn extend_with_element(&mut self, n: usize, value: T) {
+        let old_ptr = self.buf.ptr() as *const T as *const u8;
         self.reserve(n);
+        ::rtinst::call(::rtinst::Event::VecResize {
+            t: ::rtinst::ti::<T>(),
+            len: self.len, capacity: self.buf.cap(),
+            old_ptr: old_ptr,
+            new_ptr: self.buf.ptr() as *const T as *const u8
+        });
 
         unsafe {
             let len = self.len();
@@ -996,7 +1064,14 @@ impl<T: Clone> Vec<T> {
     /// ```
     #[stable(feature = "vec_extend_from_slice", since = "1.6.0")]
     pub fn extend_from_slice(&mut self, other: &[T]) {
+        let old_ptr = self.buf.ptr() as *const T as *const u8;
         self.reserve(other.len());
+        ::rtinst::call(::rtinst::Event::VecResize {
+            t: ::rtinst::ti::<T>(),
+            len: self.len, capacity: self.buf.cap(),
+            old_ptr: old_ptr,
+            new_ptr: self.buf.ptr() as *const T as *const u8
+        });
 
         for i in 0..other.len() {
             let len = self.len();
@@ -1385,7 +1460,14 @@ impl<T> Vec<T> {
             let len = self.len();
             if len == self.capacity() {
                 let (lower, _) = iterator.size_hint();
+                let old_ptr = self.buf.ptr() as *const T as *const u8;
                 self.reserve(lower.saturating_add(1));
+                ::rtinst::call(::rtinst::Event::VecResize {
+                    t: ::rtinst::ti::<T>(),
+                    len: self.len, capacity: self.buf.cap(),
+                    old_ptr: old_ptr,
+                    new_ptr: self.buf.ptr() as *const T as *const u8
+                });
             }
             unsafe {
                 ptr::write(self.get_unchecked_mut(len), element);

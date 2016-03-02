@@ -63,6 +63,7 @@
 
 extern crate rustc_unicode;
 extern crate alloc;
+extern crate rtinst;
 
 #[cfg(test)]
 #[macro_use]

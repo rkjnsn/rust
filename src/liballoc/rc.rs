@@ -210,7 +210,7 @@ impl<T> Rc<T> {
     #[stable(feature = "rust1", since = "1.0.0")]
     pub fn new(value: T) -> Rc<T> {
         unsafe {
-            Rc {
+            let rc = Rc {
                 // there is an implicit weak pointer owned by all the strong
                 // pointers, which ensures that the weak destructor never frees
                 // the allocation while the strong destructor is running, even
@@ -220,7 +220,11 @@ impl<T> Rc<T> {
                     weak: Cell::new(1),
                     value: value,
                 })),
-            }
+            };
+            ::rtinst::call(::rtinst::Event::RcCreate {
+                t: ::rtinst::ti::<T>(), ptr: &*rc as *const T as *const u8
+            });
+            rc
         }
     }
 
@@ -462,6 +466,9 @@ impl<T: ?Sized> Drop for Rc<T> {
                     self.dec_weak();
 
                     if self.weak() == 0 {
+                        ::rtinst::call(::rtinst::Event::RcDrop {
+                            t: ::rtinst::uti::<T>(), ptr: &(*ptr).value as *const T as *const u8
+                        });
                         deallocate(ptr as *mut u8, size_of_val(&*ptr), align_of_val(&*ptr))
                     }
                 }
@@ -790,6 +797,9 @@ impl<T: ?Sized> Drop for Weak<T> {
                 // the weak count starts at 1, and will only go to zero if all
                 // the strong pointers have disappeared.
                 if self.weak() == 0 {
+                    ::rtinst::call(::rtinst::Event::RcDrop {
+                        t: ::rtinst::uti::<T>(), ptr: &(*ptr).value as *const T as *const u8
+                    });
                     deallocate(ptr as *mut u8, size_of_val(&*ptr), align_of_val(&*ptr))
                 }
             }
