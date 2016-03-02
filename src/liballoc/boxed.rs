@@ -232,7 +232,11 @@ impl<T> Box<T> {
     #[stable(feature = "rust1", since = "1.0.0")]
     #[inline(always)]
     pub fn new(x: T) -> Box<T> {
-        box x
+        let b = box x;
+        ::rtinst::call(::rtinst::Event::BoxCreate {
+            t: ::rtinst::ti::<T>(), ptr: &*b as *const T as *const u8
+        });
+        b
     }
 }
 

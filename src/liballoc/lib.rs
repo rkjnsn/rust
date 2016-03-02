@@ -102,6 +102,7 @@ extern crate std;
 #[cfg(test)]
 #[macro_use]
 extern crate log;
+extern crate rtinst;
 
 // Heaps provided for low-level allocation strategies
 

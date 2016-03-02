@@ -49,7 +49,7 @@
 # automatically generated for all stage/host/target combinations.
 ################################################################################
 
-TARGET_CRATES := libc std flate arena term \
+TARGET_CRATES := libc std flate arena term rtinst \
                  serialize getopts collections test rand \
                  log graphviz core rbml alloc \
                  rustc_unicode rustc_bitflags \
@@ -62,16 +62,17 @@ HOST_CRATES := syntax syntax_ext $(RUSTC_CRATES) rustdoc fmt_macros
 TOOLS := compiletest rustdoc rustc rustbook error_index_generator
 
 DEPS_core :=
-DEPS_alloc := core libc alloc_system
+DEPS_rtinst := core
+DEPS_alloc := core libc alloc_system rtinst
 DEPS_alloc_system := core libc
 DEPS_alloc_jemalloc := core libc native:jemalloc
-DEPS_collections := core alloc rustc_unicode
+DEPS_collections := core alloc rustc_unicode rtinst
 DEPS_libc := core
 DEPS_rand := core
 DEPS_rustc_bitflags := core
 DEPS_rustc_unicode := core
 
-DEPS_std := core libc rand alloc collections rustc_unicode \
+DEPS_std := core libc rand alloc collections rustc_unicode rtinst \
 	native:backtrace \
 	alloc_system
 DEPS_arena := std
@@ -129,6 +130,7 @@ TOOL_SOURCE_rustbook := $(S)src/rustbook/main.rs
 TOOL_SOURCE_error_index_generator := $(S)src/error_index_generator/main.rs
 
 ONLY_RLIB_core := 1
+ONLY_RLIB_rtinst := 1
 ONLY_RLIB_libc := 1
 ONLY_RLIB_alloc := 1
 ONLY_RLIB_rand := 1
