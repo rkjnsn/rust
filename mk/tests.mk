@@ -161,8 +161,14 @@ $(foreach file,$(wildcard $(S)src/doc/nomicon/*.md), \
 ######################################################################
 
 # The main testing target. Tests lots of stuff.
+ifndef AUTOMATION_HACK
 check: check-sanitycheck cleantmptestlogs cleantestlibs all check-stage2 tidy
 	$(Q)$(CFG_PYTHON) $(S)src/etc/check-summary.py tmp/*.log
+
+else
+check:
+
+endif
 
 # As above but don't bother running tidy.
 check-notidy: check-sanitycheck cleantmptestlogs cleantestlibs all check-stage2

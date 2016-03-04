@@ -1799,6 +1799,10 @@ else
     INPUT_MAKEFILE=Makefile.in
 fi
 
+# Simulate the build
+AUTOMATION_HACK=1
+putvar AUTOMATION_HACK
+
 msg
 copy_if_changed ${CFG_SRC_DIR}${INPUT_MAKEFILE} ./Makefile
 move_if_changed config.tmp config.mk
@@ -1813,3 +1817,4 @@ fi
 
 msg "run \`make help\`"
 msg
+

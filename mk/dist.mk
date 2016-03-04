@@ -354,6 +354,8 @@ MAYBE_DIST_DOCS=dist-docs
 MAYBE_DISTCHECK_DOCS=distcheck-docs
 endif
 
+ifndef AUTOMATION_HACK
+
 dist: $(MAYBE_DIST_TAR_SRC) dist-tar-bins $(MAYBE_DIST_DOCS)
 
 distcheck: $(MAYBE_DISTCHECK_TAR_SRC) distcheck-tar-bins $(MAYBE_DISTCHECK_DOCS)
@@ -362,5 +364,61 @@ distcheck: $(MAYBE_DISTCHECK_TAR_SRC) distcheck-tar-bins $(MAYBE_DISTCHECK_DOCS)
 	@echo -----------------------------------------------
 	@echo "Rust ready for distribution (see ./dist)"
 	@echo -----------------------------------------------
+
+else
+
+fake-docs:
+	mkdir -p dist/doc/$(CFG_RELEASE_CHANNEL)
+	touch dist/doc/$(CFG_RELEASE_CHANNEL)/index.html
+
+fake-tar-src:
+	touch $(PKG_TAR)
+
+
+define FAKE_HOST_DIST
+
+fake-host-dist-$(1):
+	touch dist/$(PKG_NAME)-$(1).tar.gz
+
+fake-doc-dist-$(1):
+	touch dist/$(DOC_PKG_NAME)-$(1).tar.gz
+
+ifdef CFG_WINDOWSY_$(CFG_BUILD)
+ifeq ($$(findstring gnu,$(1)),gnu)
+fake-mingw-dist-$(1):
+	touch dist/$(MINGW_PKG_NAME)-$(1).tar.gz
+else
+fake-mingw-dist-$(1):
+endif
+else
+fake-mingw-dist-$(1):
+endif
+
+endef
+
+$(foreach host,$(CFG_HOST),\
+ $(eval $(call FAKE_HOST_DIST,$(host))))
+
+define FAKE_TARGET_DIST
+
+fake-target-dist-$(1):
+	touch dist/$(STD_PKG_NAME)-$(1).tar.gz
+
+endef
+
+$(foreach target,$(CFG_TARGET),\
+ $(eval $(call FAKE_TARGET_DIST,$(target))))
+
+fake-dist-tar-bins: \
+	$(foreach host,$(CFG_HOST),fake-host-dist-$(host)) \
+	$(foreach target,$(CFG_TARGET),fake-target-dist-$(target)) \
+	$(foreach host,$(CFG_HOST),fake-doc-dist-$(host)) \
+	$(foreach host,$(CFG_HOST),fake-mingw-dist-$(host))
+
+dist: fake-docs fake-tar-src fake-dist-tar-bins
+
+distcheck: dist
+
+endif
 
 .PHONY: dist distcheck
