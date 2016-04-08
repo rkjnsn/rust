@@ -385,12 +385,6 @@ endif
 # Per-stage targets and runner
 ######################################################################
 
-# Valid setting-strings are 'all', 'none', 'gdb', 'lldb'
-# This 'function' will determine which debugger scripts to copy based on a
-# target triple. See debuggers.mk for more information.
-TRIPLE_TO_DEBUGGER_SCRIPT_SETTING=\
- $(if $(findstring windows,$(1)),none,$(if $(findstring darwin,$(1)),lldb,gdb))
-
 STAGES = 0 1 2 3
 
 define SREQ
@@ -435,7 +429,7 @@ else
 HSREQ$(1)_H_$(3) = \
 	$$(HBIN$(1)_H_$(3))/rustc$$(X_$(3)) \
 	$$(MKFILE_DEPS) \
-	tmp/install-debugger-scripts$(1)_H_$(3)-$$(call TRIPLE_TO_DEBUGGER_SCRIPT_SETTING,$(3)).done
+	tmp/install-debugger-scripts$(1)_H_$(3)-all.done
 endif
 
 # Prerequisites for using the stageN compiler to build target artifacts
@@ -450,7 +444,7 @@ SREQ$(1)_T_$(2)_H_$(3) = \
 	$$(TSREQ$(1)_T_$(2)_H_$(3)) \
 	$$(foreach dep,$$(TARGET_CRATES_$(2)), \
 	    $$(TLIB$(1)_T_$(2)_H_$(3))/stamp.$$(dep)) \
-	tmp/install-debugger-scripts$(1)_T_$(2)_H_$(3)-$$(call TRIPLE_TO_DEBUGGER_SCRIPT_SETTING,$(2)).done
+	tmp/install-debugger-scripts$(1)_T_$(2)_H_$(3)-all.done
 
 # Prerequisites for a working stageN compiler and complete set of target
 # libraries

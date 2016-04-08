@@ -198,24 +198,21 @@ pub fn rustc(build: &Build, stage: u32, host: &str) {
             t!(fs::create_dir_all(&dst));
             install(&build.src.join("src/etc/").join(file), &dst, 0o644);
         };
-        if host.contains("windows") {
-            // no debugger scripts
-        } else if host.contains("darwin") {
-            // lldb debugger scripts
-            install(&build.src.join("src/etc/rust-lldb"), &image.join("bin"),
-                    0o755);
 
-            cp_debugger_script("lldb_rust_formatters.py");
-            cp_debugger_script("debugger_pretty_printers_common.py");
-        } else {
-            // gdb debugger scripts
-            install(&build.src.join("src/etc/rust-gdb"), &image.join("bin"),
-                    0o755);
+        // lldb debugger scripts
+        install(&build.src.join("src/etc/rust-lldb"), &image.join("bin"),
+                0o755);
 
-            cp_debugger_script("gdb_load_rust_pretty_printers.py");
-            cp_debugger_script("gdb_rust_pretty_printing.py");
-            cp_debugger_script("debugger_pretty_printers_common.py");
-        }
+        cp_debugger_script("lldb_rust_formatters.py");
+
+        // gdb debugger scripts
+        install(&build.src.join("src/etc/rust-gdb"), &image.join("bin"),
+                0o755);
+
+        cp_debugger_script("gdb_load_rust_pretty_printers.py");
+        cp_debugger_script("gdb_rust_pretty_printing.py");
+
+        cp_debugger_script("debugger_pretty_printers_common.py");
 
         // Misc license info
         let cp = |file: &str| {
