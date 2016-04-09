@@ -1,3 +1,64 @@
+Version 1.9.0 (2016-05-26)
+==========================
+
+Language
+--------
+
+* [`fn` item types are zero sized, and each `fn` names a unique
+  type][1.9fn]. This will break code that transmutes `fn`s, so calling
+  `transmute` on a `fn` type will generate a warning for a few cycles,
+  then will be converted to an error.
+* [Field and method resolution understand visibility, so private
+  fields and methods cannot prevent the proper use of public fields
+  and methods][1.9fv].
+
+Libraries
+---------
+
+* [`std::sync::Once` is poisoned if its initialization function
+  fails][1.9o].
+* [`cell::Ref` and `cell::RefMut` can contain unsized types][1.9cu].
+* [Most types implement `fmt::Debug`][1.9db].
+
+Cargo
+-----
+
+Performance
+-----------
+
+* [During type unification, the complexity of comparing variables for
+  equivalance was reduced from `O(n!)` to `O(n)`][1.9tu]. This leads
+  to major compile-time improvements in some scenarios.
+
+Misc
+----
+
+* [Passing the `--quiet` flag to a test runner will produce
+  much-abbreviated output][1.9q].
+
+Compatibility Notes
+-------------------
+
+* [`std::sync::Once` is poisoned if its initialization function
+  fails][1.9o].
+* [It is illegal to define methods with the same name in overlapping
+  inherent `impl` blocks][1.9sn].
+* [`fn` item types are zero sized, and each `fn` names a unique
+  type][1.9fn]. This will break code that transmutes `fn`s, so calling
+  `transmute` on a `fn` type will generate a warning for a few cycles,
+  then will be converted to an error.
+
+
+[1.9fv]: https://github.com/rust-lang/rust/pull/31938
+[1.9q]: https://github.com/rust-lang/rust/pull/31887
+[1.9sn]: https://github.com/rust-lang/rust/pull/31925
+[1.9db]: https://github.com/rust-lang/rust/pull/32054
+[1.9o]: https://github.com/rust-lang/rust/pull/32325
+[1.9cu]: https://github.com/rust-lang/rust/pull/32652
+[1.9tu]: https://github.com/rust-lang/rust/pull/32062
+[1.9fn]: https://github.com/rust-lang/rust/pull/31710
+
+
 Version 1.8.0 (2016-04-14)
 ==========================
 
